@@ -37,3 +37,12 @@ partir de uma spec aprovada.
 | Gustavo | 969.294.560-04 | 123456 |
 | Adelaide | 508.795.670-07 | 987654 |
 | Carlos (sem aluno) | _a definir_ | _a definir_ |
+
+## Troubleshooting
+
+**`yarn` roda o yarn 3 (ou reclama de `packageManager`/"part of the project").**
+O yarn sobe a árvore de pastas e obedece o primeiro `.yarnrc.yml`/`package.json`
+que achar. Se existir um projeto yarn 3 em uma pasta acima deste repositório
+(ex.: `~/workspace/.yarnrc.yml` com `yarnPath`), ele captura o yarn. Este repo
+usa yarn 1.22 (`packageManager` no `package.json`). Contorno, sem mexer fora do
+repo: `YARN_IGNORE_PATH=1 yarn install` (e o mesmo prefixo nos demais comandos).

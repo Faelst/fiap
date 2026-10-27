@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "license": "UNLICENSED",
+  "packageManager": "yarn@1.22.22",
   "description": "Teste técnico FIAP School: tooling da raiz (husky, commitlint, lint-staged)",
   "scripts": {
     "prepare": "husky",
