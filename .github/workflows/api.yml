@@ -1,0 +1,63 @@
+name: api
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "api/**"
+      - ".github/workflows/api.yml"
+  pull_request:
+    paths:
+      - "api/**"
+      - ".github/workflows/api.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: api
+
+jobs:
+  test:
+    name: lint, tsc, unit, e2e, build e smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 24, o mesmo do engines do api/package.json e do .nvmrc da raiz.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: yarn
+          cache-dependency-path: api/yarn.lock
+
+      - name: Instala dependências (roda prisma generate)
+        run: yarn install --frozen-lockfile --non-interactive
+
+      - name: Env de exemplo
+        run: cp .env.example .env
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Typecheck
+        run: yarn tsc
+
+      - name: Testes unitários
+        run: yarn test
+
+      - name: Testes e2e (SQLite test.db com migrate + seed)
+        run: yarn test:e2e
+
+      - name: Build
+        run: yarn build
+
+      # Sobe o dist/ com banco novo e confere login, /me, boletim, Swagger e o log.
+      - name: Smoke no build
+        run: ./scripts/smoke.sh
