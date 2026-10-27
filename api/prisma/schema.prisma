@@ -101,4 +101,5 @@ model TermResult {
   reportCard   ReportCard @relation(fields: [reportCardId], references: [id], onDelete: Cascade)
 
   @@unique([reportCardId, term, order])
+  @@unique([reportCardId, term, subject])
 }

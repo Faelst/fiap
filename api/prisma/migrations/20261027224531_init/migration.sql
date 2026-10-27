@@ -93,3 +93,7 @@ CREATE UNIQUE INDEX "ReportCard_studentId_year_key" ON "ReportCard"("studentId",
 
 -- CreateIndex
 CREATE UNIQUE INDEX "TermResult_reportCardId_term_order_key" ON "TermResult"("reportCardId", "term", "order");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "TermResult_reportCardId_term_subject_key" ON "TermResult"("reportCardId", "term", "subject");
+

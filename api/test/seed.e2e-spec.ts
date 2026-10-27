@@ -76,6 +76,25 @@ describe('Seed no banco de teste (e2e)', () => {
     ]);
   });
 
+  it('não aceita a mesma disciplina duas vezes no mesmo trimestre', async () => {
+    const existing = await prisma.termResult.findFirstOrThrow({
+      where: { term: 1, reportCard: { year: 2025, student: { rm: 12567 } } },
+    });
+
+    await expect(
+      prisma.termResult.create({
+        data: {
+          reportCardId: existing.reportCardId,
+          term: existing.term,
+          subject: existing.subject,
+          grade: 5,
+          absences: 1,
+          order: 99,
+        },
+      }),
+    ).rejects.toThrow(/Unique constraint/i);
+  });
+
   it('guarda nota e falta null no T2 do Rafael em 2025', async () => {
     const results = await prisma.termResult.findMany({
       where: { term: 2, reportCard: { year: 2025, student: { rm: 12567 } } },
