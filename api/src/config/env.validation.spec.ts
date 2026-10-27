@@ -13,6 +13,8 @@ describe('validateEnv', () => {
       PORT: 3333,
       JWT_EXPIRES_IN: '7d',
       CORS_ORIGINS: '*',
+      LOGIN_THROTTLE_LIMIT: 5,
+      LOGIN_THROTTLE_TTL_MS: 60000,
     });
   });
 
@@ -38,6 +40,45 @@ describe('validateEnv', () => {
 
   it.each(['0', '70000', 'abc'])('recusa a porta "%s"', (port) => {
     expect(() => validateEnv({ ...validEnv, PORT: port })).toThrow('PORT');
+  });
+
+  it.each(['7d', '12h', '30m', '3600', '900s'])(
+    'aceita JWT_EXPIRES_IN "%s"',
+    (value) => {
+      expect(
+        validateEnv({ ...validEnv, JWT_EXPIRES_IN: value }).JWT_EXPIRES_IN,
+      ).toBe(value);
+    },
+  );
+
+  it.each(['sete dias', '7 dias', '-1d', '7x'])(
+    'recusa JWT_EXPIRES_IN "%s"',
+    (value) => {
+      expect(() => validateEnv({ ...validEnv, JWT_EXPIRES_IN: value })).toThrow(
+        'JWT_EXPIRES_IN',
+      );
+    },
+  );
+
+  it('converte o limite e a janela do rate limit do login para número', () => {
+    expect(
+      validateEnv({
+        ...validEnv,
+        LOGIN_THROTTLE_LIMIT: '1000',
+        LOGIN_THROTTLE_TTL_MS: '1000',
+      }),
+    ).toMatchObject({
+      LOGIN_THROTTLE_LIMIT: 1000,
+      LOGIN_THROTTLE_TTL_MS: 1000,
+    });
+  });
+
+  it.each([
+    ['LOGIN_THROTTLE_LIMIT', '0'],
+    ['LOGIN_THROTTLE_LIMIT', 'abc'],
+    ['LOGIN_THROTTLE_TTL_MS', '0'],
+  ])('recusa %s = "%s"', (key, value) => {
+    expect(() => validateEnv({ ...validEnv, [key]: value })).toThrow(key);
   });
 });
 
