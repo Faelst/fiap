@@ -1,5 +1,7 @@
-import { Controller, Get, Param, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Param } from '@nestjs/common';
+import { RawParam } from '../../../shared/decorators/raw-param';
 import { StudentOwnership } from '../../../shared/guards/student-ownership.guard';
+import { ParseYearPipe } from '../../../shared/pipes/parse-year.pipe';
 import type { ReportCardSummary } from '../repositories/students.repository';
 import {
   ReportCard,
@@ -34,7 +36,8 @@ export class StudentsController {
   @Get('report-cards/:year')
   reportCard(
     @Param('id') id: string,
-    @Param('year', ParseIntPipe) year: number,
+    // RawParam, e não Param: o pipe precisa do texto cru (ver raw-param.ts).
+    @RawParam('year', ParseYearPipe) year: number,
   ): Promise<ReportCard> {
     return this.getReportCard.execute({ studentId: id, year });
   }

@@ -195,30 +195,55 @@ describe('Rotas por aluno (e2e)', () => {
       });
     });
 
-    it.each(['abc', '2025.5', '-'])(
-      '400 com ano que não é inteiro ("%s")',
-      async (year) => {
+    it.each([
+      'abc',
+      '2025.5',
+      '-',
+      '0x7E9',
+      '0b11111101001',
+      '2025.0',
+      '%202025',
+      '20e3',
+      '+2025',
+      '-2025',
+      '02025',
+      '999',
+      '9223372036854775808',
+    ])('400 com ano fora do formato de 4 dígitos ("%s")', async (year) => {
+      const response = await get(
+        `/api/students/${ids.rafael}/report-cards/${year}`,
+        gustavo,
+      );
+
+      expect({ year, status: response.status }).toEqual({ year, status: 400 });
+      expect(response.body).toEqual({
+        statusCode: 400,
+        message: 'Ano inválido: use 4 dígitos, ex.: 2025.',
+        error: 'Bad Request',
+      });
+    });
+
+    it('404 com ano de 4 dígitos sem boletim (0000 e 2023)', async () => {
+      for (const year of ['0000', '2023']) {
         await get(
           `/api/students/${ids.rafael}/report-cards/${year}`,
           gustavo,
-        ).expect(400);
-      },
-    );
-
-    it('404 com ano acima do inteiro de 64 bits do SQLite, sem erro 500', async () => {
-      await get(
-        `/api/students/${ids.rafael}/report-cards/9223372036854775808`,
-        gustavo,
-      ).expect(404);
+        ).expect(404);
+      }
     });
 
     it('403 vem antes da validação do ano para aluno de outro responsável', async () => {
-      const response = await get(
-        `/api/students/${ids.rafael}/report-cards/abc`,
-        adelaide,
-      );
+      for (const year of ['abc', '0x7E9']) {
+        const response = await get(
+          `/api/students/${ids.rafael}/report-cards/${year}`,
+          adelaide,
+        );
 
-      expect(response.status).toBe(403);
+        expect({ year, status: response.status }).toEqual({
+          year,
+          status: 403,
+        });
+      }
     });
   });
 
