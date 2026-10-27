@@ -25,10 +25,6 @@ JSON do enunciado. Projeto desenvolvido com IA por SDD (Spec-Driven Development)
   aqui, então não é preciso instalar plugin em outra máquina.
 - Abra o Claude Code **na raiz deste repositório**: os caminhos dos agents são
   relativos a ela.
-- Os textos dos agents e do protocolo foram copiados do projeto Safety Swap e
-  ainda citam Safety Swap, Heroku, EAS e `master`. A adaptação é a Tarefa 1 do
-  plano. Até lá, onde houver conflito, vale este arquivo e o `00-brief.md`
-  (branch padrão `main`, sem deploy em loja).
 
 ## Stack (resumo do brief)
 
@@ -46,3 +42,5 @@ JSON do enunciado. Projeto desenvolvido com IA por SDD (Spec-Driven Development)
 - Nunca commitar na `main` direto depois do commit inicial: branch + PR, e o
   merge é do usuário.
 - Nunca logar token, senha ou CPF completo.
+- Hooks do husky na raiz: `commit-msg` valida a mensagem (commitlint) e `pre-commit` roda
+  lint-staged (eslint + prettier em `api/` e `mobile/`). Rode `yarn install` na raiz para ativá-los.
