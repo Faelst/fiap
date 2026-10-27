@@ -1,0 +1,9 @@
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
+
+# macOS
+.DS_Store
+
+# Claude Code: configurações pessoais de cada máquina
+.claude/settings.local.json
+.claude/worktrees/
