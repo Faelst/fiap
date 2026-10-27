@@ -8,27 +8,39 @@
 
 /* Begin PBXBuildFile section */
 		0C80B921A6F3F58F76C31292 /* libPods-FiapSchool.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCACB8F33CDC322A6C60F78 /* libPods-FiapSchool.a */; };
+		128209FD81BB4787845A8F91 /* BootSplash.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 94CC261EA26243D98701ABA3 /* BootSplash.storyboard */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		2267EC062AF95393C95918AC /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
+		39417068D46B46C589B390FC /* Montserrat-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = FAD5BE1017DF4A5E855F090E /* Montserrat-SemiBold.ttf */; };
 		4FB30F2BEA691E32F7B19099 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FF47B4EF76CBFDD94A925AA /* ExpoModulesProvider.swift */; };
+		692E5995C13B4C44915844C4 /* Colors.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3098275493674BD8ACF77C84 /* Colors.xcassets */; };
+		73E0B95F462A4812B6D0F1C8 /* Montserrat-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = E7CB1D99C41A407DB807F410 /* Montserrat-Bold.ttf */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		761780EF2CA45674006654EF /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EE2CA45674006654EF /* SceneDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		B90C8F36B40743DFAA14AC7F /* Montserrat-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 038E879694AE41568BDB707A /* Montserrat-Medium.ttf */; };
+		F740F10BFE6F4EDFAF679F3C /* Montserrat-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = EFA5295F8254441FB941ABBB /* Montserrat-Regular.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		038E879694AE41568BDB707A /* Montserrat-Medium.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Montserrat-Medium.ttf"; path = "../assets/fonts/Montserrat-Medium.ttf"; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* FiapSchool.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FiapSchool.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = FiapSchool/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = FiapSchool/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = FiapSchool/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		1FF47B4EF76CBFDD94A925AA /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-FiapSchool/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		3098275493674BD8ACF77C84 /* Colors.xcassets */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = folder.assetcatalog; name = Colors.xcassets; path = FiapSchool/Colors.xcassets; sourceTree = "<group>"; };
 		3B4392A12AC88292D35C810B /* Pods-FiapSchool.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-FiapSchool.debug.xcconfig"; path = "Target Support Files/Pods-FiapSchool/Pods-FiapSchool.debug.xcconfig"; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-FiapSchool.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-FiapSchool.release.xcconfig"; path = "Target Support Files/Pods-FiapSchool/Pods-FiapSchool.release.xcconfig"; sourceTree = "<group>"; };
 		5DCACB8F33CDC322A6C60F78 /* libPods-FiapSchool.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-FiapSchool.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = FiapSchool/AppDelegate.swift; sourceTree = "<group>"; };
 		761780EE2CA45674006654EF /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SceneDelegate.swift; path = FiapSchool/SceneDelegate.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = FiapSchool/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		94CC261EA26243D98701ABA3 /* BootSplash.storyboard */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = BootSplash.storyboard; path = FiapSchool/BootSplash.storyboard; sourceTree = "<group>"; };
+		E7CB1D99C41A407DB807F410 /* Montserrat-Bold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Montserrat-Bold.ttf"; path = "../assets/fonts/Montserrat-Bold.ttf"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		EFA5295F8254441FB941ABBB /* Montserrat-Regular.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Montserrat-Regular.ttf"; path = "../assets/fonts/Montserrat-Regular.ttf"; sourceTree = "<group>"; };
+		FAD5BE1017DF4A5E855F090E /* Montserrat-SemiBold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Montserrat-SemiBold.ttf"; path = "../assets/fonts/Montserrat-SemiBold.ttf"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -43,6 +55,18 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		1263B58A4A3E453BB46AE70B /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				038E879694AE41568BDB707A /* Montserrat-Medium.ttf */,
+				E7CB1D99C41A407DB807F410 /* Montserrat-Bold.ttf */,
+				FAD5BE1017DF4A5E855F090E /* Montserrat-SemiBold.ttf */,
+				EFA5295F8254441FB941ABBB /* Montserrat-Regular.ttf */,
+			);
+			name = Resources;
+			path = "";
+			sourceTree = "<group>";
+		};
 		13B07FAE1A68108700A75B9A /* FiapSchool */ = {
 			isa = PBXGroup;
 			children = (
@@ -52,6 +76,8 @@
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
+				94CC261EA26243D98701ABA3 /* BootSplash.storyboard */,
+				3098275493674BD8ACF77C84 /* Colors.xcassets */,
 			);
 			name = FiapSchool;
 			sourceTree = "<group>";
@@ -81,6 +107,7 @@
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				BBD78D7AC51CEA395F1C20DB /* Pods */,
 				D1CECD9D74EA812330B76FDF /* ExpoModulesProviders */,
+				1263B58A4A3E453BB46AE70B /* Resources */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -184,6 +211,12 @@
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				2267EC062AF95393C95918AC /* PrivacyInfo.xcprivacy in Resources */,
+				B90C8F36B40743DFAA14AC7F /* Montserrat-Medium.ttf in Resources */,
+				73E0B95F462A4812B6D0F1C8 /* Montserrat-Bold.ttf in Resources */,
+				39417068D46B46C589B390FC /* Montserrat-SemiBold.ttf in Resources */,
+				F740F10BFE6F4EDFAF679F3C /* Montserrat-Regular.ttf in Resources */,
+				128209FD81BB4787845A8F91 /* BootSplash.storyboard in Resources */,
+				692E5995C13B4C44915844C4 /* Colors.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

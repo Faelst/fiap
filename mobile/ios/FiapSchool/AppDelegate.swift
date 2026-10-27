@@ -1,6 +1,7 @@
 internal import Expo
 import React
 import ReactAppDependencyProvider
+import RNBootSplash
 
 @main
 class AppDelegate: ExpoAppDelegate, ExpoReactNativeFactoryProvider {
@@ -30,6 +31,12 @@ class AppDelegate: ExpoAppDelegate, ExpoReactNativeFactoryProvider {
 }
 
 class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
+  // Splash nativa (react-native-bootsplash); o JS a esconde quando a navegação fica pronta.
+  override func customize(_ rootView: UIView) {
+    super.customize(rootView)
+    RNBootSplash.initWithStoryboard("BootSplash", rootView: rootView)
+  }
+
   override func sourceURL(for bridge: RCTBridge) -> URL? {
     bridge.bundleURL ?? bundleURL()
   }
