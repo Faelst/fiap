@@ -42,7 +42,7 @@ describe('validateEnv', () => {
     expect(() => validateEnv({ ...validEnv, PORT: port })).toThrow('PORT');
   });
 
-  it.each(['7d', '12h', '30m', '3600', '900s'])(
+  it.each(['7d', '12h', '30m', '900s', '1w'])(
     'aceita JWT_EXPIRES_IN "%s"',
     (value) => {
       expect(
@@ -51,7 +51,7 @@ describe('validateEnv', () => {
     },
   );
 
-  it.each(['sete dias', '7 dias', '-1d', '7x'])(
+  it.each(['3600', '500ms', 'sete dias', '7 dias', '-1d', '7x'])(
     'recusa JWT_EXPIRES_IN "%s"',
     (value) => {
       expect(() => validateEnv({ ...validEnv, JWT_EXPIRES_IN: value })).toThrow(

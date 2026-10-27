@@ -24,7 +24,7 @@ type Config = ConfigService<EnvironmentVariables, true>;
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: Config) => {
-        // Formato garantido pelo env.validation (ex.: "7d", "3600").
+        // Formato garantido pelo env.validation (número com unidade, ex.: "7d", "3600s").
         const expiresIn = config.get('JWT_EXPIRES_IN', { infer: true });
         return {
           secret: config.get('JWT_SECRET', { infer: true }),

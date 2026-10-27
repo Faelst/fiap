@@ -25,9 +25,12 @@ export class EnvironmentVariables {
   @IsNotEmpty()
   JWT_SECRET!: string;
 
-  /** Segundos ("3600") ou número com unidade ("900s", "30m", "12h", "7d"). */
+  /**
+   * Número com unidade obrigatória: s, m, h, d, w ou y ("900s", "30m", "7d").
+   * Sem unidade o jsonwebtoken lê a string como milissegundos ("3600" = 3,6 s).
+   */
   @IsString()
-  @Matches(/^\d+(ms|s|m|h|d|w|y)?$/)
+  @Matches(/^\d+(s|m|h|d|w|y)$/)
   JWT_EXPIRES_IN: string = '7d';
 
   /** "*" ou lista de origens separadas por vírgula. */
