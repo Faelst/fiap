@@ -1,0 +1,29 @@
+{
+  "moduleFileExtensions": [
+    "js",
+    "json",
+    "ts"
+  ],
+  "rootDir": "..",
+  "testEnvironment": "node",
+  "testRegex": ".e2e-spec.ts$",
+  "transform": {
+    "^.+\\.(t|j)s$": [
+      "ts-jest",
+      {
+        "tsconfig": "<rootDir>/tsconfig.jest.json"
+      }
+    ]
+  },
+  "globalSetup": "<rootDir>/test/setup/global-setup.ts",
+  "setupFiles": [
+    "<rootDir>/test/setup/test-env.ts"
+  ],
+  "watchman": false,
+  "moduleNameMapper": {
+    "^(\\.{1,2}/.*)\\.js$": "$1"
+  },
+  "roots": [
+    "<rootDir>/test"
+  ]
+}

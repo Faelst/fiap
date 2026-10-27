@@ -1,0 +1,23 @@
+# dependências e build
+/node_modules
+/dist
+/coverage
+*.tsbuildinfo
+
+# Prisma Client gerado (yarn install roda prisma generate)
+/src/generated
+
+# banco SQLite local e de teste
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# env
+.env
+.env.*
+!.env.example
+
+# logs e SO
+*.log
+.DS_Store
