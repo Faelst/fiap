@@ -1,0 +1,18 @@
+# Só o que o Dockerfile copia importa; o resto fica fora do contexto.
+node_modules
+dist
+coverage
+src/generated
+test
+scripts
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.env
+.env.*
+*.log
+*.tsbuildinfo
+.DS_Store
+Dockerfile
+.dockerignore
