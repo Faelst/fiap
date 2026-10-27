@@ -8,6 +8,7 @@ JSON do enunciado. Projeto desenvolvido com IA por SDD (Spec-Driven Development)
 
 - **Enunciado do teste:** `docs/teste-tecnico-mobile.md` (transcrição) e
   `docs/teste-tecnico-mobile.docx` (original). Inclui os links do Figma e do JSON.
+- **Design (Figma):** `docs/figma/README.md` (tokens, componentes, telas), com prints e assets.
 - **Spec aprovada / em aprovação:** `.claude/team/tarefas/2026-10-27-fiap-school/00-brief.md`.
   Decisões, escopo, critérios de aceite, riscos e perguntas em aberto estão lá:
   leia antes de qualquer trabalho.

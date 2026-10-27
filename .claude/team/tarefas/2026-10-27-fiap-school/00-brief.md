@@ -219,7 +219,7 @@ Modelo de dados (palpite meu até ver o JSON, ver Riscos):
 Guardian      id, name, cpf (único, só dígitos), passwordHash
 Student       id, name, rm (único), className (ex. "1A"), period ("Manhã"/"Tarde")
 GuardianStudent guardianId, studentId            (N:N)
-Lesson        id, studentClass, weekday (1–5), startTime "HH:mm", endTime, subject
+Lesson        id, studentClass, weekday (0–6, dom = 0), startTime "HH:mm", endTime, subject
 ReportCard    id, studentId, year, className
 TermResult    id, reportCardId, term (1–3), subject, grade (decimal | null), absences (int | null)
 Device        id, guardianId, expoPushToken (único), platform, createdAt
@@ -231,7 +231,7 @@ Rotas (prefixo `/api`):
 |---|---|---|---|
 | POST | `/auth/login` `{cpf, password}` | `LoginUseCase` → `{accessToken, guardian}` | pública |
 | GET | `/me` | `GetMeUseCase` → responsável + alunos vinculados | JWT |
-| GET | `/students/:id/lessons?weekday=1..5` | `GetStudentLessonsUseCase` | JWT + ownership |
+| GET | `/students/:id/lessons?weekday=0..6` | `GetStudentLessonsUseCase` | JWT + ownership |
 | GET | `/students/:id/report-cards/years` | `ListReportCardYearsUseCase` | JWT + ownership |
 | GET | `/students/:id/report-cards/:year` | `GetReportCardUseCase` | JWT + ownership |
 | POST | `/devices` `{expoPushToken, platform}` | `RegisterDeviceUseCase` (upsert) | JWT |
@@ -294,7 +294,8 @@ husky, commitlint, `README.md`, `docker-compose.yml`.
   vinculado → 403.
 - A3 `GET /me` devolve nome, CPF mascarado e alunos (id, nome, rm, turma,
   período); responsável sem aluno → `students: []`.
-- A4 Aulas por dia ordenadas por `startTime`; `weekday` fora de 1–5 → 400.
+- A4 Aulas por dia ordenadas por `startTime`; `weekday` 0–6 (domingo = 0), fim
+  de semana devolve lista vazia; fora de 0–6 → 400.
 - A5 Boletim de 2025: T1 com nota e falta por disciplina, T2 e T3 `null`; `years`
   lista 2025, 2024 e 2023 (desc); ano sem dado → 404.
 - A6 `yarn test` (unit), `yarn test:e2e` e `prisma migrate reset --force` +
@@ -312,11 +313,13 @@ husky, commitlint, `README.md`, `docker-compose.yml`.
   removido da API.
 - M3 Header em Aulas e Boletim com os dados do R5. O botão de trocar aluno só
   aparece com mais de um aluno.
-- M4 Aulas abre no dia da semana atual (sábado/domingo → segunda) e o seletor
-  troca entre seg–sex com animação. Cada aula mostra início, término e
-  disciplina. Dia sem aula mostra estado vazio.
-- M5 Boletim abre em 2025 e mostra ano, turma, T1 com notas e faltas, T2/T3 como
-  "Não avaliado". O seletor de ano navega para 2024/2023.
+- M4 Aulas abre no dia de hoje. O dropdown lista os 7 dias da semana corrente
+  (dom–sáb) como "17 de março, segunda-feira" e abre e fecha com animação. Cada
+  aula mostra início, término e disciplina. Fim de semana ou dia sem aula mostra
+  a ilustração + "Sem aulas neste dia".
+- M5 Boletim abre em "<turma> - 2025" com os 3 trimestres em acordeão. O T1 traz
+  Nota e Faltas por disciplina, e T2/T3 mostram `-`. O dropdown de turma/ano
+  navega para os anos anteriores.
 - M6 Seleção de aluno: lista nome completo, RM e turma; escolher volta para a
   tela de origem (Aulas ou Boletim) já com os dados do novo aluno. Não aparece no
   rodapé.
@@ -345,8 +348,8 @@ husky, commitlint, `README.md`, `docker-compose.yml`.
 | `01-login-invalido.yaml` | CPF/senha errados → mensagem de erro |
 | `02-login-sucesso.yaml` | login → Aulas com header correto |
 | `03-sessao-persistida.yaml` | login → `stopApp` → `launchApp` → Aulas sem login |
-| `04-aulas-navegar-dias.yaml` | troca seg→sex e confere as disciplinas de cada dia |
-| `05-boletim-2025.yaml` | Boletim mostra 2025, T1 com notas e T2/T3 não avaliados |
+| `04-aulas-navegar-dias.yaml` | abre o dropdown, troca de dia e confere as disciplinas; domingo mostra o estado vazio |
+| `05-boletim-2025.yaml` | Boletim mostra "<turma> - 2025"; abre o T1 e uma disciplina com nota e faltas; T2 mostra `-` |
 | `06-boletim-anos-anteriores.yaml` | troca para 2024 (bônus) |
 | `07-trocar-aluno.yaml` | responsável com 2 alunos: troca no Boletim e volta ao Boletim com o novo aluno |
 | `08-um-aluno-sem-botao.yaml` | responsável com 1 aluno não vê o botão de troca |
@@ -357,10 +360,31 @@ Os flows usam os responsáveis do seed e `testID`s, nunca texto de posição.
 
 ## 7. Design system
 
-**Criar.** Não há design system existente: o designer extrai do Figma os
-tokens (cores, tipografia, spacing, radii, sombras) e os componentes base para o
-tema Restyle, e especifica as quatro telas e os estados (loading, vazio, erro)
-em `01-design.md`, incluindo as animações de cada tela.
+**Criar a partir do Figma.** O Figma foi lido em 2026-10-27, e o resultado está
+em `docs/figma/README.md` (tokens, componentes, telas e estados), com prints em
+`docs/figma/screens/` e assets em `docs/figma/assets/`. O arquivo não tem
+variáveis: os tokens foram extraídos nó a nó. Resumo:
+
+- Tema escuro: `background #000`, `primary #29F4D5`, `surface #262626`,
+  `surfaceRaised #4D4D4D`, texto branco, botão desabilitado com texto `#777`.
+- Fonte **Montserrat** (400/500/600/Bold), embutida no app (iOS e Android).
+- Frame de referência 414×736.
+
+O designer converte isso no tema Restyle e especifica em `01-design.md` o que
+o Figma não cobre: splash, skeletons, erro de rede, responsável sem aluno e as
+animações de cada tela.
+
+**Ajustes do brief que vieram do Figma:**
+- Aulas: o seletor é um **dropdown com a data e o dia** ("17 de março,
+  segunda-feira") e lista os **7 dias da semana corrente (dom–sáb)**. Fim de
+  semana mostra o estado vazio com ilustração. Isso substitui o "sábado/domingo →
+  segunda" do M4.
+- Boletim: dropdown de **turma + ano** ("7EF - 2025", "6EF - 2024"); trimestres
+  e disciplinas em **acordeão**; trimestre não avaliado mostra `-`; 12 disciplinas.
+- Topo: logo + `TROCAR PERFIL` (só com mais de 1 aluno) + `SAIR`.
+- Erro do login em teal: "Usuário ou senha inválida. Pode tentar novamente?".
+- Mudança de aluno: modal de tela cheia com "FECHAR ✕", e o aluno atual com
+  borda `primary`.
 
 ## 8. Riscos
 
@@ -368,8 +392,9 @@ em `01-design.md`, incluindo as animações de cada tela.
   palpite. Se o JSON tiver outro formato (ex.: nota por avaliação em vez de nota
   geral, horário em outro formato), o schema Prisma e o seed mudam antes da
   Tarefa 1 da API. **Bloqueia o início da API.**
-- **R-Figma:** o Figma ainda não foi lido (o MCP do Figma pede autenticação). Sem
-  ele, o designer não especifica as telas. **Bloqueia o início do mobile (telas).**
+- **R-Figma (resolvido em 2026-10-27):** lido pela cópia
+  `Zo6DZy8rfXVVcrOBgfCWcU`. Ver `docs/figma/README.md`. Os links dos assets do
+  MCP expiram em 7 dias, e por isso os arquivos já estão em `docs/figma/assets/`.
 - **R-Push:** Expo Push em RN CLI precisa de: conta Expo e `projectId`
   (`eas init`), um projeto Firebase com `google-services.json` para FCM (Android)
   e uma chave APNs, que exige conta Apple Developer paga (iOS). Simulador iOS não
@@ -441,8 +466,8 @@ Copiadas literalmente em cada revisão:
    só funciona fora do emulador com uma API pública (hospedagem + HTTPS).
 4. **Prazo de entrega**, para definir onde cortar (Maestro no CI, Docker, push,
    CD do APK).
-5. **JSON e Figma:** os dois links estão no .docx, mas o conteúdo ainda não foi
-   lido. Bloqueiam a API (schema/seed) e as telas.
+5. **JSON:** o link está no .docx, mas o conteúdo ainda não foi lido. Bloqueia a
+   API (schema/seed). (O Figma já foi lido.)
 
 ## 12. Aprovação
 
