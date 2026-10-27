@@ -194,7 +194,8 @@ id dele: ele mantém o contexto.
    8. Nunca corrija código você mesmo: correção sua pula a revisão.
 3. **Revisão final** (skill `requesting-code-review`), quando todas as tarefas
    de uma trilha estiverem concluídas: gere `revisao/branch-<trilha>.diff` com
-   `main...HEAD` (ou `origin/main...HEAD` com remote) e abra, na mesma
+   `BASE..HEAD`, em que BASE é a registrada no ledger para a primeira
+   tarefa da trilha (nunca `main` fixo; ver "Git e PRs" no PROTOCOLO), e abra, na mesma
    mensagem, o **code-reviewer no modo branch inteira** (com `model: "opus"`,
    apontando as linhas "adiado" do ledger) e o **cyber-security**. Achados
    viram **um** despacho de correção ao developer com a lista completa e um
@@ -217,7 +218,8 @@ Repasse as seções `## Mensagens` de cada agent ao destinatário. Se dois agent
 discordam, quem decide é você, e a decisão vai para o ledger.
 
 Não confie no resumo de um agent sem ver a evidência: confira você mesmo os
-comandos de teste e o diff (`git -C <worktree> diff main --stat`) antes de
+comandos de teste e o diff (`git -C <worktree> diff BASE --stat`, com a BASE
+da trilha registrada no ledger) antes de
 abrir PR.
 
 ## 5. Fechar a branch e abrir os PRs (skill `finishing-a-development-branch`)
@@ -235,8 +237,10 @@ Quando os três (review, segurança, QA) estiverem sem bloqueante:
 - Confira que o developer commitou a branch de cada worktree.
 - Sem remote ainda: a entrega é a branch local commitada; diga ao usuário que
   os PRs abrem quando o repositório público existir.
-- Com remote: push da branch e um PR por trilha com
-  `gh pr create --base main`, título conventional em português, descrição com:
+- Com remote: se as trilhas partem de uma branch de spec (ex.:
+  `spec/fiap-school`), o PR dela para `main` é o primeiro e os das trilhas só
+  abrem depois que ele for mergeado. Então push da branch e um PR por trilha
+  com `gh pr create --base main`, título conventional em português, descrição com:
   contexto, o que mudou, como foi testado, como rodar, pendências externas,
   link para os PRs irmãos e a ordem de merge. Termine a descrição com
   `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.

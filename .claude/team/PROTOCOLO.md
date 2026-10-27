@@ -17,7 +17,7 @@ raiz e o `00-brief.md` da tarefa.
 ## Como os agents conversam
 
 Subagents não abrem outros subagents. Quem orquestra é o **chief rodando como
-sessão principal**, aberto na raiz do repositório (`/Users/fael_st/workspace/fiap`):
+sessão principal**, aberto na raiz do repositório:
 
 - `claude --agent chief`, ou
 - numa sessão comum, `/squad <pedido>`.
@@ -111,6 +111,12 @@ dele seguem estas mesmas adaptações dentro do time.
   `.claude/worktrees/<trilha>` na raiz, branch `feat/<slug>`, `fix/<slug>` ou
   `chore/<slug>`, a partir da base que o `00-plano.md` indicar (padrão `main`;
   `origin/main` depois de `git fetch origin`, quando houver remote).
+- **BASE e branch de spec.** O chief registra no ledger a BASE de cada
+  tarefa (`Tarefa N: BASE <sha7> (<trilha>)`). Todo diff de revisão (tarefa
+  ou branch inteira) usa essa BASE, nunca `main` fixo. Quando as trilhas
+  partem de uma branch de spec (ex.: `spec/fiap-school`), essa branch é o
+  primeiro PR para `main`; os PRs das trilhas abrem para `main` só depois que
+  ele for mergeado, para não repetirem os commits da spec.
 - Nunca commitar na `main`, nunca force-push, **nunca mergear**. Merge é do
   usuário. O chief só notifica.
 - Commits **conventional**, em português, com escopo (`feat(api): ...`,

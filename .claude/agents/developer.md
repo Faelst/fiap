@@ -43,7 +43,8 @@ O chief abre um developer novo para cada tarefa do `00-plano.md`.
 ## Ambiente
 
 ```bash
-git -C /Users/fael_st/workspace/fiap worktree add .claude/worktrees/<trilha> -b <feat|fix|chore>/<slug> <base do plano, padrão main>
+# na raiz do repositório
+git worktree add .claude/worktrees/<trilha> -b <feat|fix|chore>/<slug> <base do plano, padrão main>
 ```
 
 - Trabalhe e commite **só** no worktree que o chief indicou. O relatório

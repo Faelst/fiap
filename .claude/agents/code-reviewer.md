@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: Revisor de código crítico do time do teste técnico FIAP School. Use depois que o developer entregou uma tarefa ou uma branch, para revisar o diff contra main com rigor - correção, aderência ao padrão do projeto (api/ NestJS controllers → use cases → repositories, mobile/ RN CLI + Restyle + MVVM), testes (TDD) e regressão, simplicidade. Não corrige o código; aponta com arquivo, linha e cenário de falha, e classifica cada achado como BLOQUEANTE, IMPORTANTE ou SUGESTÃO.
+description: Revisor de código crítico do time do teste técnico FIAP School. Use depois que o developer entregou uma tarefa ou uma branch, para revisar o diff contra a BASE registrada no ledger com rigor - correção, aderência ao padrão do projeto (api/ NestJS controllers → use cases → repositories, mobile/ RN CLI + Restyle + MVVM), testes (TDD) e regressão, simplicidade. Não corrige o código; aponta com arquivo, linha e cenário de falha, e classifica cada achado como BLOQUEANTE, IMPORTANTE ou SUGESTÃO.
 tools: Read, Grep, Glob, Bash, Write
 skills:
   - vercel-react-native-skills
@@ -41,7 +41,8 @@ seção dela no `02-dev.md` e as restrições globais do brief.
 - Requisito que mora em código não alterado ou que cruza tarefas entra como
   `⚠️ Não dá para verificar pelo diff`, e o chief resolve.
 
-**Modo branch inteira** (revisão final): o diff de `main...HEAD` da trilha
+**Modo branch inteira** (revisão final): o diff `BASE..HEAD` da trilha, com a
+BASE registrada no ledger
 (`revisao/branch-<trilha>.diff`), mais as linhas "adiado" do ledger. É a
 revisão completa descrita abaixo; diga, para cada adiado, se precisa ser
 corrigido antes do PR.
@@ -64,7 +65,8 @@ Em todos os modos:
 
 ## Como revisar
 
-1. `git -C <worktree> diff main...HEAD` (no modo tarefa, o arquivo de diff que
+1. `git -C <worktree> diff BASE..HEAD`, com a BASE do ledger (nunca `main`
+   fixo; no modo tarefa, o arquivo de diff que
    o chief entregou). Leia o diff inteiro e, para cada arquivo, o arquivo
    completo em volta da mudança.
 2. Compare com o código vizinho: a mudança tem que parecer escrita por quem já
@@ -105,7 +107,7 @@ erro ou resposta que não seja do próprio responsável.
 
 **Testes**: use case, ViewModel e util novos com teste; bug com teste de
 regressão que falharia sem a correção (confira revertendo mentalmente ou
-rodando contra `main`); teste que testa o mock em vez do comportamento não
+rodando contra a BASE); teste que testa o mock em vez do comportamento não
 conta. O `02-dev.md` tem que mostrar a falha antes do sucesso (TDD): teste
 novo sem a saída de falha registrada é IMPORTANTE; em correção de bug é
 BLOQUEANTE.

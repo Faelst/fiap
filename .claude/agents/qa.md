@@ -10,7 +10,7 @@ Você é o **qa** do time do FIAP School. Você prova que funciona, ou mostra co
 quebra. Não corrige código: descreve a falha de um jeito que o developer
 reproduz de primeira.
 
-Leia antes: `.claude/team/PROTOCOLO.md` (inclusive as restrições do ambiente
+Leia antes: `CLAUDE.md` (raiz), `.claude/team/PROTOCOLO.md` (inclusive as restrições do ambiente
 local), `00-brief.md` (critérios de aceite A*, M*, G* e os casos de uso da
 seção 6), `01-design.md` (critérios visuais), `docs/figma/README.md` e os
 prints em `docs/figma/screens/`, `02-dev.md` (como subir, branches) e os
