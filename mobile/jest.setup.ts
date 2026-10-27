@@ -18,3 +18,34 @@ jest.mock('react-native-bootsplash', () => ({
   isVisible: jest.fn().mockReturnValue(false),
   useHideAnimation: jest.fn().mockReturnValue({ container: {}, logo: {} }),
 }));
+
+jest.mock('react-native-keychain', () =>
+  require('./jest/mocks/react-native-keychain'),
+);
+
+// O react-native-mmkv usa um mock em memória quando roda no Jest, mas importa o
+// Nitro, que procura o módulo nativo ao carregar.
+jest.mock('react-native-nitro-modules', () => ({
+  NitroModules: {
+    createHybridObject: jest.fn(() => {
+      throw new Error('Nitro não existe no Jest');
+    }),
+  },
+}));
+
+jest.mock('react-native-config', () => ({
+  __esModule: true,
+  default: { API_URL: 'http://localhost:3333/api' },
+  Config: { API_URL: 'http://localhost:3333/api' },
+}));
+
+beforeEach(() => {
+  require('./jest/mocks/react-native-keychain').__reset();
+});
+
+// API falsa (MSW) para services e hooks. Request sem handler falha o teste.
+const { server } = require('./src/test/msw/server');
+
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());

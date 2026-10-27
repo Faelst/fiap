@@ -1,0 +1,62 @@
+import { renderHook, waitFor } from '@testing-library/react-native';
+import { http, HttpResponse } from 'msw';
+
+import { queryClient } from '../../../../app/queryClient';
+import { useSessionStore } from '../../../../stores/session.store';
+import {
+  agendaResponse,
+  API_URL,
+  loginResponse,
+} from '../../../../test/fixtures';
+import { server } from '../../../../test/msw/server';
+import { QueryWrapper } from '../../../../test/queryWrapper';
+import { useAgendaQuery } from '../useAgendaQuery';
+
+describe('useAgendaQuery', () => {
+  beforeEach(async () => {
+    queryClient.clear();
+    await useSessionStore.getState().signIn('jwt-1', loginResponse.guardian);
+  });
+
+  it('sem aluno selecionado não chama a API', async () => {
+    const { result } = await renderHook(() => useAgendaQuery(null), {
+      wrapper: QueryWrapper,
+    });
+    expect(result.current.fetchStatus).toBe('idle');
+  });
+
+  it('busca a agenda do aluno e guarda no cache por aluno', async () => {
+    const requested: string[] = [];
+    server.use(
+      http.get(`${API_URL}/students/:id/agenda`, ({ params }) => {
+        requested.push(String(params.id));
+        return HttpResponse.json(agendaResponse);
+      }),
+    );
+    const { result, rerender } = await renderHook(
+      ({ id }: { id: string }) => useAgendaQuery(id),
+      { wrapper: QueryWrapper, initialProps: { id: 's1' } },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toHaveLength(7);
+
+    await rerender({ id: 's2' });
+    await waitFor(() => expect(requested).toEqual(['s1', 's2']));
+    expect(queryClient.getQueryData(['agenda', 's1'])).toHaveLength(7);
+  });
+
+  it('403 (aluno de outro responsável) vira erro forbidden', async () => {
+    server.use(
+      http.get(`${API_URL}/students/:id/agenda`, () =>
+        HttpResponse.json({ statusCode: 403 }, { status: 403 }),
+      ),
+    );
+    const { result } = await renderHook(() => useAgendaQuery('outro'), {
+      wrapper: QueryWrapper,
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error?.kind).toBe('forbidden');
+  });
+});
