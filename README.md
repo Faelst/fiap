@@ -38,11 +38,18 @@ partir de uma spec aprovada.
 | Adelaide | 508.795.670-07 | 987654 |
 | Carlos (sem aluno) | _a definir_ | _a definir_ |
 
+## Instalação
+
+Instale as dependências na raiz (hooks do husky), em `api/` e em `mobile/`
+(`yarn install` em cada uma). Sem o `node_modules` de `api/` ou `mobile/`, o
+pre-commit avisa e pula o lint daquela pasta.
+
 ## Troubleshooting
 
-**`yarn` roda o yarn 3 (ou reclama de `packageManager`/"part of the project").**
-O yarn sobe a árvore de pastas e obedece o primeiro `.yarnrc.yml`/`package.json`
-que achar. Se existir um projeto yarn 3 em uma pasta acima deste repositório
-(ex.: `~/workspace/.yarnrc.yml` com `yarnPath`), ele captura o yarn. Este repo
-usa yarn 1.22 (`packageManager` no `package.json`). Contorno, sem mexer fora do
-repo: `YARN_IGNORE_PATH=1 yarn install` (e o mesmo prefixo nos demais comandos).
+**`yarn` falha com `Internal Error: fiap-school@workspace:. doesn't seem to be present in your lockfile`.**
+O yarn sobe a árvore de pastas e obedece o primeiro `.yarnrc.yml` que achar. Se
+existir um projeto yarn 3 acima deste repositório (ex.: `~/workspace/.yarnrc.yml`
+com `yarnPath`), ele roda no lugar do yarn 1.22 deste repo. Os hooks do git não
+usam `yarn`, então o `git commit` funciona mesmo assim. Para rodar comandos yarn
+dentro do repo nessa situação, use `export YARN_IGNORE_PATH=1` na sessão do
+terminal (ou o prefixo `YARN_IGNORE_PATH=1` em cada comando).

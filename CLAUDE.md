@@ -43,4 +43,5 @@ JSON do enunciado. Projeto desenvolvido com IA por SDD (Spec-Driven Development)
   merge é do usuário.
 - Nunca logar token, senha ou CPF completo.
 - Hooks do husky na raiz: `commit-msg` valida a mensagem (commitlint) e `pre-commit` roda
-  lint-staged (eslint + prettier em `api/` e `mobile/`). Rode `yarn install` na raiz para ativá-los.
+  lint-staged (eslint em `api/`; eslint + prettier em `mobile/`). Rode `yarn install` na raiz,
+  em `api/` e em `mobile/`: sem o `node_modules` da pasta o lint dela é pulado com aviso.
