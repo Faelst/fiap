@@ -8,3 +8,8 @@ process.env.CORS_ORIGINS = '*';
 // em auth-throttle.e2e-spec.ts, que baixa este valor antes de subir o app.
 process.env.LOGIN_THROTTLE_LIMIT = '1000';
 process.env.LOGIN_THROTTLE_TTL_MS = '60000';
+// Sem log nos e2e (logging.e2e-spec.ts liga e captura o próprio stream), sem
+// proxy confiável e com Swagger: os arquivos que mudam isso voltam ao padrão.
+process.env.LOG_LEVEL = 'silent';
+process.env.TRUST_PROXY = 'false';
+process.env.SWAGGER_ENABLED = 'true';

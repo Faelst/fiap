@@ -1,6 +1,8 @@
 import 'reflect-metadata';
-import { plainToInstance } from 'class-transformer';
+import { plainToInstance, Transform } from 'class-transformer';
 import {
+  IsBoolean,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -8,8 +10,61 @@ import {
   Matches,
   Max,
   Min,
+  ValidateBy,
   validateSync,
 } from 'class-validator';
+import { parseTrustProxy } from './trust-proxy';
+
+export const LOG_LEVELS = [
+  'fatal',
+  'error',
+  'warn',
+  'info',
+  'debug',
+  'trace',
+  'silent',
+] as const;
+export type LogLevel = (typeof LOG_LEVELS)[number];
+
+/**
+ * "true"/"false" (sem diferenciar maiúsculas). Outro texto segue como está
+ * para o IsBoolean recusar; a conversão implícita faria "false" virar true.
+ */
+function toBoolean({
+  obj,
+  key,
+}: {
+  obj: Record<string, unknown>;
+  key: string;
+}) {
+  const raw = obj[key];
+  if (typeof raw !== 'string') {
+    return raw;
+  }
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === 'true') return true;
+  if (normalized === 'false') return false;
+  return raw;
+}
+
+function IsTrustProxy() {
+  return ValidateBy({
+    name: 'isTrustProxy',
+    validator: {
+      validate: (value: unknown) => {
+        if (typeof value !== 'string') return false;
+        try {
+          parseTrustProxy(value);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      defaultMessage: () =>
+        'TRUST_PROXY deve ser false, true, número de saltos ou lista de IPs/sub-redes',
+    },
+  });
+}
 
 export class EnvironmentVariables {
   @IsString()
@@ -46,6 +101,22 @@ export class EnvironmentVariables {
   @IsInt()
   @Min(1)
   LOGIN_THROTTLE_TTL_MS: number = 60000;
+
+  /** Nível do pino. Nos testes é "silent". */
+  @IsIn(LOG_LEVELS)
+  LOG_LEVEL: LogLevel = 'info';
+
+  /** Swagger em /docs e /docs-json. */
+  @Transform(toBoolean)
+  @IsBoolean()
+  SWAGGER_ENABLED: boolean = true;
+
+  /**
+   * `trust proxy` do express, que decide o req.ip (usado pelo rate limit):
+   * false, true, número de saltos ou lista de IPs/sub-redes. Ver trust-proxy.ts.
+   */
+  @IsTrustProxy()
+  TRUST_PROXY: string = 'false';
 
   @IsOptional()
   @IsString()

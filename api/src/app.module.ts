@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { validateEnv } from './config/env.validation';
+import { AppLoggerModule } from './infra/logger/logger.module';
 import { PrismaModule } from './infra/prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { GuardiansModule } from './modules/guardians/guardians.module';
@@ -14,6 +15,7 @@ import { StudentsModule } from './modules/students/students.module';
       cache: true,
       validate: validateEnv,
     }),
+    AppLoggerModule,
     PrismaModule,
     AuthModule,
     HealthModule,

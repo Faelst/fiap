@@ -32,4 +32,14 @@ describe('Health (e2e)', () => {
 
     expect(response.headers['access-control-allow-origin']).toBe('*');
   });
+
+  it('expõe o x-request-id ao navegador (CORS)', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/api/health')
+      .set('Origin', 'http://localhost:8081');
+
+    expect(response.headers['access-control-expose-headers']).toBe(
+      'x-request-id',
+    );
+  });
 });

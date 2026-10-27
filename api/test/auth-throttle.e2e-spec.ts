@@ -38,6 +38,15 @@ describe('Rate limit do login (e2e)', () => {
     });
   });
 
+  it('sem TRUST_PROXY, o X-Forwarded-For não troca o IP do cliente', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .set('X-Forwarded-For', '198.51.100.7')
+      .send({ cpf: '969.294.560-04', password: 'errada' });
+
+    expect(response.status).toBe(429);
+  });
+
   it('o limite vale só para o login', async () => {
     for (let i = 0; i < 5; i++) {
       await request(app.getHttpServer()).get('/api/health').expect(200);

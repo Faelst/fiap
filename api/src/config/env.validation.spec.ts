@@ -15,6 +15,9 @@ describe('validateEnv', () => {
       CORS_ORIGINS: '*',
       LOGIN_THROTTLE_LIMIT: 5,
       LOGIN_THROTTLE_TTL_MS: 60000,
+      LOG_LEVEL: 'info',
+      SWAGGER_ENABLED: true,
+      TRUST_PROXY: 'false',
     });
   });
 
@@ -79,6 +82,55 @@ describe('validateEnv', () => {
     ['LOGIN_THROTTLE_TTL_MS', '0'],
   ])('recusa %s = "%s"', (key, value) => {
     expect(() => validateEnv({ ...validEnv, [key]: value })).toThrow(key);
+  });
+});
+
+describe('validateEnv: logs, Swagger e proxy', () => {
+  it.each(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])(
+    'aceita LOG_LEVEL "%s"',
+    (level) => {
+      expect(validateEnv({ ...validEnv, LOG_LEVEL: level }).LOG_LEVEL).toBe(
+        level,
+      );
+    },
+  );
+
+  it.each(['verbose', 'INFO', ''])('recusa LOG_LEVEL "%s"', (level) => {
+    expect(() => validateEnv({ ...validEnv, LOG_LEVEL: level })).toThrow(
+      'LOG_LEVEL',
+    );
+  });
+
+  it.each([
+    ['true', true],
+    ['false', false],
+    ['TRUE', true],
+    [' false ', false],
+  ])('lê SWAGGER_ENABLED "%s" como %p', (value, expected) => {
+    expect(
+      validateEnv({ ...validEnv, SWAGGER_ENABLED: value }).SWAGGER_ENABLED,
+    ).toBe(expected);
+  });
+
+  it.each(['sim', '0', ''])('recusa SWAGGER_ENABLED "%s"', (value) => {
+    expect(() => validateEnv({ ...validEnv, SWAGGER_ENABLED: value })).toThrow(
+      'SWAGGER_ENABLED',
+    );
+  });
+
+  it.each(['true', '1', 'loopback, 10.0.0.0/8'])(
+    'aceita TRUST_PROXY "%s"',
+    (value) => {
+      expect(validateEnv({ ...validEnv, TRUST_PROXY: value }).TRUST_PROXY).toBe(
+        value,
+      );
+    },
+  );
+
+  it.each(['-1', 'sim', '10.0.0.0/40'])('recusa TRUST_PROXY "%s"', (value) => {
+    expect(() => validateEnv({ ...validEnv, TRUST_PROXY: value })).toThrow(
+      'TRUST_PROXY',
+    );
   });
 });
 

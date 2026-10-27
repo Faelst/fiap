@@ -5,7 +5,8 @@ import { configureApp } from './app.setup';
 import { EnvironmentVariables } from './config/env.validation';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  // Guarda os logs do boot até o pino assumir (configureApp → useLogger).
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
   configureApp(app);
 
   const config = app.get(ConfigService<EnvironmentVariables, true>);
