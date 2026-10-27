@@ -1,10 +1,13 @@
 import { PlaceholderScreen } from '../../components/PlaceholderScreen';
-import type { AppTabsScreenProps } from '../../navigation/types';
+import { useSessionStore } from '../../stores/session.store';
 
-/** Placeholder. O Boletim real (M5) é a Tarefa 12. */
-export function ReportCardScreen({
-  navigation,
-}: AppTabsScreenProps<'Boletim'>) {
+/**
+ * Placeholder. O Boletim real (M5) é a Tarefa 12, e o SAIR de verdade fica no
+ * Header (Tarefa 10), por um ViewModel.
+ */
+export function ReportCardScreen() {
+  const signOut = useSessionStore(state => state.signOut);
+
   return (
     <PlaceholderScreen
       testID="boletim-screen"
@@ -14,7 +17,7 @@ export function ReportCardScreen({
         {
           label: 'SAIR',
           testID: 'header-logout-button',
-          onPress: () => navigation.replace('Login'),
+          onPress: () => signOut(),
         },
       ]}
     />
