@@ -4,6 +4,7 @@ import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ExpoReactHostFactory
 
 import android.app.Application
+import androidx.appcompat.app.AppCompatDelegate
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
@@ -25,6 +26,9 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
+    // Tema único escuro: força o modo noite para o RN (edge-to-edge) e o
+    // sistema tratarem barras, teclado e diálogos como escuros.
+    AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
     loadReactNative(this)
     ApplicationLifecycleDispatcher.onApplicationCreate(this)
   }

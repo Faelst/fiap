@@ -17,7 +17,6 @@
 		73E0B95F462A4812B6D0F1C8 /* Montserrat-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = E7CB1D99C41A407DB807F410 /* Montserrat-Bold.ttf */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		761780EF2CA45674006654EF /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EE2CA45674006654EF /* SceneDelegate.swift */; };
-		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		B90C8F36B40743DFAA14AC7F /* Montserrat-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 038E879694AE41568BDB707A /* Montserrat-Medium.ttf */; };
 		F740F10BFE6F4EDFAF679F3C /* Montserrat-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = EFA5295F8254441FB941ABBB /* Montserrat-Regular.ttf */; };
 /* End PBXBuildFile section */
@@ -35,7 +34,6 @@
 		5DCACB8F33CDC322A6C60F78 /* libPods-FiapSchool.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-FiapSchool.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = FiapSchool/AppDelegate.swift; sourceTree = "<group>"; };
 		761780EE2CA45674006654EF /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SceneDelegate.swift; path = FiapSchool/SceneDelegate.swift; sourceTree = "<group>"; };
-		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = FiapSchool/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		94CC261EA26243D98701ABA3 /* BootSplash.storyboard */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = BootSplash.storyboard; path = FiapSchool/BootSplash.storyboard; sourceTree = "<group>"; };
 		E7CB1D99C41A407DB807F410 /* Montserrat-Bold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Montserrat-Bold.ttf"; path = "../assets/fonts/Montserrat-Bold.ttf"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
@@ -74,7 +72,6 @@
 				761780EC2CA45674006654EE /* AppDelegate.swift */,
 				761780EE2CA45674006654EF /* SceneDelegate.swift */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
-				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
 				94CC261EA26243D98701ABA3 /* BootSplash.storyboard */,
 				3098275493674BD8ACF77C84 /* Colors.xcassets */,
@@ -187,11 +184,12 @@
 			};
 			buildConfigurationList = 83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "FiapSchool" */;
 			compatibilityVersion = "Xcode 12.0";
-			developmentRegion = en;
+			developmentRegion = "pt-BR";
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
+				"pt-BR",
 			);
 			mainGroup = 83CBB9F61A601CBA00E9B192;
 			productRefGroup = 83CBBA001A601CBA00E9B192 /* Products */;
@@ -208,7 +206,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				2267EC062AF95393C95918AC /* PrivacyInfo.xcprivacy in Resources */,
 				B90C8F36B40743DFAA14AC7F /* Montserrat-Medium.ttf in Resources */,

@@ -27,7 +27,7 @@ export function PlaceholderScreen({
   description,
   actions = [],
 }: PlaceholderScreenProps) {
-  const { motion, sizes } = useTheme();
+  const { motion, sizes, spacing } = useTheme();
 
   return (
     <Box testID={testID} flex={1} backgroundColor="background">
@@ -55,7 +55,7 @@ export function PlaceholderScreen({
                 testID={action.testID}
                 accessibilityRole="button"
                 onPress={action.onPress}
-                hitSlop={8}
+                hitSlop={spacing.s}
               >
                 <Box
                   minHeight={sizes.touchTarget}
