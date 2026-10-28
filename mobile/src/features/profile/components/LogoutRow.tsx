@@ -7,15 +7,13 @@ import {
   type View,
 } from 'react-native';
 import Animated, {
-  FadeIn,
-  FadeOut,
-  ReduceMotion,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
 
+import { Entrance } from '../../../components/Entrance';
 import { LogoutIcon } from '../../../components/icons/LogoutIcon';
 import { PillButton } from '../../../components/PillButton';
 import { strings } from '../../../constants/strings';
@@ -78,21 +76,16 @@ export function LogoutRow({
     if (!reducedMotion) scale.set(withSpring(1, motion.press));
   };
 
-  // Opacidade não é movimento: o crossfade fica com reduzir movimento.
-  const entering = toggled
-    ? FadeIn.duration(motion.base).reduceMotion(ReduceMotion.Never)
-    : undefined;
-  const exiting = FadeOut.duration(motion.base).reduceMotion(
-    ReduceMotion.Never,
-  );
+  // A camada nova entra em fade por valor animado e a antiga sai sem
+  // animação: nada de layout animation, que no Android podia deixar uma
+  // camada invisível (ou presa por cima) na mesma área do toque.
 
   return (
     <Box testID={testID} height={sizes.profile.logoutRow}>
       {confirming ? (
-        <Animated.View
+        <Entrance
           key="confirm"
-          entering={entering}
-          exiting={exiting}
+          enabled={toggled}
           style={StyleSheet.absoluteFill}
         >
           <Box
@@ -157,14 +150,9 @@ export function LogoutRow({
               />
             </Box>
           </Box>
-        </Animated.View>
+        </Entrance>
       ) : (
-        <Animated.View
-          key="ask"
-          entering={entering}
-          exiting={exiting}
-          style={StyleSheet.absoluteFill}
-        >
+        <Entrance key="ask" enabled={toggled} style={StyleSheet.absoluteFill}>
           <Pressable
             ref={buttonRef}
             testID={`${testID}-button`}
@@ -199,7 +187,7 @@ export function LogoutRow({
               </Box>
             </Animated.View>
           </Pressable>
-        </Animated.View>
+        </Entrance>
       )}
     </Box>
   );

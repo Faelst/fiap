@@ -1,22 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import Animated, {
-  FadeIn,
-  FadeOut,
-  ReduceMotion,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
   withSequence,
   withSpring,
   withTiming,
-  type LayoutAnimation,
 } from 'react-native-reanimated';
 
 import { Avatar } from '../../../components/Avatar';
+import { Entrance } from '../../../components/Entrance';
 import { CheckIcon } from '../../../components/icons/CheckIcon';
 import { strings } from '../../../constants/strings';
-import { Box, Text, useTheme, type Theme } from '../../../theme';
+import { Box, Text, useTheme } from '../../../theme';
 
 type StudentRowProps = {
   /** `profile-student-<rm>`; filhos: `-surface`, `-avatar`, `-highlight`, `-current`, `-radio`. */
@@ -36,32 +33,6 @@ type StudentRowProps = {
 
 /** Espessura da borda da linha: a camada de destaque cobre a borda. */
 const ROW_BORDER = 1;
-
-type Motion = Theme['motion'];
-
-/** Opacidade não é movimento: o fade fica com reduzir movimento (4.6). */
-function fadeInFast(motion: Motion) {
-  return FadeIn.duration(motion.fast).reduceMotion(ReduceMotion.Never);
-}
-
-/**
- * Selo "Atual" entrando quando o aluno acaba de ser escolhido (4.6): fade e
- * escala `popFrom` → 1 com a mola `pop`; com reduzir movimento, só o fade.
- */
-function badgeEntering(motion: Motion, reduced: boolean) {
-  if (reduced) return fadeInFast(motion);
-  const { fast, popFrom, spring } = motion;
-  return (): LayoutAnimation => {
-    'worklet';
-    return {
-      initialValues: { opacity: 0, transform: [{ scale: popFrom }] },
-      animations: {
-        opacity: withTiming(1, { duration: fast }),
-        transform: [{ scale: withSpring(1, spring.pop) }],
-      },
-    };
-  };
-}
 
 /**
  * Linha de um aluno no Perfil (01-design.md da v2, 3.5): avatar, nome e
@@ -128,10 +99,6 @@ export function StudentRow({
     if (!reducedMotion) scale.set(withSpring(1, motion.press));
   };
 
-  const fadeOut = FadeOut.duration(motion.fast).reduceMotion(
-    ReduceMotion.Never,
-  );
-
   return (
     <Pressable
       testID={testID}
@@ -195,11 +162,14 @@ export function StudentRow({
             </Text>
           </Box>
           {selected ? (
-            <Animated.View
-              entering={
-                toggled ? badgeEntering(motion, reducedMotion) : undefined
-              }
-              exiting={fadeOut}
+            // Selo entrando depois da troca (4.6): fade e escala `popFrom`
+            // → 1 com a mola `pop`; com reduzir movimento, só o fade. Sai sem
+            // animação: nada de layout animation no Android (fatia 9).
+            <Entrance
+              enabled={toggled}
+              duration={motion.fast}
+              scaleFrom={motion.popFrom}
+              spring={motion.spring.pop}
             >
               <Box
                 testID={`${testID}-current`}
@@ -223,13 +193,10 @@ export function StudentRow({
                   {strings.profile.current}
                 </Text>
               </Box>
-            </Animated.View>
+            </Entrance>
           ) : null}
           {!selected && pressable ? (
-            <Animated.View
-              entering={toggled ? fadeInFast(motion) : undefined}
-              exiting={fadeOut}
-            >
+            <Entrance enabled={toggled} duration={motion.fast}>
               <Box
                 testID={`${testID}-radio`}
                 width={sizes.profile.radio}
@@ -238,7 +205,7 @@ export function StudentRow({
                 borderColor="borderInput"
                 style={{ borderWidth: sizes.profile.radioBorder }}
               />
-            </Animated.View>
+            </Entrance>
           ) : null}
         </Box>
       </Animated.View>

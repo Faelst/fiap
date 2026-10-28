@@ -77,7 +77,7 @@ describe('LoginErrorBanner', () => {
     },
   );
 
-  it('entra por valor animado (sem layout animation); com reduzir movimento nasce visível', async () => {
+  it('entra por valor animado (sem layout animation); com reduzir movimento sem deslocamento', async () => {
     reducedMotionMock.mockReturnValue(true);
 
     await renderWithTheme(<LoginErrorBanner message={MESSAGE} />);
@@ -86,6 +86,8 @@ describe('LoginErrorBanner', () => {
     expect(entering()).toBeUndefined();
     expect(
       StyleSheet.flatten(screen.getByTestId('login-error-banner').props.style),
-    ).toMatchObject({ opacity: 1, transform: [{ translateY: 0 }] });
+    ).toMatchObject({
+      transform: [{ translateX: 0 }, { translateY: 0 }, { scale: 1 }],
+    });
   });
 });

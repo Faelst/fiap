@@ -22,7 +22,7 @@ import Animated, {
 import { strings } from '../constants/strings';
 import { Box, Text, useTheme, type Theme } from '../theme';
 import { formatCpf } from '../utils/cpf';
-import { EnterDown } from './EnterDown';
+import { Entrance } from './Entrance';
 import { AlertIcon } from './icons/AlertIcon';
 import { EyeIcon } from './icons/EyeIcon';
 import { EyeOffIcon } from './icons/EyeOffIcon';
@@ -307,7 +307,11 @@ export function TextField({
       </Box>
       {/* Valor animado, não layout animation: nasce depois da tela (2.5). */}
       {error ? (
-        <EnterDown key={error} testID={`${testID}-error-enter`}>
+        <Entrance
+          key={error}
+          testID={`${testID}-error-enter`}
+          offsetY={motion.enterOffsetSmall}
+        >
           <Box flexDirection="row" alignItems="center" marginTop="xs">
             <AlertIcon color={colors.danger} size={sizes.fieldErrorIcon} />
             <Text
@@ -319,7 +323,7 @@ export function TextField({
               {error}
             </Text>
           </Box>
-        </EnterDown>
+        </Entrance>
       ) : null}
     </Animated.View>
   );

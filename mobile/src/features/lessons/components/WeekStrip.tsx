@@ -24,7 +24,7 @@ import {
 } from '../../../hooks/useSlidingIndicator';
 import { Box, Text, useTheme } from '../../../theme';
 import type { AgendaDayItem } from '../useAgendaViewModel';
-import { AgendaEnter } from './AgendaEnter';
+import { Entrance } from '../../../components/Entrance';
 
 type WeekStripProps = {
   days: AgendaDayItem[];
@@ -212,7 +212,7 @@ export function WeekStrip({
           {monthLabel}
         </Text>
         {showTodayButton ? (
-          <AgendaEnter offset={0}>
+          <Entrance>
             <PillButton
               testID="agenda-today-button"
               label={strings.agenda.today}
@@ -221,7 +221,7 @@ export function WeekStrip({
               size="xs"
               onPress={onPressToday}
             />
-          </AgendaEnter>
+          </Entrance>
         ) : null}
       </Box>
       <Box marginTop="s" height={height}>

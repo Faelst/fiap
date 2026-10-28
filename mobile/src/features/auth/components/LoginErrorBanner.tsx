@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { AccessibilityInfo } from 'react-native';
-import { EnterDown } from '../../../components/EnterDown';
+import { Entrance } from '../../../components/Entrance';
 import { AlertIcon } from '../../../components/icons/AlertIcon';
 import { Box, Text, useTheme } from '../../../theme';
 
@@ -13,7 +13,7 @@ type LoginErrorBannerProps = { message: string };
  * anunciado uma vez ao leitor de tela.
  */
 export function LoginErrorBanner({ message }: LoginErrorBannerProps) {
-  const { colors, sizes } = useTheme();
+  const { colors, motion, sizes } = useTheme();
 
   // A live region do Android só avisa mudança numa view que já existia, e o
   // banner nasce agora (remonta a cada erro): o anúncio é explícito nas duas
@@ -26,7 +26,7 @@ export function LoginErrorBanner({ message }: LoginErrorBannerProps) {
     // Valor animado, não layout animation: o banner nasce depois do envio, e
     // no Android a entrada de layout podia deixá-lo montado e invisível. Sai
     // sem animação (some quando um campo muda).
-    <EnterDown testID="login-error-banner">
+    <Entrance testID="login-error-banner" offsetY={motion.enterOffsetSmall}>
       <Box
         testID="login-error-box"
         minHeight={sizes.banner}
@@ -51,6 +51,6 @@ export function LoginErrorBanner({ message }: LoginErrorBannerProps) {
           {message}
         </Text>
       </Box>
-    </EnterDown>
+    </Entrance>
   );
 }

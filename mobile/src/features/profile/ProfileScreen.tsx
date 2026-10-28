@@ -1,38 +1,15 @@
 import { useIsFocused } from '@react-navigation/native';
 import { RefreshControl, StyleSheet } from 'react-native';
-import Animated, {
-  FadeIn,
-  FadeInDown,
-  ReduceMotion,
-  useReducedMotion,
-} from 'react-native-reanimated';
 
 import { Avatar } from '../../components/Avatar';
+import { Entrance } from '../../components/Entrance';
 import { Screen } from '../../components/Screen';
 import { strings } from '../../constants/strings';
-import { Box, Card, Text, useTheme, type Theme } from '../../theme';
+import { Box, Card, Text, useTheme } from '../../theme';
 import { TabScreenLayout } from '../header/TabScreenLayout';
 import { LogoutRow } from './components/LogoutRow';
 import { StudentRow } from './components/StudentRow';
 import { useProfileViewModel } from './useProfileViewModel';
-
-type Motion = Theme['motion'];
-
-/**
- * Entrada em cascata da 1ª visita (4.6): o card do responsável, as linhas
- * de aluno e a "Conta", de 12 para cima, até o teto do stagger. Com reduzir
- * movimento, só o fade (opacidade não é movimento).
- */
-function entering(motion: Motion, reduced: boolean, index: number) {
-  if (reduced) {
-    return FadeIn.duration(motion.fast).reduceMotion(ReduceMotion.Never);
-  }
-  return FadeInDown.duration(motion.base)
-    .delay(Math.min(index, motion.maxStaggered - 1) * motion.cardStagger)
-    .easing(motion.easeOut)
-    .withInitialValues({ transform: [{ translateY: motion.enterOffset }] })
-    .reduceMotion(ReduceMotion.System);
-}
 
 /**
  * Aba Perfil (V3, 01-design.md da v2 3.5): header compacto sem o chip, o
@@ -43,8 +20,13 @@ function entering(motion: Motion, reduced: boolean, index: number) {
 export function ProfileScreen() {
   const vm = useProfileViewModel({ focused: useIsFocused() });
   const { colors, motion, sizes, spacing } = useTheme();
-  const reducedMotion = useReducedMotion();
-  const enter = (index: number) => entering(motion, reducedMotion, index);
+  // Entrada em cascata da 1ª visita (4.6): o card do responsável, as linhas
+  // de aluno e a "Conta", de 12 para cima, até o teto do stagger. Por valor
+  // animado: o `/me` pode chegar depois da tela (sem layout animation).
+  const enter = (index: number) => ({
+    delay: Math.min(index, motion.maxStaggered - 1) * motion.cardStagger,
+    offsetY: motion.enterOffset,
+  });
   const accountIndex = 1 + vm.students.length;
 
   return (
@@ -66,10 +48,7 @@ export function ProfileScreen() {
       >
         <Box paddingHorizontal="m">
           {vm.guardian ? (
-            <Animated.View
-              entering={enter(0)}
-              style={{ marginTop: spacing.sm }}
-            >
+            <Entrance {...enter(0)} style={{ marginTop: spacing.sm }}>
               <Card
                 testID="profile-guardian-card"
                 variant="surface"
@@ -116,7 +95,7 @@ export function ProfileScreen() {
                   </Text>
                 </Box>
               </Card>
-            </Animated.View>
+            </Entrance>
           ) : null}
 
           <Box marginTop="l">
@@ -135,7 +114,7 @@ export function ProfileScreen() {
           </Box>
           <Box gap="s" marginTop="sm">
             {vm.students.map((student, index) => (
-              <Animated.View key={student.id} entering={enter(1 + index)}>
+              <Entrance key={student.id} {...enter(1 + index)}>
                 <StudentRow
                   testID={`profile-student-${student.rm}`}
                   firstName={student.firstName}
@@ -148,14 +127,11 @@ export function ProfileScreen() {
                   pressable={vm.canSwitch}
                   onPress={() => vm.onSelectStudent(student.id)}
                 />
-              </Animated.View>
+              </Entrance>
             ))}
           </Box>
 
-          <Animated.View
-            entering={enter(accountIndex)}
-            style={{ marginTop: spacing.l }}
-          >
+          <Entrance {...enter(accountIndex)} style={{ marginTop: spacing.l }}>
             <Text variant="overline" accessibilityRole="header">
               {strings.profile.accountHeader}
             </Text>
@@ -169,7 +145,7 @@ export function ProfileScreen() {
                 onConfirm={vm.onConfirmLogout}
               />
             </Box>
-          </Animated.View>
+          </Entrance>
         </Box>
       </TabScreenLayout>
     </Screen>

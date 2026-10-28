@@ -1,12 +1,12 @@
 import { fireEvent, screen } from '@testing-library/react-native';
 import type { ComponentProps } from 'react';
+import { StyleSheet } from 'react-native';
 import {
   useReducedMotion,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
 
-import type { RecordedAnimation } from '../../../test/recordingAnimations';
 import { renderWithTheme } from '../../../test/renderWithTheme';
 import { theme } from '../../../theme';
 import { StudentRow } from '../components/StudentRow';
@@ -27,6 +27,15 @@ jest.mock('react-native-reanimated', () => {
 const { borderRadii, colors, motion, shadows, sizes, spacing } = theme;
 const reducedMotionMock = useReducedMotion as jest.Mock;
 const hidden = { includeHiddenElements: true };
+/** Opacidade da entrada (valor animado) que envolve o elemento. */
+const entranceOpacity = (id: string) =>
+  StyleSheet.flatten(
+    (
+      screen.getByTestId(id, hidden).parent as unknown as {
+        props: { style: unknown };
+      }
+    ).props.style as never,
+  ).opacity;
 
 type Props = ComponentProps<typeof StudentRow>;
 
@@ -208,20 +217,15 @@ describe('StudentRow', () => {
     });
 
     it('o selo só anima numa troca: na 1ª visita entra com a tela', async () => {
-      const enteringOfBadge = () =>
-        (
-          screen.getByTestId('profile-student-12568-current', hidden)
-            .parent as unknown as { props: { entering?: unknown } }
-        ).props.entering;
       const { rerender } = await renderWithTheme(
         <StudentRow {...marina} selected />,
       );
-      expect(enteringOfBadge()).toBeUndefined();
+      expect(entranceOpacity('profile-student-12568-current')).toBe(1);
 
       await rerender(<StudentRow {...marina} />);
       await rerender(<StudentRow {...marina} selected />);
 
-      expect(typeof enteringOfBadge()).toBe('function');
+      expect(entranceOpacity('profile-student-12568-current')).toBe(0);
     });
 
     it('o selo anima já na 1ª troca', async () => {
@@ -229,11 +233,7 @@ describe('StudentRow', () => {
 
       await rerender(<StudentRow {...marina} selected />);
 
-      const badge = screen.getByTestId('profile-student-12568-current', hidden);
-      expect(
-        typeof (badge.parent as unknown as { props: { entering?: unknown } })
-          .props.entering,
-      ).toBe('function');
+      expect(entranceOpacity('profile-student-12568-current')).toBe(0);
     });
 
     it('deixar de ser atual: a camada apaga em `fast`, sem mola', async () => {
@@ -249,25 +249,13 @@ describe('StudentRow', () => {
 
     it('com reduzir movimento: o selo e o rádio ainda entram em fade (opacidade não é movimento)', async () => {
       reducedMotionMock.mockReturnValue(true);
-      const enteringOf = (id: string) =>
-        (
-          screen.getByTestId(id, hidden).parent as unknown as {
-            props: { entering?: RecordedAnimation };
-          }
-        ).props.entering;
       const { rerender } = await renderWithTheme(<StudentRow {...marina} />);
 
       await rerender(<StudentRow {...marina} selected />);
-      expect(enteringOf('profile-student-12568-current')).toMatchObject({
-        name: 'FadeIn',
-        calls: { duration: motion.fast, reduceMotion: 'never' },
-      });
+      expect(entranceOpacity('profile-student-12568-current')).toBe(0);
 
       await rerender(<StudentRow {...marina} />);
-      expect(enteringOf('profile-student-12568-radio')).toMatchObject({
-        name: 'FadeIn',
-        calls: { duration: motion.fast, reduceMotion: 'never' },
-      });
+      expect(entranceOpacity('profile-student-12568-radio')).toBe(0);
     });
 
     it('com reduzir movimento: a camada ainda faz o fade, mas sem escala', async () => {

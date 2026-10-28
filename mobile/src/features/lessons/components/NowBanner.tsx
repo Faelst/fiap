@@ -10,11 +10,11 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { Entrance } from '../../../components/Entrance';
 import { CheckIcon } from '../../../components/icons/CheckIcon';
 import { ClockIcon } from '../../../components/icons/ClockIcon';
 import { Box, Card, Text, useTheme } from '../../../theme';
 import type { AgendaBanner } from '../useAgendaViewModel';
-import { AgendaEnter } from './AgendaEnter';
 
 const MARKER = 8;
 const ICON = 16;
@@ -113,7 +113,7 @@ export function NowBanner({
       accessibilityLabel={message}
       accessibilityLiveRegion="polite"
     >
-      <AgendaEnter key={message} offset={0}>
+      <Entrance key={message}>
         <Box flexDirection="row" alignItems="center" gap="s">
           <Marker kind={banner.kind} />
           <Text
@@ -128,7 +128,7 @@ export function NowBanner({
             </Text>
           </Text>
         </Box>
-      </AgendaEnter>
+      </Entrance>
     </Card>
   );
 }

@@ -1,8 +1,8 @@
 import { screen } from '@testing-library/react-native';
 import { Text } from 'react-native';
 import {
-  ReduceMotion,
   useReducedMotion,
+  withDelay,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
@@ -21,6 +21,7 @@ jest.mock('react-native-reanimated', () => {
       .requireActual('../../test/recordingAnimations')
       .recordingAnimations(),
     useReducedMotion: jest.fn(() => false),
+    withDelay: jest.fn(actual.withDelay),
     withSpring: jest.fn(actual.withSpring),
     withTiming: jest.fn(actual.withTiming),
   };
@@ -42,6 +43,9 @@ const enteringOf = (node: { parent: unknown }) =>
 
 beforeEach(() => {
   FakeIcon.mockClear();
+  (withDelay as jest.Mock).mockClear();
+  (withSpring as jest.Mock).mockClear();
+  (withTiming as jest.Mock).mockClear();
   (useReducedMotion as jest.Mock).mockReturnValue(false);
 });
 
@@ -125,21 +129,13 @@ describe('EmptyState', () => {
     expect(screen.queryByTestId('vazio-description')).toBeNull();
   });
 
-  describe('entrada', () => {
+  describe('entrada (valor animado, sem layout animation)', () => {
     it('ícone: opacidade 0 → 1 em `base` e escala popFrom → 1 com a mola gentle', async () => {
       await renderWithTheme(
         <EmptyState testID="vazio" icon={FakeIcon} title="Sem aulas" />,
       );
 
-      const entering = enteringOf(iconCircle()) as unknown as (
-        values: unknown,
-      ) => { initialValues: unknown; animations: unknown };
-      expect(typeof entering).toBe('function');
-      const animation = entering({});
-      expect(animation.initialValues).toEqual({
-        opacity: 0,
-        transform: [{ scale: motion.popFrom }],
-      });
+      expect(enteringOf(iconCircle())).toBeUndefined();
       expect(withTiming).toHaveBeenCalledWith(1, {
         duration: motion.base,
         easing: motion.easeOut,
@@ -158,18 +154,17 @@ describe('EmptyState', () => {
         />,
       );
 
-      const delays = ['Sem aulas', 'Descrição', 'Ação'].map(
-        text => enteringOf(screen.getByText(text)).calls.delay,
+      const delays = (withDelay as jest.Mock).mock.calls.map(call => call[0]);
+      expect(delays).toEqual(
+        expect.arrayContaining([
+          motion.stagger,
+          2 * motion.stagger,
+          3 * motion.stagger,
+        ]),
       );
-      expect(delays).toEqual([
-        motion.stagger,
-        2 * motion.stagger,
-        3 * motion.stagger,
-      ]);
-      expect(enteringOf(screen.getByText('Sem aulas')).name).toBe('FadeInDown');
     });
 
-    it('com reduzir movimento: só fade, que o sistema não pula', async () => {
+    it('com reduzir movimento: só o fade `fast`, sem escala', async () => {
       (useReducedMotion as jest.Mock).mockReturnValue(true);
       await renderWithTheme(
         <EmptyState
@@ -180,14 +175,8 @@ describe('EmptyState', () => {
         />,
       );
 
-      for (const entering of [
-        enteringOf(iconCircle()),
-        enteringOf(screen.getByText('Sem aulas')),
-        enteringOf(screen.getByText('Descrição')),
-      ]) {
-        expect(entering.name).toBe('FadeIn');
-        expect(entering.calls.reduceMotion).toBe(ReduceMotion.Never);
-      }
+      expect(withTiming).toHaveBeenCalledWith(1, { duration: motion.fast });
+      expect(withSpring).not.toHaveBeenCalled();
     });
   });
 });

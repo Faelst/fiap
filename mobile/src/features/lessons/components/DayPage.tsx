@@ -13,7 +13,7 @@ import { strings } from '../../../constants/strings';
 import { Box, useTheme } from '../../../theme';
 import { autoScrollTarget, minutesOfDay } from '../timetable';
 import type { AgendaPage } from '../useAgendaViewModel';
-import { AgendaEnter } from './AgendaEnter';
+import { Entrance } from '../../../components/Entrance';
 import { NowBanner } from './NowBanner';
 import { Timetable, type TimetableClock } from './Timetable';
 
@@ -135,13 +135,13 @@ export const DayPage = memo(function DayPageView({
       ) : (
         <>
           {page.banner ? (
-            <AgendaEnter delay={enterDelay}>
+            <Entrance delay={enterDelay} offsetY={motion.enterOffsetSmall}>
               <NowBanner
                 testID={`${testID}-banner`}
                 banner={page.banner}
                 announce={page.isToday && visible}
               />
-            </AgendaEnter>
+            </Entrance>
           ) : null}
           <Box
             marginTop="m"

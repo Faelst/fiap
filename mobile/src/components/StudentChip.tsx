@@ -1,9 +1,6 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import Animated, {
-  FadeIn,
-  FadeOut,
-  ReduceMotion,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -13,6 +10,7 @@ import Animated, {
 import { strings } from '../constants/strings';
 import { Box, Text, useTheme } from '../theme';
 import { Avatar } from './Avatar';
+import { Entrance } from './Entrance';
 import { ChevronRightIcon } from './icons/ChevronRightIcon';
 
 export type ChipStudent = {
@@ -89,18 +87,13 @@ export function StudentChip({ student, onPress }: StudentChipProps) {
           borderColor="borderSubtle"
           backgroundColor="surfaceRaised"
         >
-          {/* Opacidade não é movimento: o crossfade fica com reduzir movimento. */}
-          <Animated.View
+          {/* Troca de aluno: o conteúdo novo entra em fade por valor animado
+              (sem layout animation, risco no Android); o antigo sai sem animação. */}
+          <Entrance
             key={student.id}
             testID="header-student-chip-content"
-            entering={
-              switched
-                ? FadeIn.duration(motion.base).reduceMotion(ReduceMotion.Never)
-                : undefined
-            }
-            exiting={FadeOut.duration(motion.fast).reduceMotion(
-              ReduceMotion.Never,
-            )}
+            enabled={switched}
+            duration={motion.base}
             style={styles.shrink}
           >
             <Box flexDirection="row" alignItems="center" gap="s">
@@ -138,7 +131,7 @@ export function StudentChip({ student, onPress }: StudentChipProps) {
                 </Text>
               </Box>
             </Box>
-          </Animated.View>
+          </Entrance>
           <ChevronRightIcon
             color={colors.textTertiary}
             size={sizes.studentChip.chevron}

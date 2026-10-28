@@ -15,7 +15,7 @@ import { Box, Card, Text, useTheme } from '../../../theme';
 import { formatMinutes, hourMarks } from '../timetable';
 import type { AgendaLesson, AgendaPage } from '../useAgendaViewModel';
 import { useMinuteTicker } from '../useMinuteClock';
-import { AgendaEnter } from './AgendaEnter';
+import { Entrance } from '../../../components/Entrance';
 
 /** Rótulo de hora: metade da linha do `time`, para centralizar na linha. */
 const HOUR_LABEL_SHIFT = 7;
@@ -134,8 +134,9 @@ function LessonBlock({
     enterDelay + Math.min(index, motion.maxStaggered) * motion.stagger;
 
   return (
-    <AgendaEnter
+    <Entrance
       delay={delay}
+      offsetY={motion.enterOffsetSmall}
       style={[styles.block, { top, height, left: sizes.timetable.gutter }]}
     >
       <Animated.View style={[styles.fill, dimStyle]}>
@@ -186,7 +187,7 @@ function LessonBlock({
           ]}
         />
       </Animated.View>
-    </AgendaEnter>
+    </Entrance>
   );
 }
 

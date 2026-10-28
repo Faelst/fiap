@@ -1,14 +1,7 @@
 import type { ComponentType, ReactNode } from 'react';
-import Animated, {
-  FadeIn,
-  ReduceMotion,
-  useReducedMotion,
-  withSpring,
-  withTiming,
-  type LayoutAnimation,
-} from 'react-native-reanimated';
 
-import { Box, enterDown, Text, useTheme, type Theme } from '../theme';
+import { Box, Text, useTheme } from '../theme';
+import { Entrance } from './Entrance';
 import type { IconProps } from './icons/StrokeIcon';
 
 type EmptyStateProps = {
@@ -24,44 +17,8 @@ type EmptyStateProps = {
   testID: string;
 };
 
-type Motion = Theme['motion'];
-
 /**
- * Entradas (01-design.md da v2, 4.7): o ícone aparece em `base` e cresce de
- * `popFrom` para 1 com a mola `gentle`; o resto vem em cascata depois dele.
- * Com reduzir movimento, tudo só aparece em fade: opacidade não é
- * movimento, então o sistema não pode pular (`ReduceMotion.Never`).
- */
-function entrances(motion: Motion, reduced: boolean) {
-  if (reduced) {
-    const fade = (delay: number) =>
-      FadeIn.duration(motion.base)
-        .delay(delay)
-        .reduceMotion(ReduceMotion.Never);
-    return {
-      icon: fade(0),
-      item: (index: number) => fade(index * motion.stagger),
-    };
-  }
-  const { base, easeOut, popFrom, spring } = motion;
-  const icon = (): LayoutAnimation => {
-    'worklet';
-    return {
-      initialValues: { opacity: 0, transform: [{ scale: popFrom }] },
-      animations: {
-        opacity: withTiming(1, { duration: base, easing: easeOut }),
-        transform: [{ scale: withSpring(1, spring.gentle) }],
-      },
-    };
-  };
-  return {
-    icon,
-    item: (index: number) => enterDown(motion, index * motion.stagger),
-  };
-}
-
-/**
- * Estado vazio da v2 (01-design.md da v2, 2.16, DV9): ícone em SVG num
+ * Estado vazio da v2 (01-design.md da v2, 2.16 e 4.7, DV9): ícone em SVG num
  * círculo (nítido em qualquer densidade, no lugar da ilustração PNG),
  * título, descrição e uma ação opcional, centralizados.
  */
@@ -74,8 +31,7 @@ export function EmptyState({
   testID,
 }: EmptyStateProps) {
   const { colors, motion, sizes, spacing } = useTheme();
-  const reducedMotion = useReducedMotion();
-  const enter = entrances(motion, reducedMotion);
+  const step = (index: number) => index * motion.stagger;
   const danger = tone === 'danger';
   // Título é o item 1 da cascata; descrição e ação vêm depois, sem buraco.
   const descriptionIndex = 2;
@@ -83,7 +39,7 @@ export function EmptyState({
 
   return (
     <Box testID={testID} alignItems="center" paddingVertical="xxxl">
-      <Animated.View entering={enter.icon}>
+      <Entrance scaleFrom={motion.popFrom} spring={motion.spring.gentle}>
         <Box
           testID={`${testID}-icon`}
           accessible={false}
@@ -100,18 +56,20 @@ export function EmptyState({
             size={sizes.emptyIcon.glyph}
           />
         </Box>
-      </Animated.View>
-      <Animated.View
-        entering={enter.item(1)}
+      </Entrance>
+      <Entrance
+        delay={step(1)}
+        offsetY={motion.enterOffsetSmall}
         style={{ marginTop: spacing.m, paddingHorizontal: spacing.l }}
       >
         <Text variant="title" textAlign="center">
           {title}
         </Text>
-      </Animated.View>
+      </Entrance>
       {description ? (
-        <Animated.View
-          entering={enter.item(descriptionIndex)}
+        <Entrance
+          delay={step(descriptionIndex)}
+          offsetY={motion.enterOffsetSmall}
           style={{ marginTop: spacing.s, paddingHorizontal: spacing.l }}
         >
           <Text
@@ -122,15 +80,16 @@ export function EmptyState({
           >
             {description}
           </Text>
-        </Animated.View>
+        </Entrance>
       ) : null}
       {action ? (
-        <Animated.View
-          entering={enter.item(actionIndex)}
+        <Entrance
+          delay={step(actionIndex)}
+          offsetY={motion.enterOffsetSmall}
           style={{ marginTop: spacing.l }}
         >
           {action}
-        </Animated.View>
+        </Entrance>
       ) : null}
     </Box>
   );

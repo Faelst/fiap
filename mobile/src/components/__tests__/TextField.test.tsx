@@ -188,15 +188,14 @@ describe('TextField', () => {
     expect(screen.queryByTestId('campo-error')).toBeNull();
   });
 
-  it('o erro entra por valor animado (sem layout animation); com reduzir movimento nasce visível', async () => {
+  it('o erro entra por valor animado (sem layout animation); com reduzir movimento sem deslocamento', async () => {
     reducedMotionMock.mockReturnValue(true);
     await renderField({ error: 'Erro' });
 
     // Layout animation podia deixar a view montada e invisível no Android.
     expect(entering('campo-error-enter')).toBeUndefined();
     expect(style('campo-error-enter')).toMatchObject({
-      opacity: 1,
-      transform: [{ translateY: 0 }],
+      transform: [{ translateX: 0 }, { translateY: 0 }, { scale: 1 }],
     });
   });
 

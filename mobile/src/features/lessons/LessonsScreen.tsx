@@ -24,7 +24,7 @@ import { strings } from '../../constants/strings';
 import { useFloatingTabBarInset } from '../../hooks/useFloatingTabBarInset';
 import { Box, useTheme } from '../../theme';
 import { useHeaderViewModel } from '../header/useHeaderViewModel';
-import { AgendaEnter } from './components/AgendaEnter';
+import { Entrance } from '../../components/Entrance';
 import { DayPage } from './components/DayPage';
 import type { TimetableClock } from './components/Timetable';
 import { WeekStrip } from './components/WeekStrip';
@@ -167,7 +167,8 @@ export function LessonsScreen() {
         ) : null}
         {vm.status === 'ready' && !vm.isWeekEmpty ? (
           <>
-            <AgendaEnter
+            <Entrance
+              offsetY={motion.enterOffsetSmall}
               key={`strip-${vm.studentKey}`}
               delay={motion.stagger}
               style={{
@@ -186,7 +187,7 @@ export function LessonsScreen() {
                 showTodayButton={vm.showTodayButton}
                 onPressToday={onPressToday}
               />
-            </AgendaEnter>
+            </Entrance>
             <Box flex={1} onLayout={onPagerLayout}>
               <Animated.FlatList
                 key={`pager-${vm.studentKey}-${width}`}

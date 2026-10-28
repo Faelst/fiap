@@ -1,7 +1,7 @@
 import { fireEvent, screen } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { useReducedMotion, withSpring } from 'react-native-reanimated';
 
-import type { RecordedAnimation } from '../../test/recordingAnimations';
 import { renderWithTheme } from '../../test/renderWithTheme';
 import { theme } from '../../theme';
 import { StudentChip, type ChipStudent } from '../StudentChip';
@@ -42,12 +42,11 @@ const marina: ChipStudent = {
 };
 
 const chip = () => screen.getByTestId('header-student-chip');
-const contentEntering = () =>
-  (
-    screen.getByTestId('header-student-chip-content', hidden) as unknown as {
-      props: { entering?: RecordedAnimation };
-    }
-  ).props.entering;
+/** Opacidade do conteúdo (a entrada é por valor animado, sem `entering`). */
+const contentOpacity = () =>
+  StyleSheet.flatten(
+    screen.getByTestId('header-student-chip-content', hidden).props.style,
+  ).opacity;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -123,7 +122,7 @@ describe('StudentChip', () => {
     const { rerender } = await renderWithTheme(
       <StudentChip student={rafael} onPress={jest.fn()} />,
     );
-    expect(contentEntering()).toBeUndefined();
+    expect(contentOpacity()).toBe(1);
 
     await rerender(<StudentChip student={marina} onPress={jest.fn()} />);
 
@@ -133,9 +132,7 @@ describe('StudentChip', () => {
     expect(chip()).toHaveAccessibleName(
       'Aluno Marina, turma 3EF, RM 12568, período Vespertino',
     );
-    expect(contentEntering()).toMatchObject({
-      name: 'FadeIn',
-      calls: { duration: motion.base, reduceMotion: 'never' },
-    });
+    // O conteúdo novo nasce em 0 e faz o fade.
+    expect(contentOpacity()).toBe(0);
   });
 });
