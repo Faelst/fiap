@@ -1,16 +1,21 @@
-# Troca o aluno pelo TROCAR PERFIL. Parâmetro: RM do aluno.
-# Escolher o aluno já selecionado também fecha a seleção.
+# Troca o aluno pela aba Perfil (DV8: a troca é na hora, sem sair do Perfil).
+# Parâmetro: RM do aluno. Escolher o aluno já atual não muda nada.
+# Não volta à aba de antes: quem chama toca na aba que quer.
 appId: br.com.fiap.school
 ---
 - tapOn:
-    id: header-switch-student-button
+    id: tab-perfil
 - extendedWaitUntil:
     visible:
-      id: select-student-card-${RM}
+      id: profile-student-${RM}
     timeout: 5000
 - tapOn:
-    id: select-student-card-${RM}
+    id: profile-student-${RM}
+# A linha é um elemento só para o leitor de tela: no iOS o selo "Atual"
+# (`-current`) fica dentro dela e não aparece na hierarquia. O estado
+# `selected` da linha vale nas duas plataformas.
 - extendedWaitUntil:
-    notVisible:
-      id: select-student-screen
+    visible:
+      id: profile-student-${RM}
+      selected: true
     timeout: 5000

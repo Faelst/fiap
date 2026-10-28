@@ -1,8 +1,8 @@
-# Gustavo (2 alunos): troca de aluno a partir do Boletim e volta ao Boletim,
-# já com os dados do aluno novo. Escolhe os dois alunos explicitamente, sem
-# depender de qual é o inicial.
+# Gustavo (2 alunos): troca de aluno no Perfil e volta ao Boletim, já com os
+# dados do aluno novo. Escolhe os dois alunos explicitamente, sem depender de
+# qual é o inicial.
 appId: br.com.fiap.school
-name: 07 - Trocar aluno volta à aba de origem
+name: 07 - Trocar aluno no Perfil atualiza o Boletim
 tags:
   - alunos
 ---
@@ -28,6 +28,8 @@ tags:
     file: subflows/select-student.yaml
     env:
       RM: '12567'
+- tapOn:
+    id: tab-boletim
 - extendedWaitUntil:
     visible:
       id: boletim-year-dropdown
@@ -36,11 +38,13 @@ tags:
 - assertVisible:
     text: '(?i)aluno rafael,.*'
 
-# Joana (2EM): continua no Boletim, com o boletim e o header dela.
+# Joana (2EM): de volta ao Boletim, com o boletim e o header dela.
 - runFlow:
     file: subflows/select-student.yaml
     env:
       RM: '12568'
+- tapOn:
+    id: tab-boletim
 - extendedWaitUntil:
     visible:
       id: boletim-year-dropdown

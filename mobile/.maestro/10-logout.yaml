@@ -1,4 +1,5 @@
-# SAIR volta ao Login; fechar e abrir o app continua no Login.
+# Sair no Perfil (com confirmação) volta ao Login; fechar e abrir o app
+# continua no Login.
 appId: br.com.fiap.school
 name: 10 - Logout
 tags:

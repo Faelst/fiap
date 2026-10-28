@@ -10,22 +10,22 @@ seed da API.
 | Flow                              | Caso de uso                                                    |
 | --------------------------------- | -------------------------------------------------------------- |
 | `01-login-invalido.yaml`          | senha errada → mensagem de erro, continua no Login             |
-| `02-login-sucesso.yaml`           | login → Agenda com o header (saudação, aluno, TROCAR PERFIL)   |
+| `02-login-sucesso.yaml`           | login → Agenda com o header e a tab bar com as 3 abas          |
 | `03-sessao-persistida.yaml`       | login → `stopApp` → `launchApp` → Agenda sem login             |
 | `04-aulas-navegar-dias.yaml`      | dropdown de dias: segunda, terça e domingo (vazio)             |
 | `05-boletim-2025.yaml`            | "7EF - 2025", 1º trimestre com nota e faltas, 2º trimestre `-` |
 | `06-boletim-anos-anteriores.yaml` | troca para "6EF - 2024"                                        |
-| `07-trocar-aluno.yaml`            | troca de aluno a partir do Boletim e continua no Boletim       |
-| `08-um-aluno-sem-botao.yaml`      | responsável com 1 aluno não vê TROCAR PERFIL                   |
+| `07-trocar-aluno.yaml`            | troca de aluno no Perfil e volta ao Boletim com o aluno novo   |
+| `08-um-aluno-sem-botao.yaml`      | 1 aluno: sem TROCAR PERFIL; no Perfil, atual e sem dica        |
 | `09-sem-aluno.yaml`               | responsável sem aluno vê o estado vazio                        |
-| `10-logout.yaml`                  | SAIR → Login; reabrir o app continua no Login                  |
+| `10-logout.yaml`                  | Perfil → Sair → confirmar → Login; reabrir continua no Login   |
 
 `subflows/` tem os passos repetidos (abrir o app limpo, login, trocar aluno,
 sair). Eles só rodam chamados pelos flows (`config.yaml` pega só a raiz).
 
 Contas usadas (seed): Gustavo `96929456004` / `123456` (Rafael e Joana),
 Adelaide `50879567007` / `987654` (Bianca) e Carlos `31415926590` / `111111`
-(sem aluno). Os flows escolhem o aluno pelo TROCAR PERFIL quando o dado
+(sem aluno). Os flows escolhem o aluno pela aba Perfil quando o dado
 importa, então não dependem de qual aluno o `/me` traz primeiro, nem do dia de
 hoje (o dia da Agenda é escolhido no dropdown).
 

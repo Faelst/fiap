@@ -1,8 +1,12 @@
-# SAIR (sem confirmação) e espera o Login.
+# Sai pela aba Perfil, com a confirmação inline (DV7), e espera o Login.
 appId: br.com.fiap.school
 ---
 - tapOn:
-    id: header-logout-button
+    id: tab-perfil
+- tapOn:
+    id: profile-logout-button
+- tapOn:
+    id: profile-logout-confirm
 - extendedWaitUntil:
     visible:
       id: login-screen

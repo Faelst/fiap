@@ -19,6 +19,12 @@ tags:
     file: subflows/select-student.yaml
     env:
       RM: '12567'
+- tapOn:
+    id: tab-agenda
+- extendedWaitUntil:
+    visible:
+      id: agenda-day-dropdown
+    timeout: 10000
 - assertVisible:
     text: '(?i)aluno rafael,.*'
 

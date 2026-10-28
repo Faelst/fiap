@@ -1,4 +1,5 @@
-# Adelaide (1 aluna, Bianca): sem TROCAR PERFIL, nas duas abas.
+# Adelaide (1 aluna, Bianca): sem TROCAR PERFIL nas abas e, no Perfil, a
+# Bianca como atual e sem a dica de troca.
 appId: br.com.fiap.school
 name: 08 - Responsável com 1 aluno não vê TROCAR PERFIL
 tags:
@@ -23,6 +24,15 @@ tags:
     id: header-logout-button
 - assertNotVisible:
     id: header-switch-student-button
+- tapOn:
+    id: tab-perfil
+- extendedWaitUntil:
+    visible:
+      id: profile-student-13752
+      selected: true
+    timeout: 5000
+- assertNotVisible:
+    id: profile-students-hint
 - tapOn:
     id: tab-boletim
 - extendedWaitUntil:
