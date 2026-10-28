@@ -36,12 +36,7 @@ describe('tema v2', () => {
 
   it('as cores com alfa ficam fora de `colors`', () => {
     const values = Object.values(theme.colors) as string[];
-    for (const alpha of [
-      palette.glowTeal,
-      palette.shadowBlack,
-      palette.shimmer,
-      palette.backgroundClear,
-    ]) {
+    for (const alpha of [palette.glowTeal, palette.shadowBlack]) {
       expect(values).not.toContain(alpha);
     }
   });
@@ -82,14 +77,16 @@ describe('tema v2', () => {
   });
 
   it('degradês (1.6) e opacidades (1.7)', () => {
+    // O `Stop` do react-native-svg ignora o alfa de um rgba no `stopColor`:
+    // cada parada leva a cor opaca e a opacidade separadas (`stopOpacity`).
     expect(theme.gradients.tabBarFade).toEqual([
-      palette.backgroundClear,
-      palette.black,
+      { color: palette.black, opacity: 0 },
+      { color: palette.black, opacity: 1 },
     ]);
     expect(theme.gradients.shimmer).toEqual([
-      palette.backgroundClear,
-      palette.shimmer,
-      palette.backgroundClear,
+      { color: palette.white, opacity: 0 },
+      { color: palette.white, opacity: 0.07 },
+      { color: palette.white, opacity: 0 },
     ]);
     expect(theme.gradients.loginHalo).toEqual({
       color: palette.teal,

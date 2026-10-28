@@ -37,7 +37,4 @@ export const palette = {
   amberMuted: '#352B1B',
   glowTeal: 'rgba(41, 244, 213, 0.35)',
   shadowBlack: 'rgba(0, 0, 0, 0.6)',
-  shimmer: 'rgba(255, 255, 255, 0.07)',
-  /** Ponta transparente dos degradês. */
-  backgroundClear: 'rgba(0, 0, 0, 0)',
 } as const;

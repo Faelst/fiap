@@ -31,15 +31,27 @@ export const shadows = {
   },
 } as const satisfies Record<string, BoxShadowValue>;
 
+/** Parada de degradê: cor opaca + opacidade (vira `stopColor`/`stopOpacity`). */
+type GradientStop = { color: string; opacity: number };
+
 /**
  * Degradês (1.6), desenhados com `react-native-svg` (`LinearGradient` e
- * `RadialGradient`): sem dependência nativa nova.
+ * `RadialGradient`): sem dependência nativa nova. O `Stop` do svg ignora o
+ * alfa de um `rgba` no `stopColor`, então a transparência vai na opacidade
+ * de cada parada.
  */
 export const gradients = {
-  /** De cima para baixo, atrás da tab bar. */
-  tabBarFade: [palette.backgroundClear, palette.black],
-  /** Horizontal, a faixa do shimmer do skeleton. */
-  shimmer: [palette.backgroundClear, palette.shimmer, palette.backgroundClear],
+  /** De cima para baixo, atrás da tab bar: do transparente ao fundo. */
+  tabBarFade: [
+    { color: palette.black, opacity: 0 },
+    { color: palette.black, opacity: 1 },
+  ],
+  /** Horizontal, a faixa do shimmer do skeleton: branco a 7 % no meio. */
+  shimmer: [
+    { color: palette.white, opacity: 0 },
+    { color: palette.white, opacity: 0.07 },
+    { color: palette.white, opacity: 0 },
+  ],
   /** Halo decorativo atrás do logo do login (`RadialGradient`). */
   loginHalo: { color: palette.teal, centerOpacity: 0.1, edgeOpacity: 0 },
-} as const;
+} as const satisfies Record<string, readonly GradientStop[] | object>;
