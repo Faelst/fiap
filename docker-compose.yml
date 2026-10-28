@@ -20,10 +20,11 @@ services:
       JWT_SECRET: "${JWT_SECRET:-docker-compose-local-so-para-avaliacao-troque-em-deploy}"
       JWT_EXPIRES_IN: "7d"
       CORS_ORIGINS: "*"
-      LOGIN_THROTTLE_LIMIT: "5"
-      LOGIN_THROTTLE_TTL_MS: "60000"
-      LOGIN_THROTTLE_CPF_LIMIT: "10"
-      LOGIN_THROTTLE_CPF_TTL_MS: "900000"
+      # Rate limit do login: sobrescreva na linha de comando (ex.: Maestro).
+      LOGIN_THROTTLE_LIMIT: "${LOGIN_THROTTLE_LIMIT:-5}"
+      LOGIN_THROTTLE_TTL_MS: "${LOGIN_THROTTLE_TTL_MS:-60000}"
+      LOGIN_THROTTLE_CPF_LIMIT: "${LOGIN_THROTTLE_CPF_LIMIT:-10}"
+      LOGIN_THROTTLE_CPF_TTL_MS: "${LOGIN_THROTTLE_CPF_TTL_MS:-900000}"
       LOG_LEVEL: "info"
       SWAGGER_ENABLED: "true"
       # Sem proxy na frente. Atrás de um reverse proxy, use 1 (ou a lista de IPs dele).
