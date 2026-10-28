@@ -1,12 +1,8 @@
 import { useEffect } from 'react';
 import { AccessibilityInfo } from 'react-native';
-import Animated, {
-  FadeInDown,
-  FadeOut,
-  ReduceMotion,
-} from 'react-native-reanimated';
+import Animated, { FadeOut, ReduceMotion } from 'react-native-reanimated';
 
-import { Text, useTheme } from '../../../theme';
+import { enterDown, Text, useTheme } from '../../../theme';
 
 type LoginErrorMessageProps = { message: string };
 
@@ -28,12 +24,7 @@ export function LoginErrorMessage({ message }: LoginErrorMessageProps) {
 
   return (
     <Animated.View
-      entering={FadeInDown.duration(motion.base)
-        .easing(motion.easeOut)
-        .withInitialValues({
-          transform: [{ translateY: motion.enterOffsetSmall }],
-        })
-        .reduceMotion(ReduceMotion.System)}
+      entering={enterDown(motion)}
       exiting={FadeOut.duration(motion.fast).reduceMotion(ReduceMotion.System)}
     >
       <Text

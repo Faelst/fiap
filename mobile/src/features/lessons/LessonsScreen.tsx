@@ -1,9 +1,5 @@
 import { useIsFocused } from '@react-navigation/native';
-import Animated, {
-  FadeInDown,
-  FadeOut,
-  ReduceMotion,
-} from 'react-native-reanimated';
+import Animated, { FadeOut, ReduceMotion } from 'react-native-reanimated';
 
 import { AgendaSkeleton } from '../../components/AgendaSkeleton';
 import { Dropdown } from '../../components/Dropdown';
@@ -13,7 +9,7 @@ import { LessonItem } from '../../components/LessonItem';
 import { Screen } from '../../components/Screen';
 import { SectionTitle } from '../../components/SectionTitle';
 import { strings } from '../../constants/strings';
-import { Box, useTheme } from '../../theme';
+import { Box, enterDown, useTheme } from '../../theme';
 import { AppHeader } from '../header/AppHeader';
 import { useAgendaViewModel } from './useAgendaViewModel';
 
@@ -29,20 +25,11 @@ export function LessonsScreen() {
   const isFocused = useIsFocused();
   const { motion, spacing } = useTheme();
 
-  const enterDown = (delay: number) =>
-    FadeInDown.duration(motion.base)
-      .delay(delay)
-      .easing(motion.easeOut)
-      .withInitialValues({
-        transform: [{ translateY: motion.enterOffsetSmall }],
-      })
-      .reduceMotion(ReduceMotion.System);
-
   return (
     <Screen testID="agenda-screen">
       <AppHeader>
         <Animated.View
-          entering={enterDown(2 * motion.stagger)}
+          entering={enterDown(motion, 2 * motion.stagger)}
           style={{ marginTop: spacing.section }}
         >
           <SectionTitle
@@ -69,7 +56,7 @@ export function LessonsScreen() {
           {vm.status === 'ready' ? (
             <>
               {vm.dayOptions.length > 0 ? (
-                <Animated.View entering={enterDown(3 * motion.stagger)}>
+                <Animated.View entering={enterDown(motion, 3 * motion.stagger)}>
                   <Dropdown
                     testID="agenda-day-dropdown"
                     label={vm.selectedDayLabel}

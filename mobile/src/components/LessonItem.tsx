@@ -1,7 +1,7 @@
-import Animated, { FadeInDown, ReduceMotion } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 
 import { strings } from '../constants/strings';
-import { Box, Text, useTheme } from '../theme';
+import { Box, enterDown, Text, useTheme } from '../theme';
 
 type LessonItemProps = {
   startTime: string;
@@ -31,13 +31,7 @@ export function LessonItem({
 
   return (
     <Animated.View
-      entering={FadeInDown.duration(motion.base)
-        .delay(enterDelay + step * motion.stagger)
-        .easing(motion.easeOut)
-        .withInitialValues({
-          transform: [{ translateY: motion.enterOffsetSmall }],
-        })
-        .reduceMotion(ReduceMotion.System)}
+      entering={enterDown(motion, enterDelay + step * motion.stagger)}
     >
       <Box
         testID={testID}

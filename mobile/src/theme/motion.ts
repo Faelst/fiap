@@ -1,4 +1,4 @@
-import { Easing } from 'react-native-reanimated';
+import { Easing, FadeInDown, ReduceMotion } from 'react-native-reanimated';
 
 /** Durações e curvas das animações (01-design.md, 1.8). */
 export const motion = {
@@ -67,3 +67,20 @@ export const motion = {
     exitToLoginEasing: Easing.bezier(0.2, 0, 0, 1),
   },
 } as const;
+
+/**
+ * Entrada padrão das telas (01-design.md, 4.x): fade de baixo para cima em
+ * `base`, `easeOut`, 8 pt, respeitando o reduzir movimento do sistema.
+ */
+export function enterDown(
+  tokens: Pick<typeof motion, 'base' | 'easeOut' | 'enterOffsetSmall'>,
+  delay = 0,
+) {
+  return FadeInDown.duration(tokens.base)
+    .delay(delay)
+    .easing(tokens.easeOut)
+    .withInitialValues({
+      transform: [{ translateY: tokens.enterOffsetSmall }],
+    })
+    .reduceMotion(ReduceMotion.System);
+}

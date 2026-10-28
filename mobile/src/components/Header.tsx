@@ -2,13 +2,12 @@ import { useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import Animated, {
   FadeIn,
-  FadeInDown,
   FadeOut,
   ReduceMotion,
 } from 'react-native-reanimated';
 
 import { strings } from '../constants/strings';
-import { Box, Text, useTheme } from '../theme';
+import { Box, enterDown, Text, useTheme } from '../theme';
 import { ActionBar } from './ActionBar';
 
 export type HeaderStudent = {
@@ -53,15 +52,6 @@ export function Header({
   const [switched, setSwitched] = useState(false);
   if (!switched && studentId !== firstStudentId) setSwitched(true);
 
-  const enterDown = (delay: number) =>
-    FadeInDown.duration(motion.base)
-      .delay(delay)
-      .easing(motion.easeOut)
-      .withInitialValues({
-        transform: [{ translateY: motion.enterOffsetSmall }],
-      })
-      .reduceMotion(ReduceMotion.System);
-
   return (
     <Box testID="header" flex={1}>
       <ActionBar
@@ -75,7 +65,10 @@ export function Header({
         contentContainerStyle={styles.grow}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View entering={enterDown(0)} style={{ marginTop: spacing.m }}>
+        <Animated.View
+          entering={enterDown(motion, 0)}
+          style={{ marginTop: spacing.m }}
+        >
           <Text
             testID="header-greeting"
             variant="greeting"
@@ -94,7 +87,7 @@ export function Header({
             entering={
               switched
                 ? FadeIn.duration(motion.base).reduceMotion(ReduceMotion.System)
-                : enterDown(motion.stagger)
+                : enterDown(motion, motion.stagger)
             }
             exiting={FadeOut.duration(motion.fast).reduceMotion(
               ReduceMotion.System,

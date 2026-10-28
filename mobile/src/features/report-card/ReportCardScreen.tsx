@@ -1,9 +1,5 @@
 import { useIsFocused } from '@react-navigation/native';
-import Animated, {
-  FadeInDown,
-  FadeOut,
-  ReduceMotion,
-} from 'react-native-reanimated';
+import Animated, { FadeOut, ReduceMotion } from 'react-native-reanimated';
 
 import { BoletimSkeleton } from '../../components/BoletimSkeleton';
 import { Dropdown } from '../../components/Dropdown';
@@ -12,7 +8,7 @@ import { ErrorState } from '../../components/ErrorState';
 import { Screen } from '../../components/Screen';
 import { SectionTitle } from '../../components/SectionTitle';
 import { strings } from '../../constants/strings';
-import { Box, useTheme } from '../../theme';
+import { Box, enterDown, useTheme } from '../../theme';
 import { AppHeader } from '../header/AppHeader';
 import { TermAccordion } from './components/TermAccordion';
 import { useReportCardViewModel } from './useReportCardViewModel';
@@ -28,15 +24,6 @@ export function ReportCardScreen() {
   // As abas ficam montadas: só a visível anuncia o erro (3.8).
   const isFocused = useIsFocused();
   const { motion, spacing } = useTheme();
-
-  const enterDown = (delay: number) =>
-    FadeInDown.duration(motion.base)
-      .delay(delay)
-      .easing(motion.easeOut)
-      .withInitialValues({
-        transform: [{ translateY: motion.enterOffsetSmall }],
-      })
-      .reduceMotion(ReduceMotion.System);
 
   const errorState = (
     <ErrorState
@@ -54,7 +41,7 @@ export function ReportCardScreen() {
     <Screen testID="boletim-screen">
       <AppHeader>
         <Animated.View
-          entering={enterDown(2 * motion.stagger)}
+          entering={enterDown(motion, 2 * motion.stagger)}
           style={{ marginTop: spacing.section }}
         >
           <SectionTitle
@@ -77,7 +64,7 @@ export function ReportCardScreen() {
           ) : null}
           {vm.status === 'ready' && !vm.isEmpty ? (
             <>
-              <Animated.View entering={enterDown(3 * motion.stagger)}>
+              <Animated.View entering={enterDown(motion, 3 * motion.stagger)}>
                 <Dropdown
                   testID="boletim-year-dropdown"
                   label={vm.selectedYearLabel}
@@ -111,6 +98,7 @@ export function ReportCardScreen() {
                       <Animated.View
                         key={term.term}
                         entering={enterDown(
+                          motion,
                           vm.contentEnterDelay + index * motion.cardStagger,
                         )}
                       >

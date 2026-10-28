@@ -6,7 +6,7 @@ export type {
   TextProps,
 } from './components';
 export { fonts } from './fonts';
-export { motion } from './motion';
+export { enterDown, motion } from './motion';
 export { sizes } from './sizes';
 export { theme } from './theme';
 export type { Theme } from './theme';

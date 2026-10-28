@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
 import { AccessibilityInfo } from 'react-native';
-import Animated, { FadeInDown, ReduceMotion } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 
 import { strings } from '../constants/strings';
 import { useShakeStyle } from '../hooks/useShakeStyle';
-import { Box, Text, useTheme } from '../theme';
+import { Box, enterDown, Text, useTheme } from '../theme';
 import { SecondaryButton } from './SecondaryButton';
 
 type ErrorStateProps = {
@@ -47,14 +47,7 @@ export function ErrorState({
   useEffect(() => {
     if (announce) AccessibilityInfo.announceForAccessibility(spoken);
   }, [spoken, shakeKey, announce]);
-  const enter = (index: number) =>
-    FadeInDown.duration(motion.base)
-      .delay(index * motion.stagger)
-      .easing(motion.easeOut)
-      .withInitialValues({
-        transform: [{ translateY: motion.enterOffsetSmall }],
-      })
-      .reduceMotion(ReduceMotion.System);
+  const enter = (index: number) => enterDown(motion, index * motion.stagger);
 
   return (
     <Animated.View testID={testID} style={shakeStyle}>

@@ -6,11 +6,7 @@ import {
   StyleSheet,
   type Text as RNText,
 } from 'react-native';
-import Animated, {
-  FadeIn,
-  FadeInDown,
-  ReduceMotion,
-} from 'react-native-reanimated';
+import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CloseIcon } from '../../components/icons/CloseIcon';
@@ -18,7 +14,7 @@ import { Screen } from '../../components/Screen';
 import { StudentCard } from '../../components/StudentCard';
 import { strings } from '../../constants/strings';
 import type { RootStackScreenProps } from '../../navigation/types';
-import { Box, Text, useTheme } from '../../theme';
+import { Box, enterDown, Text, useTheme } from '../../theme';
 import { useSelectStudentViewModel } from './useSelectStudentViewModel';
 
 /** Teto do stagger (01-design.md, 1.8): do 7º card em diante, sem atraso. */
@@ -48,15 +44,6 @@ export function SelectStudentScreen({
       }),
     [navigation],
   );
-  const enterDown = (delay: number) =>
-    FadeInDown.duration(motion.base)
-      .delay(delay)
-      .easing(motion.easeOut)
-      .withInitialValues({
-        transform: [{ translateY: motion.enterOffsetSmall }],
-      })
-      .reduceMotion(ReduceMotion.System);
-
   return (
     <Screen testID="select-student-screen">
       <ScrollView
@@ -67,7 +54,7 @@ export function SelectStudentScreen({
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View entering={enterDown(0)}>
+        <Animated.View entering={enterDown(motion, 0)}>
           <Text ref={titleRef} variant="title" accessibilityRole="header">
             {strings.selectStudent.title}
           </Text>
@@ -77,6 +64,7 @@ export function SelectStudentScreen({
             <Animated.View
               key={student.id}
               entering={enterDown(
+                motion,
                 motion.stagger +
                   Math.min(index, MAX_STAGGERED - 1) * motion.cardStagger,
               )}

@@ -1,13 +1,12 @@
 import { Image, StyleSheet } from 'react-native';
 import Animated, {
   FadeIn,
-  FadeInDown,
   Keyframe,
   ReduceMotion,
   useReducedMotion,
 } from 'react-native-reanimated';
 
-import { Box, Text, useTheme, type Theme } from '../theme';
+import { Box, enterDown, Text, useTheme, type Theme } from '../theme';
 
 const illustrationSource = require('../../assets/no-classroom.png');
 
@@ -49,13 +48,7 @@ function entrances(motion: Motion, illustration: boolean, reduced: boolean) {
       .duration(motion.base)
       .reduceMotion(ReduceMotion.System),
     text: (index: number) =>
-      FadeInDown.duration(motion.base)
-        .delay((first + index) * motion.stagger)
-        .easing(motion.easeOut)
-        .withInitialValues({
-          transform: [{ translateY: motion.enterOffsetSmall }],
-        })
-        .reduceMotion(ReduceMotion.System),
+      enterDown(motion, (first + index) * motion.stagger),
   };
 }
 
