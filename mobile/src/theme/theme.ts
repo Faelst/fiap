@@ -7,7 +7,7 @@ import { sizes } from './sizes';
 
 /**
  * Tema único do app (escuro, sem modo claro). Fonte: 01-design.md, seção 1,
- * derivada de docs/figma/README.md.
+ * derivada de .docs/figma/README.md.
  */
 export const theme = createTheme({
   colors: {

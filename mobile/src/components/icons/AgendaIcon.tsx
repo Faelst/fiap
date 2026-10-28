@@ -2,7 +2,7 @@ import Svg, { Path } from 'react-native-svg';
 
 type IconProps = { color: string; size: number };
 
-/** Ícone da aba Agenda (docs/figma/assets/tab-agenda-active.svg), 21,4 × 24. */
+/** Ícone da aba Agenda (.docs/figma/assets/tab-agenda-active.svg), 21,4 × 24. */
 export function AgendaIcon({ color, size }: IconProps) {
   return (
     <Svg width={(size * 21.4311) / 24} height={size} viewBox="0 0 21.4311 24">

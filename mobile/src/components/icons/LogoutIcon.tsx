@@ -2,7 +2,7 @@ import Svg, { Path } from 'react-native-svg';
 
 type IconProps = { color: string; size: number };
 
-/** Ícone do SAIR (docs/figma/assets/logout.svg), 10 × 10. */
+/** Ícone do SAIR (.docs/figma/assets/logout.svg), 10 × 10. */
 export function LogoutIcon({ color, size }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 10 9.99995">
