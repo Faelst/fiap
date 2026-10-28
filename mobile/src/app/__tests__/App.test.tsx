@@ -32,6 +32,12 @@ describe('App', () => {
     (BootSplash.hide as jest.Mock).mockClear();
   });
 
+  // As abas buscam a agenda ao montar; a resposta não pode chegar depois do
+  // fim do teste (atualização fora do act).
+  afterEach(async () => {
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+  });
+
   it('abre na splash JS, esconde a nativa sem fade e, sem token, vai ao Login', async () => {
     await render(<App />);
 
