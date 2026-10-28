@@ -21,7 +21,15 @@ export async function login({
   return parseResponse(loginResponseSchema, data, 'POST /auth/login');
 }
 
-export async function getMe(signal?: AbortSignal): Promise<Me> {
-  const { data } = await http.get('/me', { signal });
+export type GetMeOptions = {
+  /** Sobrescreve o timeout padrão do client (a splash usa um menor). */
+  timeoutMs?: number;
+};
+
+export async function getMe(
+  signal?: AbortSignal,
+  { timeoutMs }: GetMeOptions = {},
+): Promise<Me> {
+  const { data } = await http.get('/me', { signal, timeout: timeoutMs });
   return parseResponse(meSchema, data, 'GET /me');
 }

@@ -17,6 +17,14 @@ export const sizes = {
   logoHeader: { width: 100, height: 16 },
   logoLogin: { width: 306, height: 49 },
   illustration: { width: 328, height: 208 },
+  /** Selo SCHOOL dentro do PNG do logo, em proporção (vale em qualquer tamanho). */
+  logoBadge: { x: 0.672, y: 0.35, width: 0.328, height: 0.4 },
+  /** Sobra da capa do selo na splash (esconde o antialias da borda). */
+  logoBadgeBleed: 1,
+  /** Linha teal da splash: largura e quanto passa do logo em cima e embaixo. */
+  scanLine: { width: 2, overhang: 8 },
+  /** Espessura do trilho de espera da splash. */
+  splashTrack: 1,
   contentMaxWidth: 600,
   formMaxWidth: 318,
 } as const;
