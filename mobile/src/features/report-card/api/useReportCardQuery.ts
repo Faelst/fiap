@@ -12,7 +12,7 @@ export function useReportCardQuery(
     queryKey: queryKeys.reportCard(studentId ?? '', year ?? 0),
     queryFn:
       studentId && year !== null
-        ? () => getReportCard(studentId, year)
+        ? ({ signal }) => getReportCard(studentId, year, signal)
         : skipToken,
   });
 }

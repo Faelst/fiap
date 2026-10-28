@@ -1,4 +1,4 @@
-import { AxiosError, AxiosHeaders } from 'axios';
+import { AxiosError, AxiosHeaders, CanceledError } from 'axios';
 import { z } from 'zod';
 
 import { ApiError, toApiError } from '../errors';
@@ -66,6 +66,26 @@ describe('toApiError', () => {
     );
     expect(error.kind).toBe('network');
     expect(error.status).toBeUndefined();
+  });
+
+  it('request cancelado (signal abortado) vira canceled', () => {
+    expect(toApiError(new CanceledError()).kind).toBe('canceled');
+  });
+
+  it('guarda a causa original para depuração', () => {
+    const networkError = new AxiosError(
+      'Network Error',
+      AxiosError.ERR_NETWORK,
+    );
+    expect(toApiError(networkError).cause).toBe(networkError);
+    const cause = new Error('keychain');
+    expect(new ApiError('storage', { cause }).cause).toBe(cause);
+  });
+
+  it('aceita uma mensagem própria (erro do app, não da API)', () => {
+    const error = new ApiError('storage', { message: 'Falhou ao salvar.' });
+    expect(error.message).toBe('Falhou ao salvar.');
+    expect(error.apiMessage).toBeUndefined();
   });
 
   it('erro de schema vira invalidResponse', () => {

@@ -12,8 +12,9 @@ const studentPath = (studentId: string) =>
 
 export async function getReportCards(
   studentId: string,
+  signal?: AbortSignal,
 ): Promise<ReportCardSummary[]> {
-  const { data } = await http.get(studentPath(studentId));
+  const { data } = await http.get(studentPath(studentId), { signal });
   return parseResponse(
     reportCardsSchema,
     data,
@@ -24,8 +25,11 @@ export async function getReportCards(
 export async function getReportCard(
   studentId: string,
   year: number,
+  signal?: AbortSignal,
 ): Promise<ReportCard> {
-  const { data } = await http.get(`${studentPath(studentId)}/${year}`);
+  const { data } = await http.get(`${studentPath(studentId)}/${year}`, {
+    signal,
+  });
   return parseResponse(
     reportCardSchema,
     data,

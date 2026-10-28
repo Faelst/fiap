@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+import * as Keychain from 'react-native-keychain';
 import { http, HttpResponse } from 'msw';
 
 import { queryClient } from '../../../../app/queryClient';
@@ -54,6 +55,27 @@ describe('useLoginMutation', () => {
     });
     expect(useSessionStore.getState().status).toBe('signedOut');
     expect(await createSecureStorage().getToken()).toBeNull();
+  });
+
+  it('falha ao gravar no keychain vira erro storage com mensagem amigável', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    (Keychain.setGenericPassword as jest.Mock).mockRejectedValueOnce(
+      new Error('Keystore bloqueado'),
+    );
+    const { result } = await renderHook(() => useLoginMutation(), {
+      wrapper: QueryWrapper,
+    });
+
+    await act(async () => {
+      result.current.mutate({ cpf: '969.294.560-04', password: '123456' });
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error?.kind).toBe('storage');
+    expect(result.current.error?.message).toBe(
+      'Não foi possível salvar o acesso neste aparelho. Tente de novo.',
+    );
+    expect(useSessionStore.getState().status).toBe('signedOut');
   });
 
   it('resposta sem token é tratada como invalidResponse e não abre sessão', async () => {

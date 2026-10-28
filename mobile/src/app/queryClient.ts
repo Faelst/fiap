@@ -9,6 +9,8 @@ const FINAL_KINDS = new Set<ApiError['kind']>([
   'forbidden',
   'notFound',
   'invalidResponse',
+  'canceled',
+  'storage',
 ]);
 
 declare module '@tanstack/react-query' {

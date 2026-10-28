@@ -19,6 +19,22 @@ describe('redact', () => {
     });
   });
 
+  it('troca também token genérico, refresh token e push token', () => {
+    expect(
+      redact({
+        token: 'a',
+        refreshToken: 'b',
+        expoPushToken: 'c',
+        tokenType: 'x',
+      }),
+    ).toEqual({
+      token: REDACTED,
+      refreshToken: REDACTED,
+      expoPushToken: REDACTED,
+      tokenType: 'x',
+    });
+  });
+
   it('procura em objetos aninhados e em arrays', () => {
     expect(
       redact({

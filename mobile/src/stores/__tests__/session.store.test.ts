@@ -76,6 +76,21 @@ describe('session store', () => {
     expect(queryClient.getQueryData(['me'])).toBeUndefined();
   });
 
+  it('signOut aborta as queries em voo (o request da sessão antiga não volta depois)', async () => {
+    let signal: AbortSignal | undefined;
+    const pending = queryClient.fetchQuery({
+      queryKey: ['agenda', 's1'],
+      queryFn: ({ signal: querySignal }) => {
+        signal = querySignal;
+        return new Promise(() => {});
+      },
+    });
+    pending.catch(() => undefined);
+
+    await useSessionStore.getState().signOut('expired');
+    expect(signal?.aborted).toBe(true);
+  });
+
   it('signOut sem motivo é logout do usuário', async () => {
     await useSessionStore.getState().signIn('jwt-1', guardian);
     await useSessionStore.getState().signOut();

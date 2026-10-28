@@ -7,6 +7,8 @@ import { getAgenda } from '../services/lessons.service';
 export function useAgendaQuery(studentId: string | null) {
   return useQuery({
     queryKey: queryKeys.agenda(studentId ?? ''),
-    queryFn: studentId ? () => getAgenda(studentId) : skipToken,
+    queryFn: studentId
+      ? ({ signal }) => getAgenda(studentId, signal)
+      : skipToken,
   });
 }

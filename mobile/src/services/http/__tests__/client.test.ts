@@ -88,6 +88,46 @@ describe('http client', () => {
     expect(signOut).toHaveBeenCalledTimes(1);
   });
 
+  it('401 atrasado de um request feito com o token antigo não derruba a sessão nova', async () => {
+    await signedIn('jwt-antigo');
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => {
+      release = resolve;
+    });
+    let arrived!: (authorization: string | null) => void;
+    const reachedApi = new Promise<string | null>(resolve => {
+      arrived = resolve;
+    });
+    server.use(
+      mswHttp.get(`${API_URL}/students/:id/agenda`, async ({ request }) => {
+        arrived(request.headers.get('authorization'));
+        await gate;
+        return HttpResponse.json({ statusCode: 401 }, { status: 401 });
+      }),
+    );
+
+    const slow = http.get('/students/s1/agenda');
+    expect(await reachedApi).toBe('Bearer jwt-antigo');
+    await useSessionStore.getState().signOut('expired');
+    await useSessionStore.getState().signIn('jwt-novo', guardian);
+    release();
+
+    await expect(slow).rejects.toMatchObject({ kind: 'unauthorized' });
+    expect(useSessionStore.getState().status).toBe('signedIn');
+    expect(await createSecureStorage().getToken()).toBe('jwt-novo');
+  });
+
+  it('request cancelado pelo signal vira canceled e não mexe na sessão', async () => {
+    await signedIn();
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      http.get('/me', { signal: controller.signal }),
+    ).rejects.toMatchObject({ kind: 'canceled' });
+    expect(useSessionStore.getState().status).toBe('signedIn');
+  });
+
   it('401 no login é credencial errada: não mexe na sessão', async () => {
     await signedIn('jwt-velho');
 
@@ -141,19 +181,36 @@ describe('http client', () => {
     expect(JSON.stringify(info.mock.calls)).not.toContain('jwt-secreto');
   });
 
-  it('loga falha do login como warn sem CPF nem senha', async () => {
+  it('erro esperado (4xx) é info, sem warn (o LogBox não cobre a tela em dev), e sem CPF nem senha', async () => {
+    const info = jest.spyOn(logger, 'info');
     const warn = jest.spyOn(logger, 'warn');
 
     await http
       .post('/auth/login', { cpf: '96929456004', password: 'errada' })
       .catch(() => undefined);
 
-    expect(warn).toHaveBeenCalledWith(
+    expect(info).toHaveBeenCalledWith(
       'http POST /auth/login 401',
       expect.objectContaining({ status: 401, kind: 'unauthorized' }),
     );
-    const logged = JSON.stringify(warn.mock.calls);
+    expect(warn).not.toHaveBeenCalled();
+    const logged = JSON.stringify(info.mock.calls);
     expect(logged).not.toContain('96929456004');
     expect(logged).not.toContain('errada');
+  });
+
+  it('erro inesperado (5xx, rede) continua warn', async () => {
+    const warn = jest.spyOn(logger, 'warn');
+    server.use(
+      mswHttp.get(`${API_URL}/me`, () =>
+        HttpResponse.json({ statusCode: 500 }, { status: 500 }),
+      ),
+    );
+
+    await http.get('/me').catch(() => undefined);
+    expect(warn).toHaveBeenCalledWith(
+      'http GET /me 500',
+      expect.objectContaining({ kind: 'server' }),
+    );
   });
 });

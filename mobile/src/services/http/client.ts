@@ -19,10 +19,19 @@ export const http = axios.create({
 /** Um 401 por vez encerra a sessão; os outros esperam o mesmo signOut. */
 let expiringSession: Promise<void> | null = null;
 
-function expireSession(): Promise<void> {
+/**
+ * Só encerra a sessão se o 401 veio do token em uso agora. Um 401 atrasado
+ * de um request da sessão anterior (o usuário já entrou de novo) é ignorado.
+ */
+async function expireSession(requestToken: string | null): Promise<void> {
+  const currentToken = await secureStorage.getToken();
   const { status, signOut } = useSessionStore.getState();
-  if (status !== 'signedIn') {
-    return expiringSession ?? Promise.resolve();
+  if (
+    status !== 'signedIn' ||
+    requestToken === null ||
+    requestToken !== currentToken
+  ) {
+    return expiringSession ?? undefined;
   }
   if (!expiringSession) {
     logger.warn('sessão expirada: voltando ao login');

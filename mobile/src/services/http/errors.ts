@@ -1,4 +1,4 @@
-import { isAxiosError } from 'axios';
+import { isAxiosError, isCancel } from 'axios';
 import { z, ZodError } from 'zod';
 
 export type ApiErrorKind =
@@ -10,11 +10,18 @@ export type ApiErrorKind =
   | 'server'
   | 'network'
   | 'invalidResponse'
+  /** Request abortado pelo `signal` (troca de aluno, logout). Não é falha. */
+  | 'canceled'
+  /** Falha do aparelho (keychain/Keystore), não da API. */
+  | 'storage'
   | 'unknown';
 
 type ApiErrorOptions = {
   status?: number;
+  /** Mensagem que veio da API (`message` do Nest). */
   apiMessage?: string;
+  /** Mensagem do próprio app, quando o erro não vem da API. */
+  message?: string;
   cause?: unknown;
 };
 
@@ -28,8 +35,14 @@ export class ApiError extends Error {
   readonly apiMessage?: string;
 
   constructor(kind: ApiErrorKind, options: ApiErrorOptions = {}) {
-    super(options.apiMessage ?? kind);
+    super(options.apiMessage ?? options.message ?? kind, {
+      cause: options.cause,
+    });
     this.name = 'ApiError';
+    // O Hermes pode ignorar o 2º argumento do Error; garante a causa.
+    if (options.cause !== undefined && this.cause === undefined) {
+      this.cause = options.cause;
+    }
     this.kind = kind;
     this.status = options.status;
     this.apiMessage = options.apiMessage;
@@ -70,6 +83,9 @@ export function toApiError(error: unknown): ApiError {
   if (error instanceof ZodError) {
     return new ApiError('invalidResponse', { cause: error });
   }
+  if (isCancel(error)) {
+    return new ApiError('canceled', { cause: error });
+  }
   if (isAxiosError(error)) {
     if (!error.response) {
       return new ApiError('network', { cause: error });
@@ -78,6 +94,7 @@ export function toApiError(error: unknown): ApiError {
     return new ApiError(kindFromStatus(status), {
       status,
       apiMessage: messageFrom(data),
+      cause: error,
     });
   }
   return new ApiError('unknown', { cause: error });

@@ -21,7 +21,7 @@ export async function login({
   return parseResponse(loginResponseSchema, data, 'POST /auth/login');
 }
 
-export async function getMe(): Promise<Me> {
-  const { data } = await http.get('/me');
+export async function getMe(signal?: AbortSignal): Promise<Me> {
+  const { data } = await http.get('/me', { signal });
   return parseResponse(meSchema, data, 'GET /me');
 }

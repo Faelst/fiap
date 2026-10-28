@@ -5,21 +5,45 @@ import type {
   InternalAxiosRequestConfig,
 } from 'axios';
 
-import type { Logger } from '../logger';
-import { toApiError } from './errors';
+import type { LogLevel, Logger } from '../logger';
+import { type ApiErrorKind, toApiError } from './errors';
 
 /** Rotas sem token, em que 401 é resposta de negócio (credencial errada). */
 export const PUBLIC_PATHS = new Set(['/auth/login']);
 
 type InterceptorDeps = {
   getToken: () => Promise<string | null>;
-  /** Chamado em 401 de rota protegida (token vencido ou revogado). */
-  onUnauthorized: () => Promise<void> | void;
+  /**
+   * Chamado em 401 de rota protegida, com o token com que o request saiu
+   * (`null` se saiu sem token). Quem decide se a sessão atual acabou é ele.
+   */
+  onUnauthorized: (requestToken: string | null) => Promise<void> | void;
   logger: Logger;
   now?: () => number;
 };
 
-const startedAt = new WeakMap<InternalAxiosRequestConfig, number>();
+/**
+ * Nível do log de erro. Resposta esperada da API (credencial errada, sem
+ * acesso, ano inexistente) não é `warn`: em dev o `console.warn` abre o toast
+ * do LogBox em cima do botão da tela.
+ */
+const ERROR_LOG_LEVEL: Record<ApiErrorKind, LogLevel> = {
+  badRequest: 'info',
+  unauthorized: 'info',
+  forbidden: 'info',
+  notFound: 'info',
+  rateLimited: 'info',
+  canceled: 'debug',
+  server: 'warn',
+  network: 'warn',
+  invalidResponse: 'warn',
+  storage: 'warn',
+  unknown: 'warn',
+};
+
+type RequestMeta = { startedAt: number; token: string | null };
+
+const requestMeta = new WeakMap<InternalAxiosRequestConfig, RequestMeta>();
 
 const isPublic = (config?: InternalAxiosRequestConfig) =>
   PUBLIC_PATHS.has(config?.url ?? '');
@@ -31,21 +55,19 @@ export function attachInterceptors(
   const describe = (config: InternalAxiosRequestConfig | undefined) => {
     const method = (config?.method ?? 'get').toUpperCase();
     const url = config?.url ?? '';
-    const start = config ? startedAt.get(config) : undefined;
+    const meta = config ? requestMeta.get(config) : undefined;
     return {
       method,
       url,
-      durationMs: start === undefined ? undefined : now() - start,
+      durationMs: meta === undefined ? undefined : now() - meta.startedAt,
     };
   };
 
   instance.interceptors.request.use(async config => {
-    startedAt.set(config, now());
-    if (!isPublic(config)) {
-      const token = await getToken();
-      if (token) {
-        config.headers.set('Authorization', `Bearer ${token}`);
-      }
+    const token = isPublic(config) ? null : await getToken();
+    requestMeta.set(config, { startedAt: now(), token });
+    if (token) {
+      config.headers.set('Authorization', `Bearer ${token}`);
     }
     return config;
   });
@@ -64,15 +86,19 @@ export function attachInterceptors(
       const apiError = toApiError(error);
       const request = describe(error.config);
       const status = apiError.status ?? 'sem resposta';
-      logger.warn(`http ${request.method} ${request.url} ${status}`, {
-        ...request,
-        status: apiError.status,
-        kind: apiError.kind,
-        requestId: error.response?.headers?.['x-request-id'],
-      });
+      logger[ERROR_LOG_LEVEL[apiError.kind]](
+        `http ${request.method} ${request.url} ${status}`,
+        {
+          ...request,
+          status: apiError.status,
+          kind: apiError.kind,
+          requestId: error.response?.headers?.['x-request-id'],
+        },
+      );
 
       if (apiError.kind === 'unauthorized' && !isPublic(error.config)) {
-        await onUnauthorized();
+        const meta = error.config ? requestMeta.get(error.config) : undefined;
+        await onUnauthorized(meta?.token ?? null);
       }
       throw apiError;
     },

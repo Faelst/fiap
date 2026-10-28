@@ -10,7 +10,7 @@ export function useMeQuery() {
 
   return useQuery({
     queryKey: queryKeys.me(),
-    queryFn: getMe,
+    queryFn: ({ signal }) => getMe(signal),
     enabled: signedIn,
   });
 }

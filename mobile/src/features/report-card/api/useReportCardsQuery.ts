@@ -7,6 +7,8 @@ import { getReportCards } from '../services/reportCard.service';
 export function useReportCardsQuery(studentId: string | null) {
   return useQuery({
     queryKey: queryKeys.reportCards(studentId ?? ''),
-    queryFn: studentId ? () => getReportCards(studentId) : skipToken,
+    queryFn: studentId
+      ? ({ signal }) => getReportCards(studentId, signal)
+      : skipToken,
   });
 }
