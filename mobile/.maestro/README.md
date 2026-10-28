@@ -27,8 +27,8 @@ hoje (o dia da Agenda é escolhido no dropdown).
 
 ## Pré-requisitos
 
-- [Maestro CLI](https://docs.maestro.dev/getting-started/installing-maestro):
-  `curl -fsSL "https://get.maestro.mobile.dev" | bash`.
+- [Maestro CLI](https://docs.maestro.dev/getting-started/installing-maestro) (o CI usa a 2.11.0):
+  `curl -fsSL "https://get.maestro.mobile.dev" | MAESTRO_VERSION=2.11.0 bash`.
 - Java 17 (o Maestro roda na JVM).
 - Simulador iOS ou emulador Android com o app instalado (`yarn ios` /
   `yarn android`), bundle id `br.com.fiap.school`.
@@ -58,7 +58,12 @@ Com mais de um aparelho ligado, escolha com `maestro --device <id> test ...`.
 
 `yarn maestro:check` confere, sem emulador, que os YAML são válidos, que o
 `appId` é o do app, que os subflows existem e que todo `id` usado nos flows
-existe como `testID` em `src/`. Ele roda no `mobile.yml` a cada PR.
+existe como `testID` em `src/`. Ele lê o JSX e segue a prop `testID` de
+componente em componente (inclusive por `{...props}` e por props `*TestID`),
+então um sufixo derivado (`-content`, `-result`, `-retry`) só vale para ids
+que chegam ao componente que o declara. Ele roda no `mobile.yml` a cada PR.
+Limite: testID montado fora do JSX (numa variável antes do `return`) não é
+visto; nesse caso o check acusa o id, e a correção é usar o id direto no JSX.
 
 No CI, o workflow `maestro.yml` sobe a API, builda o APK e roda os flows num
 emulador Android. Ele roda pelo `workflow_dispatch` ou num PR com a label

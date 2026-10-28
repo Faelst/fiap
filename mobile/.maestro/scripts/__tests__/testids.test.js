@@ -2,86 +2,148 @@
  * @jest-environment node
  */
 
-const {
-  collectSourcePatterns,
-  createTestIdMatcher,
-  extractFlowIds,
-} = require('../testids');
+const { buildTestIdMatcher, extractFlowIds } = require('../testids');
 
-describe('collectSourcePatterns', () => {
-  it('lê testID literal em JSX e em objeto', () => {
-    const patterns = collectSourcePatterns(`
-      <Box testID="agenda-screen" />
-      <Button loadingTestID="login-submit-loading" />
-      options={{ tabBarButtonTestID: 'tab-agenda' }}
-    `);
+// Fontes mínimas no formato do app: componentes do projeto repassam a prop
+// `testID` e derivam ids dela; Box/Pressable/Text são nativos (terminais).
+const ACCORDION = `
+export function Accordion({ testID, children }) {
+  return (
+    <View>
+      <Pressable testID={testID} onPress={() => {}}>{children}</Pressable>
+      <Animated.View testID={\`\${testID}-content\`} />
+    </View>
+  );
+}`;
+const SUBJECT = `
+export function SubjectAccordion({ testID }) {
+  return (
+    <Accordion testID={testID}>
+      <Box testID={\`\${testID}-result\`} />
+    </Accordion>
+  );
+}`;
+const TERM = `
+export function TermAccordion({ testID, term }) {
+  return (
+    <Accordion testID={testID}>
+      {term.subjects.map(subject => (
+        <SubjectAccordion testID={\`\${testID}-subject-\${subject.index}\`} />
+      ))}
+    </Accordion>
+  );
+}`;
+const ERROR_STATE = `
+export function ErrorState({ testID, retryTestID }) {
+  return (
+    <Animated.View testID={testID}>
+      <Pressable testID={retryTestID ?? \`\${testID}-retry\`} />
+    </Animated.View>
+  );
+}`;
+const TAB_BAR = `
+function TabItem({ testID }) {
+  return (
+    <Pressable testID={testID}>
+      <Animated.View testID={testID ? \`\${testID}-active-layer\` : undefined} />
+    </Pressable>
+  );
+}
+export function TabBar({ options }) {
+  return (
+    <Box testID="tab-bar">
+      <TabItem testID={options.tabBarButtonTestID} />
+    </Box>
+  );
+}`;
+const SCREENS = `
+const tabs = { tabBarButtonTestID: 'tab-agenda' };
+export function ReportCardScreen({ terms }) {
+  return (
+    <Screen testID="boletim-screen">
+      <ErrorState testID="boletim-error" />
+      {terms.map(term => (
+        <TermAccordion testID={\`boletim-term-\${term.term}\`} term={term} />
+      ))}
+    </Screen>
+  );
+}
+export function LessonsScreen() {
+  return <Screen testID="agenda-screen"><LessonItem testID="agenda-lesson-0" /></Screen>;
+}
+export function Screen({ testID, children }) {
+  return <Box testID={testID} flex={1}>{children}</Box>;
+}
+export function LoginScreen() {
+  return <PrimaryButton testID="login-submit-button" loadingTestID="login-submit-loading" />;
+}
+export function PrimaryButton({ testID, loadingTestID }) {
+  return <Pressable testID={testID}><Spinner testID={loadingTestID} /></Pressable>;
+}`;
 
-    expect(patterns.literals).toEqual(
-      expect.arrayContaining([
-        'agenda-screen',
-        'login-submit-loading',
-        'tab-agenda',
-      ]),
-    );
+const matches = buildTestIdMatcher([
+  ACCORDION,
+  SUBJECT,
+  TERM,
+  ERROR_STATE,
+  TAB_BAR,
+  SCREENS,
+]);
+
+describe('buildTestIdMatcher', () => {
+  it('aceita testID literal num elemento, também repassado por um componente', () => {
+    expect(matches('tab-bar')).toBe(true);
+    expect(matches('boletim-screen')).toBe(true);
   });
 
-  it('lê os template literals de testID, inclusive os derivados da prop', () => {
-    const patterns = collectSourcePatterns(
-      [
-        '<Card testID={`select-student-card-${student.rm}`} />',
-        '<Text testID={`${testID}-label`} />',
-        'testID={retryTestID ?? `${testID}-retry`}',
-      ].join('\n'),
-    );
-
-    expect(patterns.templates).toEqual(
-      expect.arrayContaining([
-        'select-student-card-${student.rm}',
-        '${testID}-label',
-        '${testID}-retry',
-      ]),
-    );
-  });
-});
-
-describe('createTestIdMatcher', () => {
-  const matches = createTestIdMatcher({
-    literals: ['agenda-day-dropdown', 'header-logout-button'],
-    templates: [
-      'select-student-card-${student.rm}',
-      'boletim-term-${term.term}',
-      '${testID}-subject-${subject.index}',
-      '${testID}-result',
-      '${testID}-option-${option.key}',
-    ],
+  it('aceita template com parte variável e recusa erro de digitação', () => {
+    expect(matches('boletim-term-1')).toBe(true);
+    expect(matches('boletim-term-1-x')).toBe(false);
   });
 
-  it('aceita um testID literal', () => {
-    expect(matches('header-logout-button')).toBe(true);
-  });
-
-  it('aceita um testID de template com parte variável', () => {
-    expect(matches('select-student-card-12567')).toBe(true);
-  });
-
-  it('aceita um testID derivado de outro (prop + sufixo), em cadeia', () => {
-    expect(matches('agenda-day-dropdown-option-2025-03-17')).toBe(true);
+  it('aceita sufixos em cadeia (Term → Subject → Accordion)', () => {
+    expect(matches('boletim-term-1-content')).toBe(true);
+    expect(matches('boletim-term-1-subject-0')).toBe(true);
     expect(matches('boletim-term-1-subject-0-result')).toBe(true);
+    expect(matches('boletim-term-1-subject-0-content')).toBe(true);
   });
 
-  it('recusa um testID que não existe no código', () => {
-    expect(matches('header-logout')).toBe(false);
-    expect(matches('agenda-day-dropdown-opcao-2025-03-17')).toBe(false);
+  it('só aplica o sufixo de um componente a ids passados a ele', () => {
+    expect(matches('agenda-lesson-0-result')).toBe(false);
+    expect(matches('agenda-screen-content')).toBe(false);
+    expect(matches('boletim-screen-retry')).toBe(false);
+    expect(matches('boletim-error-retry')).toBe(true);
   });
 
   it('recusa erro de digitação no meio de um id derivado', () => {
-    // A parte variável de `boletim-term-${term.term}` não engole o resto.
     expect(matches('boletim-term-2-subjct-0-result')).toBe(false);
-    expect(matches('select-student-card-12567-x')).toBe(false);
   });
 
-  it('recusa sufixo derivado de uma base que não existe', () => {
-    expect(matches('agenda-dropdown-option-2025-03-17')).toBe(false);
+  it('segue props *TestID até o elemento que as usa', () => {
+    expect(matches('login-submit-loading')).toBe(true);
+    expect(matches('tab-agenda')).toBe(true);
+    expect(matches('tab-agenda-active-layer')).toBe(true);
+    expect(matches('login-submit-button-loading')).toBe(false);
+  });
+
+  it('segue o testID repassado por spread de props', () => {
+    const withSpread = buildTestIdMatcher([
+      `export function UnderlineInput({ testID }) {
+        return <TextInput testID={testID} />;
+      }
+      export function CpfInput({ onChangeText, ...props }) {
+        return <UnderlineInput {...props} onChangeText={onChangeText} />;
+      }
+      export function LoginScreen() {
+        return <CpfInput testID="login-cpf-input" />;
+      }`,
+    ]);
+
+    expect(withSpread('login-cpf-input')).toBe(true);
+  });
+
+  it('recusa id que não existe', () => {
+    expect(matches('header-logout')).toBe(false);
   });
 });
 

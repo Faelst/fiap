@@ -2,77 +2,183 @@
  * Cruza os `id` usados nos flows do Maestro com os `testID` do código do app
  * (`src/`), para pegar um id errado sem precisar subir o emulador.
  *
- * Os testID do código vêm de duas formas:
- * - literal: `testID="agenda-screen"`, `tabBarButtonTestID: 'tab-agenda'`;
- * - template: `select-student-card-${student.rm}`, ou derivado da prop do
- *   componente, `${testID}-label`, que vale para qualquer testID passado a ele.
+ * Lê o JSX com o parser do Babel e segue a prop `testID` de componente em
+ * componente: `<TermAccordion testID={`boletim-term-${n}`}>` repassa o id ao
+ * `Accordion`, que o põe num `Pressable` e deriva `${testID}-content`. Assim um
+ * sufixo só vale para ids que chegam ao componente que o declara. Props
+ * `*TestID` (`loadingTestID`, `tabBarButtonTestID`) são seguidas pelo nome.
  */
 
 const fs = require('fs');
 const path = require('path');
+const { parseSync } = require('@babel/core');
 const YAML = require('yaml');
 
-const LITERAL = /\w*[tT]estID\s*[=:]\s*(?:"([^"\n]+)"|'([^'\n]+)')/g;
-const TEMPLATE_LINE = /[tT]estID[^\n]*/g;
-const TEMPLATE = /`([^`\n]+)`/g;
-const PROP_BASE = '${testID}';
 const VARIABLE = /\$\{[^}]+\}/g;
 const FLOW_VARIABLE_SAMPLE = '0';
 // Valor de `${x}` num testID: uma palavra seguida de partes numéricas
 // (`12567`, `1`, `2025-03-17`). Não engole um `-sufixo` com letras, para um
 // erro de digitação no meio do id não passar como parte variável.
 const VARIABLE_VALUE = '[A-Za-z0-9]+(?:-[0-9]+)*';
-
-function collectSourcePatterns(source) {
-  const literals = [];
-  const templates = [];
-  for (const match of source.matchAll(LITERAL)) {
-    literals.push(match[1] ?? match[2]);
-  }
-  for (const [line] of source.matchAll(TEMPLATE_LINE)) {
-    for (const match of line.matchAll(TEMPLATE)) {
-      templates.push(match[1]);
-    }
-  }
-  return { literals, templates };
-}
+// Marca o lugar da prop `testID` do componente numa fonte de regex.
+const BASE = '\u0000';
+const MAX_DEPTH = 12;
+const NAMED_TEST_ID = /.TestID$/;
+// JSX fora de função (raro) conta como de um componente sem prop `testID`.
+const MODULE_SCOPE = '(module)';
 
 const escapeRegExp = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/** `${x}` vira `VARIABLE_VALUE`; o resto é literal. */
-function templateToRegExp(template) {
-  const parts = template.split(VARIABLE).map(escapeRegExp);
-  return new RegExp(`^${parts.join(VARIABLE_VALUE)}$`);
+const parse = source =>
+  parseSync(source, {
+    babelrc: false,
+    configFile: false,
+    filename: 'source.tsx',
+    parserOpts: { plugins: ['typescript', 'jsx'] },
+  });
+
+/** Fontes de regex (ou `{ named }`) que uma expressão de testID pode gerar. */
+function idSources(node) {
+  if (!node) return [];
+  switch (node.type) {
+    case 'StringLiteral':
+      return [escapeRegExp(node.value)];
+    case 'TemplateLiteral':
+      return [
+        node.quasis
+          .map((quasi, index) => {
+            const expression = node.expressions[index];
+            const text = escapeRegExp(quasi.value.cooked);
+            if (!expression) return text;
+            const isBase =
+              expression.type === 'Identifier' && expression.name === 'testID';
+            return text + (isBase ? BASE : VARIABLE_VALUE);
+          })
+          .join(''),
+      ];
+    case 'Identifier':
+      if (node.name === 'testID') return [BASE];
+      return NAMED_TEST_ID.test(node.name) ? [{ named: node.name }] : [];
+    case 'MemberExpression':
+      return !node.computed && NAMED_TEST_ID.test(node.property.name)
+        ? [{ named: node.property.name }]
+        : [];
+    case 'LogicalExpression':
+      return [...idSources(node.left), ...idSources(node.right)];
+    case 'ConditionalExpression':
+      return [...idSources(node.consequent), ...idSources(node.alternate)];
+    case 'JSXExpressionContainer':
+      return idSources(node.expression);
+    default:
+      return [];
+  }
 }
 
-function createTestIdMatcher({ literals, templates }) {
-  const known = new Set(literals);
-  const absolute = [];
-  const derived = [];
-  for (const template of templates) {
-    if (template.startsWith(PROP_BASE)) {
-      derived.push(templateToRegExp(template.slice(PROP_BASE.length)));
-    } else {
-      absolute.push(templateToRegExp(template));
-    }
-  }
+const elementName = name =>
+  name.type === 'JSXMemberExpression'
+    ? `${elementName(name.object)}.${name.property.name}`
+    : name.name;
 
-  const cache = new Map();
-  const matches = id => {
-    if (cache.has(id)) return cache.get(id);
-    cache.set(id, false);
-    let result = known.has(id) || absolute.some(regExp => regExp.test(id));
-    // Derivado: alguma divisão base + sufixo em que a base também existe.
-    for (let cut = 1; !result && cut < id.length; cut++) {
-      const tail = id.slice(cut);
-      if (derived.some(regExp => regExp.test(tail))) {
-        result = matches(id.slice(0, cut));
+const isComponentFunction = node =>
+  node?.type === 'ArrowFunctionExpression' ||
+  node?.type === 'FunctionExpression';
+
+/** Usos de testID por componente e os valores literais de cada prop `*TestID`. */
+function collectUsages(sources) {
+  const usages = new Map();
+  const named = new Map();
+  const addNamed = (name, value) =>
+    named.set(name, [...(named.get(name) ?? []), escapeRegExp(value)]);
+
+  const visit = (node, component) => {
+    if (Array.isArray(node)) {
+      node.forEach(child => visit(child, component));
+      return;
+    }
+    if (!node || typeof node.type !== 'string') return;
+
+    let current = component;
+    if (node.type === 'FunctionDeclaration' && node.id) current = node.id.name;
+    if (
+      node.type === 'VariableDeclarator' &&
+      node.id.type === 'Identifier' &&
+      isComponentFunction(node.init)
+    ) {
+      current = node.id.name;
+    }
+    if (!usages.has(current)) usages.set(current, []);
+
+    if (node.type === 'JSXOpeningElement') {
+      for (const attribute of node.attributes) {
+        // `{...props}`: o testID recebido pode ir junto (ex.: CpfInput).
+        if (attribute.type === 'JSXSpreadAttribute') {
+          usages
+            .get(current)
+            .push({ target: elementName(node.name), sources: [BASE] });
+          continue;
+        }
+        const name = attribute.name.name;
+        if (name === 'testID') {
+          usages.get(current).push({
+            target: elementName(node.name),
+            sources: idSources(attribute.value),
+          });
+        } else if (
+          NAMED_TEST_ID.test(name) &&
+          attribute.value?.type === 'StringLiteral'
+        ) {
+          addNamed(name, attribute.value.value);
+        }
       }
     }
-    cache.set(id, result);
-    return result;
+    if (
+      node.type === 'ObjectProperty' &&
+      NAMED_TEST_ID.test(node.key.name ?? '') &&
+      node.value.type === 'StringLiteral'
+    ) {
+      addNamed(node.key.name, node.value.value);
+    }
+
+    for (const [key, child] of Object.entries(node)) {
+      if (key !== 'loc' && child && typeof child === 'object') {
+        visit(child, current);
+      }
+    }
   };
-  return matches;
+
+  sources.forEach(source => visit(parse(source).program, MODULE_SCOPE));
+  return { usages, named };
+}
+
+/**
+ * Matcher dos testID que chegam a um elemento nativo, a partir das fontes
+ * (`.ts`/`.tsx`) do app.
+ */
+function buildTestIdMatcher(sources) {
+  const { usages, named } = collectUsages(sources);
+  const terminals = new Set();
+  const visited = new Set();
+
+  const expand = (component, base, depth) => {
+    const key = `${component}|${base}`;
+    if (depth > MAX_DEPTH || visited.has(key)) return;
+    visited.add(key);
+    for (const { target, sources: idList } of usages.get(component)) {
+      const resolved = idList.flatMap(source => {
+        if (typeof source !== 'string') return named.get(source.named) ?? [];
+        if (!source.includes(BASE)) return [source];
+        return base === null ? [] : [source.split(BASE).join(base)];
+      });
+      for (const id of resolved) {
+        if (usages.has(target)) expand(target, id, depth + 1);
+        else terminals.add(id);
+      }
+    }
+  };
+  for (const component of usages.keys()) expand(component, null, 0);
+
+  const regExps = [...terminals].map(source => new RegExp(`^${source}$`));
+  return id => regExps.some(regExp => regExp.test(id));
 }
 
 /** Os `id` de qualquer nível dos documentos YAML de um flow, em ordem. */
@@ -140,13 +246,9 @@ function extractRunFlowFiles(documents) {
  * testID no código de `srcDir` (fora dos testes).
  */
 function checkFlows({ flowsDir, srcDir, appId }) {
-  const patterns = { literals: [], templates: [] };
-  for (const file of listFiles(srcDir, isAppSource)) {
-    const found = collectSourcePatterns(fs.readFileSync(file, 'utf8'));
-    patterns.literals.push(...found.literals);
-    patterns.templates.push(...found.templates);
-  }
-  const matches = createTestIdMatcher(patterns);
+  const matches = buildTestIdMatcher(
+    listFiles(srcDir, isAppSource).map(file => fs.readFileSync(file, 'utf8')),
+  );
 
   const flows = listFiles(flowsDir, isFlow);
   const errors = [];
@@ -180,8 +282,7 @@ function checkFlows({ flowsDir, srcDir, appId }) {
 }
 
 module.exports = {
+  buildTestIdMatcher,
   checkFlows,
-  collectSourcePatterns,
-  createTestIdMatcher,
   extractFlowIds,
 };
