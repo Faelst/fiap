@@ -21,39 +21,45 @@ export function AgendaSkeleton({ testID }: { testID: string }) {
       accessibilityRole="progressbar"
       accessibilityLabel={strings.agenda.loadingAccessibilityLabel}
       exiting={FadeOut.duration(motion.fast).reduceMotion(ReduceMotion.System)}
-      style={pulse}
     >
-      <Box
-        testID={`${testID}-blocks`}
-        importantForAccessibility="no-hide-descendants"
-      >
-        <Skeleton
-          testID={`${testID}-dropdown`}
-          marginHorizontal="l"
-          height={sizes.dropdown}
-        />
-        <Box paddingHorizontal="xxxl" marginTop="l" gap="m">
-          {rows.map(row => (
-            <Box key={row} testID={`${testID}-row-${row}`} flexDirection="row">
+      {/* O pulso fica num filho: a saída (layout animation) também mexe na opacidade. */}
+      <Animated.View style={pulse}>
+        <Box
+          testID={`${testID}-blocks`}
+          importantForAccessibility="no-hide-descendants"
+        >
+          <Skeleton
+            testID={`${testID}-dropdown`}
+            marginHorizontal="l"
+            height={sizes.dropdown}
+          />
+          <Box paddingHorizontal="xxxl" marginTop="l" gap="m">
+            {rows.map(row => (
               <Box
-                width={sizes.bulletSlot}
-                height={textVariants.captionPlain.lineHeight}
-                justifyContent="center"
+                key={row}
+                testID={`${testID}-row-${row}`}
+                flexDirection="row"
               >
-                <Skeleton
-                  radius="round"
-                  width={sizes.bullet}
-                  height={sizes.bullet}
-                />
+                <Box
+                  width={sizes.bulletSlot}
+                  height={textVariants.captionPlain.lineHeight}
+                  justifyContent="center"
+                >
+                  <Skeleton
+                    radius="round"
+                    width={sizes.bullet}
+                    height={sizes.bullet}
+                  />
+                </Box>
+                <Box gap="s">
+                  <Skeleton style={sizes.skeletonLessonTime} />
+                  <Skeleton style={sizes.skeletonLessonSubject} />
+                </Box>
               </Box>
-              <Box gap="s">
-                <Skeleton style={sizes.skeletonLessonTime} />
-                <Skeleton style={sizes.skeletonLessonSubject} />
-              </Box>
-            </Box>
-          ))}
+            ))}
+          </Box>
         </Box>
-      </Box>
+      </Animated.View>
     </Animated.View>
   );
 }
