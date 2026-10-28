@@ -1,10 +1,24 @@
 import * as Keychain from 'react-native-keychain';
 
+import { logger } from '../../logger';
+import { mmkv } from '../mmkv';
 import { createSecureStorage } from '../secureStorage';
+
+const SERVICE = 'br.com.fiap.school.session';
+
+/** Token que ficou no keychain de uma instalação anterior (iOS). */
+const leftoverToken = (token: string) =>
+  Keychain.setGenericPassword('session', token, { service: SERVICE });
+
+const keychainToken = async () => {
+  const entry = await Keychain.getGenericPassword({ service: SERVICE });
+  return entry ? entry.password : null;
+};
 
 describe('secureStorage', () => {
   let secureStorage = createSecureStorage();
   beforeEach(() => {
+    mmkv.clearAll();
     secureStorage = createSecureStorage();
   });
 
@@ -56,9 +70,74 @@ describe('secureStorage', () => {
   });
 
   it('devolve null se o keychain falhar na leitura', async () => {
+    await secureStorage.loadToken(); // primeira abertura já passou
+    secureStorage = createSecureStorage();
     (Keychain.getGenericPassword as jest.Mock).mockRejectedValueOnce(
       new Error('keychain indisponível'),
     );
     expect(await secureStorage.getToken()).toBeNull();
+  });
+
+  describe('primeira abertura depois de instalar (iOS guarda o keychain após desinstalar)', () => {
+    it('sem a marca de instalação, apaga o token que sobrou e devolve null', async () => {
+      await leftoverToken('jwt-da-instalacao-anterior');
+
+      expect(await secureStorage.loadToken()).toBeNull();
+      expect(await keychainToken()).toBeNull();
+    });
+
+    it('grava a marca: a abertura seguinte lê o keychain normalmente', async () => {
+      await secureStorage.loadToken();
+      await leftoverToken('jwt-novo');
+
+      expect(await createSecureStorage().loadToken()).toBe('jwt-novo');
+    });
+
+    it('se apagar falhar, não usa o token e tenta de novo na próxima abertura', async () => {
+      await leftoverToken('jwt-da-instalacao-anterior');
+      (Keychain.resetGenericPassword as jest.Mock).mockRejectedValueOnce(
+        new Error('keychain indisponível'),
+      );
+
+      expect(await secureStorage.loadToken()).toBeNull();
+      expect(await createSecureStorage().loadToken()).toBeNull();
+      expect(await keychainToken()).toBeNull();
+    });
+  });
+
+  describe('falha ao apagar o token no logout', () => {
+    beforeEach(async () => {
+      await secureStorage.setToken('jwt-1');
+      (Keychain.resetGenericPassword as jest.Mock).mockRejectedValueOnce(
+        new Error('keychain indisponível'),
+      );
+    });
+
+    it('registra como erro, sem o token', async () => {
+      const error = jest.spyOn(logger, 'error');
+
+      await secureStorage.clearToken();
+
+      expect(error).toHaveBeenCalledWith(
+        'secureStorage: falha ao apagar o token',
+        expect.anything(),
+      );
+      expect(JSON.stringify(error.mock.calls)).not.toContain('jwt-1');
+      error.mockRestore();
+    });
+
+    it('a sessão não volta na próxima abertura, e o token é apagado nela', async () => {
+      await secureStorage.clearToken();
+
+      expect(await createSecureStorage().loadToken()).toBeNull();
+      expect(await keychainToken()).toBeNull();
+    });
+
+    it('um novo login vale normalmente', async () => {
+      await secureStorage.clearToken();
+      await secureStorage.setToken('jwt-2');
+
+      expect(await createSecureStorage().loadToken()).toBe('jwt-2');
+    });
   });
 });

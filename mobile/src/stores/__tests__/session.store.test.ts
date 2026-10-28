@@ -1,3 +1,5 @@
+import * as Keychain from 'react-native-keychain';
+
 import { queryClient } from '../../app/queryClient';
 import { mmkv } from '../../services/storage/mmkv';
 import { createSecureStorage } from '../../services/storage/secureStorage';
@@ -27,6 +29,34 @@ describe('session store', () => {
   it('bootstrap com token no keychain → signedIn', async () => {
     await createSecureStorage().setToken('jwt-antigo');
     await useSessionStore.getState().bootstrap();
+    expect(useSessionStore.getState().status).toBe('signedIn');
+  });
+
+  it('bootstrap sem a marca de instalação + token no keychain → signedOut e keychain limpo', async () => {
+    mmkv.clearAll();
+    await Keychain.setGenericPassword(
+      'session',
+      'jwt-de-antes-de-desinstalar',
+      {
+        service: 'br.com.fiap.school.session',
+      },
+    );
+
+    await useSessionStore.getState().bootstrap();
+
+    expect(useSessionStore.getState().status).toBe('signedOut');
+    expect(await tokenInKeychain()).toBeNull();
+  });
+
+  it('bootstrap com a marca de instalação + token no keychain → signedIn', async () => {
+    mmkv.clearAll();
+    await createSecureStorage().loadToken(); // primeira abertura grava a marca
+    await Keychain.setGenericPassword('session', 'jwt-salvo', {
+      service: 'br.com.fiap.school.session',
+    });
+
+    await useSessionStore.getState().bootstrap();
+
     expect(useSessionStore.getState().status).toBe('signedIn');
   });
 
