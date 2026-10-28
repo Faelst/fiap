@@ -1,4 +1,5 @@
 import { useIsFocused } from '@react-navigation/native';
+import { RefreshControl } from 'react-native';
 
 import { BoletimSkeleton } from '../../components/BoletimSkeleton';
 import { EmptyState } from '../../components/EmptyState';
@@ -26,7 +27,7 @@ export function ReportCardScreen() {
   const vm = useReportCardViewModel();
   // As abas ficam montadas: só a visível anuncia o erro (3.8).
   const isFocused = useIsFocused();
-  const { motion } = useTheme();
+  const { colors, motion } = useTheme();
   const segmentsDelay = 3 * motion.stagger;
   const cardDelay = (index: number) =>
     vm.contentEnterDelay +
@@ -50,6 +51,15 @@ export function ReportCardScreen() {
         title={strings.boletim.title}
         titleTestID="boletim-title"
         scrollTestID="boletim-scroll"
+        refreshControl={
+          <RefreshControl
+            refreshing={vm.refreshing}
+            onRefresh={vm.onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+            progressBackgroundColor={colors.surfaceRaised}
+          />
+        }
       >
         <Box marginTop="sm" paddingBottom="l">
           {vm.status === 'loading' ? (

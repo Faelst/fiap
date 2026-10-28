@@ -306,8 +306,11 @@ export function useAgendaViewModel({
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await query.refetch();
-    setRefreshing(false);
+    try {
+      await query.refetch();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   return {

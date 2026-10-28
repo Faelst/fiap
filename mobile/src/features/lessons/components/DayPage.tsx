@@ -122,6 +122,7 @@ export const DayPage = memo(function DayPageView({
           onRefresh={onRefresh}
           tintColor={colors.primary}
           colors={[colors.primary]}
+          progressBackgroundColor={colors.surfaceRaised}
         />
       }
     >

@@ -286,6 +286,21 @@ export function useReportCardViewModel() {
     setChosenTerm(term);
   };
 
+  // Pull-to-refresh (2.15): o spinner só quando o usuário puxou; refaz os
+  // anos e o boletim do ano em tela, sem refazer a cascata de entrada.
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        yearsQuery.refetch(),
+        selectedYear === null ? null : reportQuery.refetch(),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const onRetry = async () => {
     if (retrying) return;
     setRetrying(true);
@@ -324,6 +339,8 @@ export function useReportCardViewModel() {
     onSelectTerm,
     onRetry,
     retrying,
+    refreshing,
+    onRefresh,
     /** Muda a cada Tentar de novo que falha: dispara o shake do ErrorState. */
     shakeKey: failedRetries,
   };
