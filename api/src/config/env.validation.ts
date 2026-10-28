@@ -83,9 +83,10 @@ export class EnvironmentVariables {
   /**
    * Número com unidade obrigatória: s, m, h, d, w ou y ("900s", "30m", "7d").
    * Sem unidade o jsonwebtoken lê a string como milissegundos ("3600" = 3,6 s).
+   * Zero (ou zero à esquerda) é recusado: todo token já sairia expirado.
    */
   @IsString()
-  @Matches(/^\d+(s|m|h|d|w|y)$/)
+  @Matches(/^[1-9]\d*(s|m|h|d|w|y)$/)
   JWT_EXPIRES_IN: string = '7d';
 
   /** "*" ou lista de origens separadas por vírgula. */

@@ -54,7 +54,7 @@ describe('validateEnv', () => {
     },
   );
 
-  it.each(['3600', '500ms', 'sete dias', '7 dias', '-1d', '7x'])(
+  it.each(['3600', '500ms', 'sete dias', '7 dias', '-1d', '7x', '0s', '0m', '00d', '07d'])(
     'recusa JWT_EXPIRES_IN "%s"',
     (value) => {
       expect(() => validateEnv({ ...validEnv, JWT_EXPIRES_IN: value })).toThrow(
