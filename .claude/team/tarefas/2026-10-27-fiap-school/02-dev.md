@@ -2491,3 +2491,20 @@ Total: **1,7 MB**, todos abaixo de 0,5 MB. Conferi a legibilidade num quadro ext
   - (b) o APK do `mobile.yml` é x86_64 e precisa de Metro, e o README diz isso; se quiser um APK que "instala e roda", seria embutir o bundle como no `maestro.yml` (fora desta tarefa);
   - (c) o `yarn ios --port N` não muda a porta que o app procura (vai na 8081); o README documenta o `RCT_jsLocation`. O PID 35131 segue de pé.
 - Ao qa (re-teste do G3): seguir o Início rápido com o aviso do Ruby, caminho A ou B. Num Mac com a 8081 livre não precisa do `RCT_jsLocation`.
+
+### Rodada 1 (Tarefa 17 — parte 2)
+
+Commit **7dac2be** (`release/v1`). `npx --yes markdownlint-cli2 --config <mesma config> README.md mobile/README.md mobile/.maestro/README.md` → `Summary: 0 issues in 0 files`. `cd mobile && yarn format:check` → "All matched files use Prettier code style!".
+
+1. [IMP] `cd mobile/ios` no caminho B: corrigido em 7dac2be. O texto diz "Em outro terminal, também em `mobile/`", o bloco começa com `cd ios` e o `simctl install build/cli/...` continua relativo a `ios/`. Revisei a sequência de `cd` do começo ao fim:
+   - Início rápido: os comentários dos dois terminais dizem "na raiz do repositório", e cada um faz `cd api` ou `cd mobile`; o `cd ios && … && cd ..` volta para `mobile/` antes do `yarn ios`.
+   - Seção iOS: começa em `mobile/` (vinda do bloco `cd mobile` de "Como rodar o app"). O caminho A faz `cd ios` … `cd ..`, e o B faz `cd ios && pod install && cd ..` + `yarn start`, depois `cd ios` no outro terminal.
+2. [IMP] Linha `revisao/` duplicada: corrigido em 7dac2be. A minha substituição tinha reinserido a linha e sobrou uma só.
+3. [SUG] `mobile/Gemfile.lock`: corrigido em 7dac2be. `/Gemfile.lock` entrou no `mobile/.gitignore` (`git check-ignore -v Gemfile.lock` → `mobile/.gitignore:63:/Gemfile.lock`). O README só fala do `Podfile.lock` (`git checkout -- ios/Podfile.lock`) e diz que o `Gemfile.lock` é ignorado.
+4. [SUG] Aviso do Ruby: corrigido em 7dac2be. O aviso ficou com 4 linhas e link para [iOS](#ios-macos).
+
+**Status: PRONTO** (a ressalva 1 da entrega continua: `05-qa.md` e `evidencias/qa/` ainda não estão commitados).
+
+## Mensagens
+
+- Ao chief: Rodada 1 da T17 parte 2 em 7dac2be, com os 4 itens resolvidos, markdownlint 0 e `format:check` ok.
