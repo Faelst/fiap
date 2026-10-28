@@ -1,12 +1,10 @@
 import { useMutation } from '@tanstack/react-query';
 
 import { queryClient, queryKeys } from '../../../app/queryClient';
+import { strings } from '../../../constants/strings';
 import { ApiError } from '../../../services/http/errors';
 import { useSessionStore } from '../../../stores/session.store';
 import { getMe, login, type LoginInput } from '../services/auth.service';
-
-const STORAGE_ERROR_MESSAGE =
-  'Não foi possível salvar o acesso neste aparelho. Tente de novo.';
 
 /**
  * Login: valida as credenciais na API, carrega o `/me` com o token novo e
@@ -32,7 +30,7 @@ export function useLoginMutation() {
         // Sem sessão, os dados do responsável não ficam no cache.
         queryClient.removeQueries({ queryKey: queryKeys.me() });
         throw new ApiError('storage', {
-          message: STORAGE_ERROR_MESSAGE,
+          message: strings.login.error.storage,
           cause,
         });
       }

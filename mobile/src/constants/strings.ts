@@ -4,7 +4,6 @@
  */
 export const strings = {
   login: {
-    logoLabel: 'FIAP School',
     cpfLabel: 'CPF',
     cpfHint: 'Somente números',
     passwordLabel: 'SENHA',
@@ -21,15 +20,14 @@ export const strings = {
         'Muitas tentativas seguidas.\nAguarde um minuto e tente de novo.',
       server: 'Algo deu errado do nosso lado.\nTente de novo em instantes.',
       sessionExpired: 'Sua sessão expirou. Entre de novo.',
+      storage:
+        'Não foi possível salvar o acesso neste aparelho. Tente de novo.',
     },
   },
   header: {
-    logoLabel: 'FIAP School',
     /** Seguido do primeiro nome em `greetingName` (maiúsculo pela variante). */
     greeting: 'Olá, ',
     greetingAccessibilityLabel: (name: string) => `Olá, ${name}`,
-    studentInfo: (className: string, rm: number, period: string) =>
-      `${className} - RM ${rm} - ${period}`,
     studentAccessibilityLabel: (
       name: string,
       className: string,
@@ -90,8 +88,6 @@ export const strings = {
     close: 'FECHAR',
     closeAccessibilityLabel: 'Fechar',
     title: 'Escolha o perfil\nque você quer visualizar',
-    studentInfo: (className: string, rm: number, period: string) =>
-      `${className} - RM ${rm} - ${period}`,
     cardAccessibilityLabel: (
       fullName: string,
       className: string,
@@ -104,10 +100,18 @@ export const strings = {
     description:
       'Não encontramos alunos ligados ao seu CPF. Fale com a secretaria da FIAP School para fazer o vínculo.',
   },
+  splash: {
+    loadingAccessibilityLabel: 'Carregando',
+  },
   boot: {
     error: { title: 'Não conseguimos conectar.' },
   },
   common: {
+    /** Logo da splash, do Login e do Header. */
+    logoLabel: 'FIAP School',
+    /** `7EF - RM 12567 - Matutino` (Header e cartão da troca de aluno). */
+    studentInfo: (className: string, rm: number, period: string) =>
+      `${className} - RM ${rm} - ${period}`,
     /** Fundo do dropdown aberto: o leitor de tela também fecha a lista por ele. */
     closeListAccessibilityLabel: 'Fechar lista',
     error: { description: 'Confira sua conexão e tente de novo.' },

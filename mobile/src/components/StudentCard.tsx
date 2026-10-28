@@ -68,7 +68,7 @@ export function StudentCard({
           {fullName}
         </Text>
         <Text variant="body">
-          {strings.selectStudent.studentInfo(className, rm, period)}
+          {strings.common.studentInfo(className, rm, period)}
         </Text>
       </AnimatedCard>
     </Pressable>

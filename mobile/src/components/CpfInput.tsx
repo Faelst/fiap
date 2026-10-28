@@ -1,3 +1,4 @@
+import { strings } from '../constants/strings';
 import { formatCpf } from '../utils/cpf';
 import { UnderlineInput, type UnderlineInputProps } from './UnderlineInput';
 
@@ -16,7 +17,7 @@ type CpfInputProps = Omit<
 export function CpfInput({ onChangeText, ...props }: CpfInputProps) {
   return (
     <UnderlineInput
-      accessibilityHint="Somente números"
+      accessibilityHint={strings.login.cpfHint}
       {...props}
       onChangeText={text => onChangeText(formatCpf(text))}
       keyboardType="number-pad"

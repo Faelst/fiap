@@ -44,7 +44,7 @@ export function ActionBar({
           <Image
             source={logo}
             accessibilityRole="image"
-            accessibilityLabel={strings.header.logoLabel}
+            accessibilityLabel={strings.common.logoLabel}
             style={sizes.logoHeader}
           />
         </Box>

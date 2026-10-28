@@ -100,7 +100,7 @@ export function LoginScreen({ route }: RootStackScreenProps<'Login'>) {
             testID="login-logo"
             source={logo}
             accessibilityRole="image"
-            accessibilityLabel={strings.login.logoLabel}
+            accessibilityLabel={strings.common.logoLabel}
             style={sizes.logoLogin}
           />
         </Animated.View>

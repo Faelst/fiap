@@ -120,7 +120,7 @@ export function Header({
                 {student.firstName}
               </Text>
               <Text testID="header-student-info" variant="body">
-                {strings.header.studentInfo(
+                {strings.common.studentInfo(
                   student.className,
                   student.rm,
                   student.period,

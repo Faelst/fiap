@@ -4,15 +4,13 @@ import BootSplash from 'react-native-bootsplash';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { strings } from '../../constants/strings';
 import type { RootStackScreenProps } from '../../navigation/types';
 import { Box, useTheme } from '../../theme';
 import { useSplashAnimation } from './useSplashAnimation';
 import { useSplashViewModel } from './useSplashViewModel';
 
 const logo = require('../../../assets/logo-fiap-school.png');
-
-const LABEL = 'FIAP School';
-const LOADING_LABEL = 'Carregando';
 
 /**
  * Splash animada (01-design.md, 3.1). A nativa é só fundo preto; esta tela
@@ -123,7 +121,7 @@ export function SplashScreen({ navigation }: RootStackScreenProps<'Splash'>) {
   return (
     <Box
       testID="splash-screen"
-      accessibilityLabel={LABEL}
+      accessibilityLabel={strings.common.logoLabel}
       flex={1}
       backgroundColor="background"
       alignItems="center"
@@ -135,7 +133,7 @@ export function SplashScreen({ navigation }: RootStackScreenProps<'Splash'>) {
           testID="splash-logo"
           accessible
           accessibilityRole="image"
-          accessibilityLabel={LABEL}
+          accessibilityLabel={strings.common.logoLabel}
           style={[layers.logo, styles.group]}
         >
           <Box
@@ -164,7 +162,7 @@ export function SplashScreen({ navigation }: RootStackScreenProps<'Splash'>) {
           testID="splash-loading"
           accessible={showLoader}
           accessibilityRole="progressbar"
-          accessibilityLabel={LOADING_LABEL}
+          accessibilityLabel={strings.splash.loadingAccessibilityLabel}
           accessibilityElementsHidden={!showLoader}
           importantForAccessibility={showLoader ? 'yes' : 'no-hide-descendants'}
           style={[layers.track, styles.loader]}
