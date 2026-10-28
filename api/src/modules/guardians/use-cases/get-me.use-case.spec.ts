@@ -1,4 +1,4 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { GuardianNotFoundError } from '../errors/guardian-not-found.error';
 import {
   GuardianProfile,
   GuardianProfilesRepository,
@@ -100,9 +100,9 @@ describe('GetMeUseCase', () => {
     expect(me.cpf).toBe('***.159.265-**');
   });
 
-  it('recusa com 401 o token de um responsável que não existe mais', async () => {
+  it('recusa com GuardianNotFoundError o token de um responsável que não existe mais', async () => {
     await expect(
       useCase.execute({ guardianId: 'guardian-apagado' }),
-    ).rejects.toThrow(UnauthorizedException);
+    ).rejects.toThrow(GuardianNotFoundError);
   });
 });

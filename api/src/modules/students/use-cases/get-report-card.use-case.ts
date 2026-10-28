@@ -1,10 +1,9 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { ReportCardNotFoundError } from '../errors/report-card-not-found.error';
 import {
   STUDENTS_REPOSITORY,
   type StudentsRepository,
 } from '../repositories/students.repository';
-
-export const REPORT_CARD_NOT_FOUND_MESSAGE = 'Boletim não encontrado.';
 
 /** O boletim sempre tem os três trimestres, avaliados ou não. */
 const TERMS = [1, 2, 3] as const;
@@ -46,12 +45,12 @@ export class GetReportCardUseCase {
     // Ano fora da faixa nunca tem boletim. Também evita mandar ao Prisma um
     // inteiro acima de 64 bits, que vira erro 500 em vez de 404.
     if (!Number.isInteger(year) || year < MIN_YEAR || year > MAX_YEAR) {
-      throw new NotFoundException(REPORT_CARD_NOT_FOUND_MESSAGE);
+      throw new ReportCardNotFoundError();
     }
 
     const card = await this.students.findReportCard(studentId, year);
     if (!card) {
-      throw new NotFoundException(REPORT_CARD_NOT_FOUND_MESSAGE);
+      throw new ReportCardNotFoundError();
     }
 
     return {

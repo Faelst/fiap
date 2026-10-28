@@ -1,4 +1,5 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { GuardianNotFoundError } from '../errors/guardian-not-found.error';
 import { maskCpf } from '../../../shared/utils/mask-cpf';
 import {
   GUARDIAN_PROFILES_REPOSITORY,
@@ -33,7 +34,7 @@ export class GetMeUseCase {
     const profile = await this.profiles.findProfileById(guardianId);
     if (!profile) {
       // Token válido de um responsável que não existe mais.
-      throw new UnauthorizedException();
+      throw new GuardianNotFoundError();
     }
 
     return {

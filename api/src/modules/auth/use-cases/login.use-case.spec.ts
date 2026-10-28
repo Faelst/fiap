@@ -1,4 +1,3 @@
-import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { getRounds, hash } from 'bcryptjs';
 import {
@@ -9,7 +8,11 @@ import {
   BcryptPasswordHasher,
   DUMMY_PASSWORD_HASH,
 } from '../services/password-hasher';
-import { INVALID_CREDENTIALS_MESSAGE, LoginUseCase } from './login.use-case';
+import {
+  INVALID_CREDENTIALS_MESSAGE,
+  InvalidCredentialsError,
+} from '../errors/invalid-credentials.error';
+import { LoginUseCase } from './login.use-case';
 
 class InMemoryGuardiansRepository implements GuardiansRepository {
   constructor(private readonly guardians: GuardianCredentials[]) {}
@@ -80,16 +83,16 @@ describe('LoginUseCase', () => {
     expect(JSON.stringify(result)).not.toContain('96929456004');
   });
 
-  it('recusa CPF inexistente com 401 e a mensagem padrão', async () => {
+  it('recusa CPF inexistente com InvalidCredentialsError e a mensagem padrão', async () => {
     await expect(
       useCase.execute({ cpf: '50879567007', password: PASSWORD }),
-    ).rejects.toThrow(new UnauthorizedException(INVALID_CREDENTIALS_MESSAGE));
+    ).rejects.toThrow(new InvalidCredentialsError());
   });
 
-  it('recusa senha errada com 401 e a mensagem padrão', async () => {
+  it('recusa senha errada com InvalidCredentialsError e a mensagem padrão', async () => {
     await expect(
       useCase.execute({ cpf: '96929456004', password: '654321' }),
-    ).rejects.toThrow(new UnauthorizedException(INVALID_CREDENTIALS_MESSAGE));
+    ).rejects.toThrow(new InvalidCredentialsError());
   });
 
   it('usa a mesma resposta para CPF inexistente e senha errada', async () => {
@@ -100,11 +103,12 @@ describe('LoginUseCase', () => {
       .execute({ cpf: '96929456004', password: '654321' })
       .catch((error: unknown) => error);
 
-    expect(unknownCpf).toBeInstanceOf(UnauthorizedException);
-    expect(wrongPassword).toBeInstanceOf(UnauthorizedException);
-    expect((unknownCpf as UnauthorizedException).getResponse()).toEqual(
-      (wrongPassword as UnauthorizedException).getResponse(),
+    expect(unknownCpf).toBeInstanceOf(InvalidCredentialsError);
+    expect(wrongPassword).toBeInstanceOf(InvalidCredentialsError);
+    expect((unknownCpf as Error).message).toBe(
+      (wrongPassword as Error).message,
     );
+    expect((unknownCpf as Error).message).toBe(INVALID_CREDENTIALS_MESSAGE);
     expect(INVALID_CREDENTIALS_MESSAGE).toBe('Usuário ou senha inválida.');
   });
 
@@ -113,7 +117,7 @@ describe('LoginUseCase', () => {
 
     await expect(
       useCase.execute({ cpf: '50879567007', password: PASSWORD }),
-    ).rejects.toThrow(UnauthorizedException);
+    ).rejects.toThrow(InvalidCredentialsError);
 
     expect(compare).toHaveBeenCalledTimes(1);
     expect(compare).toHaveBeenCalledWith(PASSWORD, DUMMY_PASSWORD_HASH);
@@ -128,7 +132,7 @@ describe('LoginUseCase', () => {
 
     await expect(
       useCase.execute({ cpf: '96929456004', password: '654321' }),
-    ).rejects.toThrow(UnauthorizedException);
+    ).rejects.toThrow(InvalidCredentialsError);
 
     expect(sign).not.toHaveBeenCalled();
   });

@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import type { AuthenticatedGuardian } from '../decorators/current-guardian';
+import { SESSION_INVALID_MESSAGE } from '../errors/session-invalid';
 
 export const STUDENT_ACCESS_CHECKER = Symbol('STUDENT_ACCESS_CHECKER');
 
@@ -46,7 +47,7 @@ export class StudentOwnershipGuard implements CanActivate {
     >();
     const guardianId = request.user?.id;
     if (!guardianId) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException(SESSION_INVALID_MESSAGE);
     }
 
     const studentId = request.params?.id;
@@ -56,7 +57,7 @@ export class StudentOwnershipGuard implements CanActivate {
 
     const access = await this.checker.checkAccess(guardianId, studentId);
     if (access === 'unknown-guardian') {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException(SESSION_INVALID_MESSAGE);
     }
     if (access !== 'granted') {
       throw new ForbiddenException(STUDENT_ACCESS_DENIED_MESSAGE);

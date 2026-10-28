@@ -1,5 +1,6 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { InvalidCredentialsError } from '../errors/invalid-credentials.error';
 import {
   GUARDIANS_REPOSITORY,
   type GuardiansRepository,
@@ -9,8 +10,6 @@ import {
   PASSWORD_HASHER,
   type PasswordHasher,
 } from '../services/password-hasher';
-
-export const INVALID_CREDENTIALS_MESSAGE = 'Usuário ou senha inválida.';
 
 export interface LoginInput {
   /** Só dígitos (11). */
@@ -48,7 +47,7 @@ export class LoginUseCase {
       guardian?.passwordHash ?? DUMMY_PASSWORD_HASH,
     );
     if (!guardian || !passwordMatches) {
-      throw new UnauthorizedException(INVALID_CREDENTIALS_MESSAGE);
+      throw new InvalidCredentialsError();
     }
 
     const payload: AccessTokenPayload = { sub: guardian.id };

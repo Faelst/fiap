@@ -1,10 +1,10 @@
-import { NotFoundException } from '@nestjs/common';
+import {
+  REPORT_CARD_NOT_FOUND_MESSAGE,
+  ReportCardNotFoundError,
+} from '../errors/report-card-not-found.error';
 import { TermResultRecord } from '../repositories/students.repository';
 import { InMemoryStudentsRepository } from '../testing/in-memory-students.repository';
-import {
-  GetReportCardUseCase,
-  REPORT_CARD_NOT_FOUND_MESSAGE,
-} from './get-report-card.use-case';
+import { GetReportCardUseCase } from './get-report-card.use-case';
 
 const result = (
   term: number,
@@ -109,19 +109,19 @@ describe('GetReportCardUseCase', () => {
     ]);
   });
 
-  it('recusa com 404 o ano sem boletim', async () => {
+  it('recusa com ReportCardNotFoundError o ano sem boletim', async () => {
     await expect(
       useCase.execute({ studentId: 'rafael', year: 2023 }),
-    ).rejects.toThrow(new NotFoundException(REPORT_CARD_NOT_FOUND_MESSAGE));
+    ).rejects.toThrow(new ReportCardNotFoundError());
     expect(REPORT_CARD_NOT_FOUND_MESSAGE).toBe('Boletim não encontrado.');
   });
 
   it.each([0, -1, 10000, 2 ** 31])(
-    'recusa com 404 o ano fora de 1 a 9999 (%d) sem consultar o repositório',
+    'recusa com ReportCardNotFoundError o ano fora de 1 a 9999 (%d) sem consultar o repositório',
     async (year) => {
       await expect(
         useCase.execute({ studentId: 'rafael', year }),
-      ).rejects.toThrow(new NotFoundException(REPORT_CARD_NOT_FOUND_MESSAGE));
+      ).rejects.toThrow(new ReportCardNotFoundError());
       expect(repository.calls).toEqual([]);
     },
   );

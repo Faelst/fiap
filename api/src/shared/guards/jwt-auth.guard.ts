@@ -1,7 +1,12 @@
-import { ExecutionContext, Injectable } from '@nestjs/common';
+import {
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { IS_PUBLIC_KEY } from '../decorators/public';
+import { SESSION_INVALID_MESSAGE } from '../errors/session-invalid';
 
 /**
  * Guard global (APP_GUARD): toda rota exige `Authorization: Bearer <token>`,
@@ -22,5 +27,13 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       return true;
     }
     return super.canActivate(context);
+  }
+
+  /** Sem token, token inválido ou expirado: o mesmo 401, em português. */
+  handleRequest<TUser>(error: unknown, user: TUser | false): TUser {
+    if (error || !user) {
+      throw new UnauthorizedException(SESSION_INVALID_MESSAGE);
+    }
+    return user;
   }
 }
