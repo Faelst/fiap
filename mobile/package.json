@@ -12,7 +12,9 @@
     "tsc": "tsc --noEmit",
     "test": "jest",
     "link:assets": "react-native-asset",
-    "maestro:check": "node .maestro/scripts/check-testids.js"
+    "maestro:check": "node .maestro/scripts/check-testids.js",
+    "maestro:test": "node .maestro/scripts/run-maestro.js",
+    "maestro:install": "curl -fsSL https://get.maestro.mobile.dev | MAESTRO_VERSION=2.11.0 bash"
   },
   "dependencies": {
     "@hookform/resolvers": "5.9.1",
