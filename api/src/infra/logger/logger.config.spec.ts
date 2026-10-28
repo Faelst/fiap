@@ -5,6 +5,7 @@ import type { Options } from 'pino-http';
 import {
   buildLoggerParams,
   buildPinoHttpOptions,
+  serializeRequest,
   shouldUsePrettyLogs,
 } from './logger.config';
 
@@ -134,6 +135,37 @@ describe('buildPinoHttpOptions', () => {
 
   it('em produção sai JSON (sem transport)', () => {
     expect(buildPinoHttpOptions(JSON_SETTINGS).transport).toBeUndefined();
+  });
+});
+
+describe('serializeRequest', () => {
+  it('tira a query da url e não grava o objeto query', () => {
+    expect(
+      serializeRequest({
+        id: '1',
+        method: 'GET',
+        url: '/api/me?access_token=eyJ.x&cpf=96929456004',
+        query: { access_token: 'eyJ.x', cpf: '96929456004' },
+        headers: { 'user-agent': 'jest' },
+      }),
+    ).toEqual({
+      id: '1',
+      method: 'GET',
+      url: '/api/me',
+      headers: { 'user-agent': 'jest' },
+    });
+  });
+
+  it('mantém a url sem query como está', () => {
+    expect(serializeRequest({ url: '/api/health' })).toEqual({
+      url: '/api/health',
+    });
+  });
+
+  it('é o serializer de req do pino-http', () => {
+    expect(buildPinoHttpOptions(JSON_SETTINGS).serializers?.req).toBe(
+      serializeRequest,
+    );
   });
 });
 

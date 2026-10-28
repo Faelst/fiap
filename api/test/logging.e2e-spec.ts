@@ -91,6 +91,19 @@ describe('Logs de requisição (e2e)', () => {
     });
   });
 
+  it('a query string não vai para o log', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/api/health?access_token=eyJ.segredo-na-url&cpf=96929456004')
+      .expect(200);
+
+    const entry = findRequestLog(response.headers['x-request-id']);
+    expect(entry?.req.url).toBe('/api/health');
+    expect(entry?.req).not.toHaveProperty('query');
+    const line = JSON.stringify(entry);
+    expect(line).not.toContain('segredo-na-url');
+    expect(line).not.toContain('96929456004');
+  });
+
   it('erro do cliente (4xx) sai como warn', async () => {
     const response = await request(app.getHttpServer())
       .get('/api/me')

@@ -27,7 +27,21 @@ export const REDACTED_LOG_PATHS = [
 ];
 
 /**
- * pino-pretty só com NODE_ENV=development explícito (o `yarn start:dev` define).
+ * O req já serializado pelo pino-http, sem a query: a URL vai sem `?...` e o
+ * objeto `query` sai. Token ou CPF mandado por engano na URL não chega ao log.
+ */
+export function serializeRequest(
+  req: Record<string, unknown>,
+): Record<string, unknown> {
+  const { query: _query, ...rest } = req;
+  void _query;
+  return typeof rest.url === 'string'
+    ? { ...rest, url: rest.url.split('?')[0] }
+    : rest;
+}
+
+/**
+ * pino-pretty só com NODE_ENV=development explícito (vem do .env.example).
  * Qualquer outro caso, inclusive sem NODE_ENV, sai em JSON: esquecer a env em
  * produção não troca o formato do log.
  */
@@ -42,6 +56,7 @@ export function buildPinoHttpOptions({
   return {
     level,
     redact: { paths: REDACTED_LOG_PATHS, remove: true },
+    serializers: { req: serializeRequest },
     genReqId: (req, res) => {
       const id = resolveRequestId(req.headers[REQUEST_ID_HEADER]);
       res.setHeader(REQUEST_ID_HEADER, id);
