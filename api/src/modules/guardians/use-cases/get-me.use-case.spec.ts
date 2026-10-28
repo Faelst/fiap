@@ -25,7 +25,7 @@ const gustavo: GuardianProfile = {
   firstName: 'Gustavo',
   lastName: 'da Silva',
   cpf: '96929456004',
-  // Fora de ordem de propósito: o use case ordena por nome.
+  // Ordem do vínculo (a do JSON oficial), que não é a alfabética.
   students: [rafael, joana],
 };
 const carlos: GuardianProfile = {
@@ -53,16 +53,16 @@ describe('GetMeUseCase', () => {
       firstName: 'Gustavo',
       lastName: 'da Silva',
       cpf: '***.294.560-**',
-      students: [joana, rafael],
+      students: [rafael, joana],
     });
   });
 
-  it('ordena os alunos pelo primeiro nome', async () => {
+  it('mantém os alunos na ordem do repositório, sem reordenar por nome', async () => {
     const me = await useCase.execute({ guardianId: 'guardian-gustavo' });
 
     expect(me.students.map((student) => student.firstName)).toEqual([
-      'Joana',
       'Rafael',
+      'Joana',
     ]);
   });
 
@@ -72,7 +72,7 @@ describe('GetMeUseCase', () => {
     expect(JSON.stringify(me)).not.toContain('96929456004');
   });
 
-  it('não altera a lista do repositório ao ordenar', async () => {
+  it('não altera a lista do repositório', async () => {
     await useCase.execute({ guardianId: 'guardian-gustavo' });
 
     expect(gustavo.students.map((student) => student.firstName)).toEqual([

@@ -18,6 +18,7 @@ export interface GuardianProfile {
   lastName: string;
   /** Só dígitos (11). Sai mascarado na resposta. */
   cpf: string;
+  /** Na ordem do vínculo (`GuardianStudent.position`), a mesma do JSON oficial. */
   students: GuardianStudentSummary[];
 }
 

@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { PrismaService } from '../src/infra/prisma/prisma.service';
 import { createTestApp } from './setup/create-test-app';
 import { loginAs } from './setup/auth-helpers';
 
@@ -31,7 +32,7 @@ describe('GET /api/me (e2e)', () => {
       .get(ME)
       .set('Authorization', `Bearer ${token}`);
 
-  it('200 para o Gustavo: CPF mascarado e Joana e Rafael, por nome', async () => {
+  it('200 para o Gustavo: CPF mascarado e Rafael e Joana, na ordem do JSON', async () => {
     const response = await getMe(await loginAs(app, 'gustavo'));
 
     expect(response.status).toBe(200);
@@ -48,15 +49,11 @@ describe('GET /api/me (e2e)', () => {
       lastName: 'da Silva',
       cpf: '***.294.560-**',
     });
+    // Ordem do JSON oficial (e do Figma), não alfabética.
+    expect((body.students[0] as { firstName: string }).firstName).toBe(
+      'Rafael',
+    );
     expect(body.students).toEqual([
-      {
-        id: expect.any(String) as string,
-        rm: 12568,
-        firstName: 'Joana',
-        lastName: 'da Silva',
-        className: '2EM',
-        period: 'Matutino',
-      },
       {
         id: expect.any(String) as string,
         rm: 12567,
@@ -65,8 +62,44 @@ describe('GET /api/me (e2e)', () => {
         className: '7EF',
         period: 'Matutino',
       },
+      {
+        id: expect.any(String) as string,
+        rm: 12568,
+        firstName: 'Joana',
+        lastName: 'da Silva',
+        className: '2EM',
+        period: 'Matutino',
+      },
     ]);
     expect(JSON.stringify(body)).not.toContain('96929456004');
+  });
+
+  it('segue GuardianStudent.position, e não a ordem de inserção', async () => {
+    const prisma = app.get(PrismaService);
+    const gustavo = await prisma.guardian.findUniqueOrThrow({
+      where: { cpf: '96929456004' },
+      select: { id: true },
+    });
+    const setPosition = (rm: number, position: number) =>
+      prisma.guardianStudent.updateMany({
+        where: { guardianId: gustavo.id, student: { rm } },
+        data: { position },
+      });
+
+    // Inverte o vínculo: Joana (12568) em 0, Rafael (12567) em 1.
+    await setPosition(12568, 0);
+    await setPosition(12567, 1);
+    try {
+      const response = await getMe(await loginAs(app, 'gustavo'));
+
+      expect(response.status).toBe(200);
+      expect(
+        (response.body as MeBody).students.map((student) => student.firstName),
+      ).toEqual(['Joana', 'Rafael']);
+    } finally {
+      await setPosition(12567, 0);
+      await setPosition(12568, 1);
+    }
   });
 
   it('200 para a Adelaide: só a Bianca', async () => {

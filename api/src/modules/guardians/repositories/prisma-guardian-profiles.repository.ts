@@ -18,6 +18,8 @@ export class PrismaGuardianProfilesRepository implements GuardianProfilesReposit
         lastName: true,
         cpf: true,
         students: {
+          // rm desempata, para a ordem nunca depender do plano do SQLite.
+          orderBy: [{ position: 'asc' }, { student: { rm: 'asc' } }],
           select: {
             student: {
               select: {

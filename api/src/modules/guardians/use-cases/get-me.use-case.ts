@@ -17,11 +17,9 @@ export interface GetMeOutput {
   lastName: string;
   /** Mascarado: `***.294.560-**`. */
   cpf: string;
+  /** Na ordem do vínculo (a do JSON oficial), não alfabética. */
   students: GuardianStudentSummary[];
 }
-
-const byFirstName = (a: GuardianStudentSummary, b: GuardianStudentSummary) =>
-  a.firstName.localeCompare(b.firstName, 'pt-BR');
 
 @Injectable()
 export class GetMeUseCase {
@@ -42,7 +40,7 @@ export class GetMeUseCase {
       firstName: profile.firstName,
       lastName: profile.lastName,
       cpf: maskCpf(profile.cpf),
-      students: profile.students.toSorted(byFirstName),
+      students: profile.students,
     };
   }
 }

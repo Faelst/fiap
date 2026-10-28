@@ -43,7 +43,8 @@ export class MeResponse implements GetMeOutput {
 
   @ApiProperty({
     type: [GuardianStudentResponse],
-    description: 'Ordenados pelo nome. Vazio quando não há aluno vinculado.',
+    description:
+      'Na ordem do cadastro do responsável (a do JSON oficial). Vazio quando não há aluno vinculado.',
   })
   students!: GuardianStudentResponse[];
 }

@@ -41,6 +41,8 @@ model Student {
 model GuardianStudent {
   guardianId String
   studentId  String
+  /// Posição do aluno na lista do responsável, na ordem do JSON. O /me ordena por ela.
+  position   Int      @default(0)
   guardian   Guardian @relation(fields: [guardianId], references: [id], onDelete: Cascade)
   student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
 

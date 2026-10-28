@@ -94,8 +94,10 @@ async function main(): Promise<void> {
             lastName: guardian.lastName,
             passwordHash: passwordHashes[index],
             students: {
-              create: guardian.studentRms.map((rm) => ({
+              // A posição guarda a ordem do JSON, que é a ordem do /me.
+              create: guardian.studentRms.map((rm, position) => ({
                 studentId: studentIds.get(rm)!,
+                position,
               })),
             },
           },
