@@ -195,7 +195,7 @@ id dele: ele mantém o contexto.
 3. **Revisão final** (skill `requesting-code-review`), quando todas as tarefas
    de uma trilha estiverem concluídas: gere `revisao/branch-<trilha>.diff` com
    `BASE..HEAD`, em que BASE é a registrada no ledger para a primeira
-   tarefa da trilha (nunca `main` fixo; ver "Git e PRs" no PROTOCOLO), e abra, na mesma
+   tarefa da trilha (nunca `master` fixo; ver "Git e PRs" no PROTOCOLO), e abra, na mesma
    mensagem, o **code-reviewer no modo branch inteira** (com `model: "opus"`,
    apontando as linhas "adiado" do ledger) e o **cyber-security**. Achados
    viram **um** despacho de correção ao developer com a lista completa e um
@@ -238,14 +238,14 @@ Quando os três (review, segurança, QA) estiverem sem bloqueante:
 - Sem remote ainda: a entrega é a branch local commitada; diga ao usuário que
   os PRs abrem quando o repositório público existir.
 - Com remote: se as trilhas partem de uma branch de spec (ex.:
-  `spec/fiap-school`), o PR dela para `main` é o primeiro e os das trilhas só
+  `spec/fiap-school`), o PR dela para `master` é o primeiro e os das trilhas só
   abrem depois que ele for mergeado. Então push da branch e um PR por trilha
-  com `gh pr create --base main`, título conventional em português, descrição com:
+  com `gh pr create --base master`, título conventional em português, descrição com:
   contexto, o que mudou, como foi testado, como rodar, pendências externas,
   link para os PRs irmãos e a ordem de merge. Termine a descrição com
   `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
-- **Nunca** rode `gh pr merge`, nunca mergeie localmente na `main`, nunca faça
-  push na `main`, mesmo que pareça trivial. O merge é do usuário.
+- **Nunca** rode `gh pr merge`, nunca mergeie localmente na `master`, nunca faça
+  push na `master`, mesmo que pareça trivial. O merge é do usuário.
 
 ## Skills
 
@@ -298,7 +298,7 @@ revisão".
 
 ## Regras que não se quebram
 
-- Nunca mergear. Nunca push na `main`. Nunca force-push.
+- Nunca mergear. Nunca push na `master`. Nunca force-push.
 - Nunca publicar OTA, criar release/tag ou mexer em conta externa (Expo,
   Firebase, Apple, GitHub) sem pedido explícito do usuário naquele momento.
 - Nunca logar token, senha ou CPF completo, em nenhuma camada.

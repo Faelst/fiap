@@ -698,10 +698,10 @@ de falha em `~/.maestro/tests/`.
 
 | Workflow | Quando roda | O que faz |
 |---|---|---|
-| `api.yml` | push na `main` e PR que mexem em `api/` ou no `docker-compose.yml` | install, lint, typecheck, unitários, e2e, build e smoke; em outro job, valida o compose, builda a imagem e testa o container (login, restart e o mesmo token valendo) |
-| `mobile.yml` | push na `main` e PR que mexem em `mobile/`; manual | lint, typecheck, `maestro:check`, Jest com cobertura (relatório como artefato) e build Android (`assembleDebug`, APK de debug como artefato `mobile-android-debug-apk`). Build iOS no simulador só no disparo manual com `ios: true` |
+| `api.yml` | push na `master` e PR que mexem em `api/` ou no `docker-compose.yml` | install, lint, typecheck, unitários, e2e, build e smoke; em outro job, valida o compose, builda a imagem e testa o container (login, restart e o mesmo token valendo) |
+| `mobile.yml` | push na `master` e PR que mexem em `mobile/`; manual | lint, typecheck, `maestro:check`, Jest com cobertura (relatório como artefato) e build Android (`assembleDebug`, APK de debug como artefato `mobile-android-debug-apk`). Build iOS no simulador só no disparo manual com `ios: true` |
 | `commitlint.yml` | todo PR | valida as mensagens de todos os commits do PR |
-| `maestro.yml` | manual (`workflow_dispatch`) e PR para a `main` com a label `e2e` | sobe a API no job (limites de login altos), builda um APK debug com o bundle JS embutido, roda os flows num emulador Android (API 34) e publica o relatório JUnit e os prints de falha no artefato `maestro-report` |
+| `maestro.yml` | manual (`workflow_dispatch`) e PR para a `master` com a label `e2e` | sobe a API no job (limites de login altos), builda um APK debug com o bundle JS embutido, roda os flows num emulador Android (API 34) e publica o relatório JUnit e os prints de falha no artefato `maestro-report` |
 
 Nenhum workflow rodou ainda: o repositório ainda não tem remote no GitHub. A
 validação foi local (`actionlint` sem achados e os mesmos comandos rodados à

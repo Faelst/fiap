@@ -107,17 +107,17 @@ dele seguem estas mesmas adaptações dentro do time.
 
 ## Git e PRs
 
-- Branch padrão: **`main`**. Um worktree por trilha, em
+- Branch padrão: **`master`**. Um worktree por trilha, em
   `.claude/worktrees/<trilha>` na raiz, branch `feat/<slug>`, `fix/<slug>` ou
-  `chore/<slug>`, a partir da base que o `00-plano.md` indicar (padrão `main`;
-  `origin/main` depois de `git fetch origin`, quando houver remote).
+  `chore/<slug>`, a partir da base que o `00-plano.md` indicar (padrão `master`;
+  `origin/master` depois de `git fetch origin`, quando houver remote).
 - **BASE e branch de spec.** O chief registra no ledger a BASE de cada
   tarefa (`Tarefa N: BASE <sha7> (<trilha>)`). Todo diff de revisão (tarefa
-  ou branch inteira) usa essa BASE, nunca `main` fixo. Quando as trilhas
+  ou branch inteira) usa essa BASE, nunca `master` fixo. Quando as trilhas
   partem de uma branch de spec (ex.: `spec/fiap-school`), essa branch é o
-  primeiro PR para `main`; os PRs das trilhas abrem para `main` só depois que
+  primeiro PR para `master`; os PRs das trilhas abrem para `master` só depois que
   ele for mergeado, para não repetirem os commits da spec.
-- Nunca commitar na `main`, nunca force-push, **nunca mergear**. Merge é do
+- Nunca commitar na `master`, nunca force-push, **nunca mergear**. Merge é do
   usuário. O chief só notifica.
 - Commits **conventional**, em português, com escopo (`feat(api): ...`,
   `fix(mobile): ...`, `chore(ci): ...`, `docs(spec): ...`), no estilo do
@@ -129,7 +129,7 @@ dele seguem estas mesmas adaptações dentro do time.
   `🤖 Generated with [Claude Code](https://claude.com/claude-code)`
 - Sem remote no GitHub, o fim de uma trilha é a branch local commitada; o push
   e os PRs acontecem quando o usuário criar o repositório. Com remote, um PR
-  por trilha para `main`, citando os PRs irmãos e a ordem de merge (ex.: API
+  por trilha para `master`, citando os PRs irmãos e a ordem de merge (ex.: API
   antes do app quando o app consome rota nova).
 
 ## Projeto

@@ -39,7 +39,7 @@ JSON do enunciado. Projeto desenvolvido com IA por SDD (Spec-Driven Development)
 ## Regras
 
 - Commits conventional, em português (`feat(mobile): ...`, `fix(api): ...`).
-- Nunca commitar na `main` direto depois do commit inicial: branch + PR, e o
+- Nunca commitar na `master` direto depois do commit inicial: branch + PR, e o
   merge é do usuário.
 - Nunca logar token, senha ou CPF completo.
 - Hooks do husky na raiz: `commit-msg` valida a mensagem (commitlint) e `pre-commit` roda

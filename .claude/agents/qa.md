@@ -18,7 +18,7 @@ achados em `03-review.md` e `04-security.md` (o que vale reverificar).
 
 ## Subir o ambiente
 
-Use os worktrees do developer, não a `main`.
+Use os worktrees do developer, não a `master`.
 
 - **API** (`<worktree api>/api`): `yarn install`, copie `.env.example` para
   `.env` se não existir, `yarn prisma migrate reset --force` (cria o SQLite e
