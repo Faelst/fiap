@@ -26,9 +26,13 @@ export const REDACTED_LOG_PATHS = [
   '*.cpf',
 ];
 
-/** JSON em produção e nos testes; pino-pretty no desenvolvimento local. */
+/**
+ * pino-pretty só com NODE_ENV=development explícito (o `yarn start:dev` define).
+ * Qualquer outro caso, inclusive sem NODE_ENV, sai em JSON: esquecer a env em
+ * produção não troca o formato do log.
+ */
 export function shouldUsePrettyLogs(nodeEnv: string | undefined): boolean {
-  return nodeEnv !== 'production' && nodeEnv !== 'test';
+  return nodeEnv === 'development';
 }
 
 export function buildPinoHttpOptions({

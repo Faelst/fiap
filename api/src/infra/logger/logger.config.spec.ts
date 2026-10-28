@@ -32,16 +32,16 @@ function fakeExchange(headers: Record<string, string | string[]> = {}) {
 }
 
 describe('shouldUsePrettyLogs', () => {
-  it.each([undefined, '', 'development'])(
-    'usa pino-pretty com NODE_ENV=%p',
+  it('usa pino-pretty só com NODE_ENV=development', () => {
+    expect(shouldUsePrettyLogs('development')).toBe(true);
+  });
+
+  it.each([undefined, '', 'production', 'test', 'staging', 'Development'])(
+    'usa JSON com NODE_ENV=%p',
     (nodeEnv) => {
-      expect(shouldUsePrettyLogs(nodeEnv)).toBe(true);
+      expect(shouldUsePrettyLogs(nodeEnv)).toBe(false);
     },
   );
-
-  it.each(['production', 'test'])('usa JSON com NODE_ENV=%p', (nodeEnv) => {
-    expect(shouldUsePrettyLogs(nodeEnv)).toBe(false);
-  });
 });
 
 describe('buildPinoHttpOptions', () => {
