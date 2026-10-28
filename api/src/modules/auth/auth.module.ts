@@ -8,6 +8,7 @@ import { EnvironmentVariables } from '../../config/env.validation';
 import { GuardiansModule } from '../guardians/guardians.module';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { AuthController } from './controllers/auth.controller';
+import { JWT_AUDIENCE, JWT_ISSUER } from './jwt.constants';
 import {
   BcryptPasswordHasher,
   PASSWORD_HASHER,
@@ -31,6 +32,8 @@ type Config = ConfigService<EnvironmentVariables, true>;
           signOptions: {
             algorithm: 'HS256',
             expiresIn: expiresIn as JwtSignOptions['expiresIn'],
+            issuer: JWT_ISSUER,
+            audience: JWT_AUDIENCE,
           },
         };
       },
