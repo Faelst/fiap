@@ -12,9 +12,39 @@ mais uma API própria em NestJS, que substitui o JSON do enunciado.
 
 ## Início rápido
 
-API local com yarn e app no simulador iOS (macOS, com Node 24, yarn, Xcode e
-um Ruby 3 do Homebrew ou do rbenv; ver o aviso logo abaixo). Detalhes, Android
-e Docker nas seções seguintes.
+### Pré-requisitos
+
+| Para | O que instalar |
+|---|---|
+| Tudo | Node.js 24 (o `.nvmrc` da raiz) e yarn (`npm i -g yarn`; o `mobile/` já traz o yarn 4 dele) |
+| Android | **JDK 17** e Android Studio com o SDK Platform 37, Build-Tools 37.0.0, NDK 27.1.12297006 e um emulador |
+| iOS (só macOS) | Xcode 16+ e um Ruby 3 do Homebrew ou do rbenv (ver o aviso do iOS abaixo) |
+
+JDK 17 (a versão que o CI usa para buildar o Android e rodar o Maestro):
+
+```sh
+# macOS (o JDK que o guia do React Native recomenda)
+brew install --cask zulu@17
+export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home
+
+# Linux (Debian/Ubuntu)
+sudo apt install openjdk-17-jdk
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+
+java -version   # deve mostrar 17
+```
+
+SDK do Android (no Android Studio, em **SDK Manager**) e as variáveis no
+`~/.zshrc` ou `~/.bashrc`, junto com o `JAVA_HOME`:
+
+```sh
+export ANDROID_HOME=$HOME/Library/Android/sdk   # Linux: $HOME/Android/Sdk
+export PATH=$PATH:$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools
+```
+
+Detalhes em [Pré-requisitos](#pré-requisitos).
+
+### 1. API (vale para as duas plataformas)
 
 ```sh
 # Terminal 1, na raiz do repositório: API em http://localhost:3333 (Swagger em /docs)
@@ -23,11 +53,43 @@ cp .env.example .env
 yarn install
 yarn prisma:setup
 yarn start:dev
+```
 
-# Terminal 2, na raiz do repositório: app no simulador iOS
+### 2. Metro (bundler do JavaScript)
+
+Deixe o Metro rodando num terminal próprio, antes de abrir o app. O `yarn
+android` e o `yarn ios` tentam abri-lo sozinhos numa janela nova, mas isso nem
+sempre funciona (no Linux depende do emulador de terminal), e num terminal seu
+você vê os logs e o erro de bundle.
+
+```sh
+# Terminal 2, na raiz do repositório
 cd mobile
 yarn install
-cp .env.example .env
+cp .env.example .env   # o API_URL padrão já serve no emulador Android e no simulador iOS
+yarn start             # Metro na porta 8081; yarn start --reset-cache limpa o cache
+```
+
+### 3a. App no Android (emulador)
+
+Abra um emulador pelo Android Studio (**Device Manager**) e confira que ele
+aparece em `adb devices`. Depois:
+
+```sh
+# Terminal 3, na raiz do repositório
+cd mobile
+yarn android
+```
+
+O `API_URL` padrão (`localhost`) funciona porque, no Android, o app troca
+`localhost` por `10.0.2.2`, que é a máquina vista de dentro do emulador. Num
+aparelho físico, use o IP da máquina (ver [Android](#android)).
+
+### 3b. App no iOS (simulador, só macOS)
+
+```sh
+# Terminal 3, na raiz do repositório
+cd mobile
 cd ios && bundle install && bundle exec pod install && cd ..
 yarn ios
 ```
@@ -37,9 +99,20 @@ yarn ios
 > (`brew install ruby`) ou use o CocoaPods do Homebrew com o build pelo Xcode:
 > os dois caminhos estão em [iOS](#ios-macos).
 
-Entre com o Gustavo: CPF `969.294.560-04`, senha `123456` (outras contas em
-[Credenciais de teste](#credenciais-de-teste)). Para o Android, veja
-[Pré-requisitos](#pré-requisitos) e [Android](#android).
+### 4. Entrar no app
+
+> [!IMPORTANT]
+> **Usuário para entrar no app**
+>
+> | CPF | Senha |
+> |---|---|
+> | **`969.294.560-04`** | **`123456`** |
+>
+> É o Gustavo, responsável por dois alunos (Rafael e Joana), a conta que mostra
+> todas as telas, inclusive a troca de aluno. As outras contas estão em
+> [Credenciais de teste](#credenciais-de-teste).
+
+Para rodar os testes de tela, veja [Flows do Maestro](#flows-do-maestro).
 
 ## Sumário
 
@@ -53,6 +126,7 @@ Entre com o Gustavo: CPF `969.294.560-04`, senha `123456` (outras contas em
 - [Como rodar o app](#como-rodar-o-app)
 - [Credenciais de teste](#credenciais-de-teste)
 - [Testes e qualidade](#testes-e-qualidade)
+  - [Flows do Maestro](#flows-do-maestro)
 - [Arquitetura](#arquitetura)
 - [Como o projeto foi construído com IA (SDD)](#como-o-projeto-foi-construído-com-ia-sdd)
 - [Decisões e limitações conhecidas](#decisões-e-limitações-conhecidas)
@@ -501,6 +575,8 @@ Todas vêm do seed (`yarn prisma:setup` ou `docker compose up`):
 | `yarn lint` / `yarn tsc` | ESLint e typecheck |
 | `yarn format` / `yarn format:check` | Prettier |
 | `yarn maestro:check` | Checagem estática dos flows do Maestro, sem emulador: YAML válido, `appId`, subflows e todo `id` usado existindo como `testID` em `src/` |
+| `yarn maestro:install` | Instala o Maestro 2.11.0 (a versão do CI) em `~/.maestro/bin` |
+| `yarn maestro:test` | Roda os flows do Maestro no simulador ou emulador ligado (ver [Flows do Maestro](#flows-do-maestro)) |
 
 ### Flows do Maestro
 
@@ -509,15 +585,77 @@ uso: login inválido, login, sessão persistida, troca de dia, boletim 2025, ano
 anteriores, troca de aluno, responsável com um aluno, sem aluno e logout. Os
 passos repetidos ficam em `subflows/`.
 
-1. Instale o Maestro (precisa de Java 17), na mesma versão do CI:
-   `curl -fsSL "https://get.maestro.mobile.dev" | MAESTRO_VERSION=2.11.0 bash`.
-2. Suba a API com o seed e os limites de login altos, porque os flows logam
-   muitas vezes seguidas com o mesmo CPF: `LOGIN_THROTTLE_LIMIT=1000` e
-   `LOGIN_THROTTLE_CPF_LIMIT=1000` no `api/.env`.
-3. Instale o app no simulador ou emulador (`API_URL` apontando para essa API).
-4. Em `mobile/`: `maestro test .maestro` (todos), `maestro test
-   .maestro/05-boletim-2025.yaml` (um) ou `maestro test .maestro --include-tags
-   boletim` (tags `login`, `agenda`, `boletim`, `alunos`).
+#### 1. Instalar (uma vez)
+
+O Maestro roda na JVM e precisa do **Java 17**. Confira com `java -version`; se
+não tiver:
+
+```sh
+# macOS
+brew install openjdk@17
+# Linux (Debian/Ubuntu)
+sudo apt install openjdk-17-jdk
+```
+
+Depois instale o Maestro na mesma versão do CI (2.11.0). O instalador põe o
+binário em `~/.maestro/bin`:
+
+```sh
+cd mobile
+yarn maestro:install
+~/.maestro/bin/maestro --version   # deve mostrar 2.11.0
+```
+
+Para chamar `maestro` direto no terminal, adicione
+`export PATH="$PATH:$HOME/.maestro/bin"` ao seu `~/.zshrc` ou `~/.bashrc`. O
+`yarn maestro:test` não precisa disso.
+
+#### 2. Preparar a API
+
+Os flows logam muitas vezes seguidas com o mesmo CPF, então suba a API com o
+seed e os limites de login altos. No `api/.env`:
+
+```sh
+LOGIN_THROTTLE_LIMIT=1000
+LOGIN_THROTTLE_CPF_LIMIT=1000
+```
+
+```sh
+cd api
+yarn prisma:setup   # recria o banco com o seed (contas do Gustavo, Adelaide e Carlos)
+yarn start:dev
+```
+
+#### 3. Instalar o app no simulador ou emulador
+
+Com o `API_URL` do `mobile/.env` apontando para essa API (veja a tabela em
+[Como rodar o app](#como-rodar-o-app); no emulador Android,
+`http://10.0.2.2:3333/api`). O `.env` entra no build nativo: se mudar o
+`API_URL`, rode o build de novo.
+
+```sh
+cd mobile
+yarn android   # ou: yarn ios
+```
+
+Deixe o simulador ou emulador aberto, com o app instalado (o bundle id é
+`br.com.fiap.school`).
+
+#### 4. Rodar os flows
+
+Em `mobile/`:
+
+```sh
+yarn maestro:test                                # todos os flows
+yarn maestro:test .maestro/05-boletim-2025.yaml  # um flow
+yarn maestro:test --include-tags boletim         # por tag: login, agenda, boletim, alunos
+yarn maestro:test --device emulator-5554         # com mais de um aparelho ligado (adb devices)
+```
+
+O script acha o Maestro no `PATH` ou em `~/.maestro/bin`; `MAESTRO_BIN` aponta
+outro binário. Sem Maestro instalado, ele mostra como instalar e sai com erro. O
+resultado de cada flow aparece no terminal, e o Maestro guarda os logs e prints
+de falha em `~/.maestro/tests/`.
 
 > **Os flows ainda não foram executados.** A máquina de desenvolvimento não tem
 > Maestro, Java nem Android SDK. Só a checagem estática (`yarn maestro:check`)

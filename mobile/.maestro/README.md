@@ -1,8 +1,10 @@
 # Flows do Maestro
 
-> Os flows ainda não foram executados: a máquina de desenvolvimento não tem
-> Maestro, Java nem Android SDK. Hoje roda só a checagem estática
-> (`yarn maestro:check`). A primeira execução real é o `maestro.yml` no CI.
+> A máquina de desenvolvimento não tem Maestro, Java nem Android SDK: aqui
+> roda só a checagem estática (`yarn maestro:check`). Os flows rodam de
+> verdade no `maestro.yml`, no emulador Android do CI; na falha, o artefato
+> `maestro-report` traz o JUnit, os prints e a hierarquia de cada comando
+> (em `debug/.maestro/tests/<data>/`) e o `logcat.txt`.
 
 Um flow por caso de uso (brief, seção 6), usando `testID` e os responsáveis do
 seed da API.
@@ -32,8 +34,7 @@ hoje (o dia da Agenda é escolhido na faixa semanal).
 ## Pré-requisitos
 
 - [Maestro CLI](https://docs.maestro.dev/getting-started/installing-maestro)
-  (o CI usa a 2.11.0):
-  `curl -fsSL "https://get.maestro.mobile.dev" | MAESTRO_VERSION=2.11.0 bash`.
+  2.11.0, a mesma do CI: `yarn maestro:install`.
 - Java 17 (o Maestro roda na JVM).
 - Simulador iOS ou emulador Android com o app instalado (`yarn ios` /
   `yarn android`), bundle id `br.com.fiap.school`.
@@ -53,13 +54,18 @@ hoje (o dia da Agenda é escolhido na faixa semanal).
 Em `mobile/`:
 
 ```bash
-maestro test .maestro                          # todos os flows
-maestro test .maestro/04-aulas-navegar-dias.yaml   # um flow
-maestro test .maestro --include-tags boletim   # por tag (login, agenda, boletim, alunos)
-yarn maestro:check                             # checagem estática, sem Maestro
+yarn maestro:install                                  # instala o Maestro 2.11.0 (uma vez)
+yarn maestro:test                                     # todos os flows
+yarn maestro:test .maestro/04-aulas-navegar-dias.yaml # um flow
+yarn maestro:test --include-tags boletim              # por tag (login, agenda, boletim, alunos)
+yarn maestro:test --device emulator-5554              # escolhe o aparelho
+yarn maestro:check                                    # checagem estática, sem Maestro
 ```
 
-Com mais de um aparelho ligado, escolha com `maestro --device <id> test ...`.
+O `maestro:test` acha o binário no `PATH` ou em `~/.maestro/bin` (onde o
+instalador põe, sem precisar reabrir o terminal); `MAESTRO_BIN` sobrescreve.
+Sem flow nos argumentos ele roda a pasta `.maestro` inteira, e o `--device`
+vai para antes do `test`, como o Maestro pede.
 
 `yarn maestro:check` confere, sem emulador, que os YAML são válidos, que o
 `appId` é o do app, que os subflows existem e que todo `id` usado nos flows
@@ -76,8 +82,14 @@ emulador Android. Ele roda pelo `workflow_dispatch` ou num PR com a label
 
 ## Observações
 
-- A splash tem duração mínima, então os flows esperam o Login ou a Agenda por
-  até 12 s depois do `launchApp`.
+- Depois do `launchApp` os flows esperam o Login ou a Agenda por até 30 s: o
+  app abre a frio, e a splash pode esperar o keychain até a trava de 10 s.
+  Os dados da API (Agenda, Boletim) têm até 20 s. O `extendedWaitUntil` sai
+  assim que a tela aparece, então o teto só pesa quando o flow falha.
+- No emulador do CI um app do sistema pode travar e abrir o diálogo "isn't
+  responding" por cima do app. O `maestro.yml` desliga esses diálogos
+  (`hide_error_dialogs`), e o `subflows/dismiss-system-anr.yaml` toca em
+  "Wait" se ele aparecer na abertura do app.
 - No iOS, o texto de dentro de um elemento acessível (ex.: nota e faltas, o
   nome do aluno no chip do header) aparece só no rótulo do elemento. Por isso os flows
   conferem o rótulo (`Nota 9,5, 0 faltas`, `Aluno Rafael, ...`), que vale nas

@@ -1,10 +1,16 @@
 // Modelo derivado do JSON oficial do teste (prisma/seed-data/responsaveis.json).
 // A URL do banco fica no prisma.config.ts (DATABASE_URL).
 
+// As extensões ficam fixas: sem elas o generator deduz o formato do
+// tsconfig.json, que não existe no estágio do Dockerfile em que o postinstall
+// roda o generate. Lá ele gerava imports "./internal/class.ts", que o tsc
+// mantém no dist e o node não acha.
 generator client {
-  provider     = "prisma-client"
-  output       = "../src/generated/prisma"
-  moduleFormat = "cjs"
+  provider               = "prisma-client"
+  output                 = "../src/generated/prisma"
+  moduleFormat           = "cjs"
+  generatedFileExtension = "ts"
+  importFileExtension    = "js"
 }
 
 datasource db {
