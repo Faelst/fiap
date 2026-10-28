@@ -333,8 +333,7 @@ O `API_URL` aponta para a API, com o sufixo `/api`:
 |---|---|
 | Simulador iOS | `http://localhost:3333/api` (o padrão do exemplo) |
 | Emulador Android | `http://10.0.2.2:3333/api` (o app também troca `localhost` por `10.0.2.2` sozinho no Android) |
-| iPhone físico | `http://<IP da máquina na rede>:3333/api`, com o celular na mesma rede Wi-Fi |
-| Android físico (USB) | `http://localhost:3333/api` com `adb reverse tcp:3333 tcp:3333` (sem depender de IP nem de firewall), ou o IP da máquina como no iPhone |
+| Aparelho físico (iPhone ou Android) | `http://<IP da máquina na rede>:3333/api`, com o celular na mesma rede Wi-Fi |
 
 Sem `API_URL`, o app usa `localhost` no iOS e `10.0.2.2` no Android. O
 `react-native-config` grava o `.env` no binário: depois de mudar o `.env`, rode
@@ -364,9 +363,9 @@ depuração USB, e então:
 yarn android
 ```
 
-Aparelho Android por USB: rode `adb reverse tcp:3333 tcp:3333` com o aparelho
-conectado (repita se reconectar) para o `localhost:3333` do celular chegar na
-API da máquina.
+Num aparelho Android, use o IP da máquina no `API_URL` (tabela acima). Não use
+`localhost`: no Android o app troca `localhost` e `127.0.0.1` por `10.0.2.2`,
+que só existe no emulador.
 
 ### Metro
 
