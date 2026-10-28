@@ -1,5 +1,7 @@
 name: mobile
 
+# A pasta .docs/ (enunciado, Figma, JSON e GIFs) fica fora dos filtros de
+# caminho: mudar só a documentação não dispara este workflow.
 on:
   push:
     branches: [master]

@@ -1,5 +1,8 @@
 name: maestro
 
+# A pasta .docs/ (enunciado, Figma, JSON e GIFs) fica fora dos filtros de
+# caminho: mudar só a documentação não dispara este workflow.
+#
 # Flows do Maestro (mobile/.maestro) no emulador Android, com a API subindo no
 # próprio job. Não roda a cada push: build Android + emulador custa uns 20–30
 # min (D32). Rode pelo Actions (workflow_dispatch) ou ponha a label `e2e` no PR.
