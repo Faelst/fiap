@@ -10,3 +10,4 @@ assets/bootsplash/manifest.json
 *.pbxproj
 ios/**/*.json
 android/**/*.json
+vendor
