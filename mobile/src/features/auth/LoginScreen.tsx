@@ -27,7 +27,8 @@ export function LoginScreen({ route }: RootStackScreenProps<'Login'>) {
 
   const logoEntering = fromSplash
     ? reducedMotion
-      ? FadeIn.duration(motion.fast)
+      ? // Opacidade não é movimento: o fade acontece mesmo com reduzir movimento.
+        FadeIn.duration(motion.fast).reduceMotion(ReduceMotion.Never)
       : undefined
     : FadeIn.duration(motion.base).reduceMotion(ReduceMotion.System);
 

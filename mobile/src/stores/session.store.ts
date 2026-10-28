@@ -22,6 +22,11 @@ type SessionState = {
 type SessionActions = {
   /** Lê o token do keychain. Quem valida com `/me` é a query. */
   bootstrap: () => Promise<void>;
+  /**
+   * A splash desistiu de esperar o keychain (trava de 10 s): a sessão fica
+   * `signedOut`, e o `bootstrap` que responder depois é ignorado.
+   */
+  bootstrapTimedOut: () => void;
   signIn: (token: string, guardian: Guardian) => Promise<void>;
   signOut: (reason?: SignOutReason) => Promise<void>;
   selectStudent: (studentId: string) => void;
@@ -33,7 +38,7 @@ export const SESSION_STORAGE_KEY = 'session';
 
 export const useSessionStore = create<SessionStore>()(
   persist(
-    set => ({
+    (set, get) => ({
       status: 'loading',
       guardian: null,
       selectedStudentId: null,
@@ -41,7 +46,13 @@ export const useSessionStore = create<SessionStore>()(
 
       bootstrap: async () => {
         const token = await secureStorage.loadToken();
+        // Resposta atrasada: a sessão já foi decidida (trava da splash).
+        if (get().status !== 'loading') return;
         set({ status: token ? 'signedIn' : 'signedOut' });
+      },
+
+      bootstrapTimedOut: () => {
+        if (get().status === 'loading') set({ status: 'signedOut' });
       },
 
       signIn: async (token, guardian) => {

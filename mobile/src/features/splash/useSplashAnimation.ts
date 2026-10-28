@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import {
   cancelAnimation,
   Easing,
+  ReduceMotion,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -31,6 +32,13 @@ type ExitOptions = {
 const linear = Easing.linear;
 
 /**
+ * Opacidade não é movimento (01-design.md, 3.1.6): estes fades acontecem
+ * mesmo com "reduzir movimento". Sem isto o reanimated 4 usa
+ * `ReduceMotion.System` e pula direto para o valor final.
+ */
+const keepWithReducedMotion = { reduceMotion: ReduceMotion.Never };
+
+/**
  * Timeline da splash (01-design.md, 3.1.3 a 3.1.6), toda em shared values no
  * UI thread. Cada função dispara as animações de uma vez; o JS não participa
  * enquanto elas rodam. O fim da saída volta ao JS por `scheduleOnRN`.
@@ -57,7 +65,11 @@ export function useSplashAnimation({ reducedMotion, trackWidth }: Options) {
   const start = useCallback(() => {
     if (reducedMotion) {
       groupOpacity.set(
-        withTiming(1, { duration: splash.fadeInReduced, easing: linear }),
+        withTiming(1, {
+          duration: splash.fadeInReduced,
+          easing: linear,
+          ...keepWithReducedMotion,
+        }),
       );
       return;
     }
@@ -116,7 +128,9 @@ export function useSplashAnimation({ reducedMotion, trackWidth }: Options) {
   ]);
 
   const startLoop = useCallback(() => {
-    loaderOpacity.set(withTiming(1, { duration: motion.fast }));
+    loaderOpacity.set(
+      withTiming(1, { duration: motion.fast, ...keepWithReducedMotion }),
+    );
     if (reducedMotion) {
       // Trilho parado, segmento no centro.
       return;
@@ -161,8 +175,9 @@ export function useSplashAnimation({ reducedMotion, trackWidth }: Options) {
       // Para o loop sem esperar o ciclo acabar.
       cancelAnimation(loaderX);
       cancelAnimation(badgeBreath);
-      loaderOpacity.set(withTiming(0, { duration: motion.fast }));
-      badgeBreath.set(withTiming(1, { duration: motion.fast }));
+      const fade = { duration: motion.fast, ...keepWithReducedMotion };
+      loaderOpacity.set(withTiming(0, fade));
+      badgeBreath.set(withTiming(1, fade));
 
       const done = (finished?: boolean) => {
         'worklet';
@@ -170,9 +185,7 @@ export function useSplashAnimation({ reducedMotion, trackWidth }: Options) {
       };
 
       if (reducedMotion) {
-        groupOpacity.set(
-          withTiming(0, { duration: motion.fast, easing: linear }, done),
-        );
+        groupOpacity.set(withTiming(0, { ...fade, easing: linear }, done));
         return;
       }
       if (destination === 'login') {

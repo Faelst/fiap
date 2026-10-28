@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import { ApiError } from '../../../services/http/errors';
+import { secureStorage } from '../../../services/storage/secureStorage';
 import { useBootStore } from '../../../stores/boot.store';
 import { useSessionStore } from '../../../stores/session.store';
 import { meResponse, meWithoutStudents } from '../../../test/fixtures';
@@ -48,6 +49,7 @@ describe('useSplashViewModel', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+    jest.restoreAllMocks();
   });
 
   it('sem token vai para o Login só depois da duração mínima (1200 ms)', async () => {
@@ -171,6 +173,33 @@ describe('useSplashViewModel', () => {
 
     await advance(1);
     expect(result.current.destination).toBe('login');
+  });
+
+  it('trava sem token fixa a sessão como signedOut', async () => {
+    const { result } = await setup();
+
+    await advance(10_000);
+
+    expect(result.current.destination).toBe('login');
+    expect(useSessionStore.getState().status).toBe('signedOut');
+  });
+
+  it('keychain que responde com token depois da trava não troca o Login pelas abas', async () => {
+    jest.spyOn(secureStorage, 'loadToken').mockImplementation(
+      () =>
+        new Promise(resolve => {
+          setTimeout(() => resolve('jwt-atrasado'), 11_000);
+        }),
+    );
+    const { result } = await setup();
+    const bootstrap = useSessionStore.getState().bootstrap();
+
+    await advance(11_000);
+    await act(() => bootstrap);
+
+    expect(result.current.destination).toBe('login');
+    expect(useSessionStore.getState().status).toBe('signedOut');
+    expect(loadMe).not.toHaveBeenCalled();
   });
 
   it('com reduzir movimento a duração mínima é 600 ms', async () => {

@@ -110,8 +110,15 @@ export function useSplashViewModel(navigation: SplashNavigation) {
 
     // Keychain ou /me que não respondem: com token é erro, sem token é Login.
     const hardTimer = setTimeout(() => {
-      const signedIn = useSessionStore.getState().status === 'signedIn';
-      decide(signedIn ? 'bootError' : 'login');
+      const { status, bootstrapTimedOut } = useSessionStore.getState();
+      if (status === 'signedIn') {
+        decide('bootError');
+        return;
+      }
+      // Keychain sem resposta: segue sem sessão, e um token que chegue
+      // depois não leva às abas sem passar pelo /me.
+      bootstrapTimedOut();
+      decide('login');
     }, hardTimeout);
 
     Promise.all([

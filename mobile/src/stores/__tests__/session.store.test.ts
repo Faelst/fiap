@@ -30,6 +30,25 @@ describe('session store', () => {
     expect(useSessionStore.getState().status).toBe('signedIn');
   });
 
+  it('bootstrapTimedOut fixa signedOut só se o keychain ainda não respondeu', () => {
+    useSessionStore.getState().bootstrapTimedOut();
+    expect(useSessionStore.getState().status).toBe('signedOut');
+
+    useSessionStore.setState({ status: 'signedIn' });
+    useSessionStore.getState().bootstrapTimedOut();
+    expect(useSessionStore.getState().status).toBe('signedIn');
+  });
+
+  it('bootstrap atrasado não muda uma sessão que já foi decidida', async () => {
+    await createSecureStorage().setToken('jwt-atrasado');
+    const pending = useSessionStore.getState().bootstrap();
+    useSessionStore.getState().bootstrapTimedOut();
+
+    await pending;
+
+    expect(useSessionStore.getState().status).toBe('signedOut');
+  });
+
   it('signIn grava o token no keychain e guarda o responsável', async () => {
     await useSessionStore.getState().signIn('jwt-1', guardian);
 
