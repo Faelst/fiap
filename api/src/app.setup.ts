@@ -1,4 +1,8 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  INestApplication,
+  Logger as NestLogger,
+  ValidationPipe,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Express } from 'express';
 import { Logger } from 'nestjs-pino';
@@ -7,6 +11,7 @@ import {
   EnvironmentVariables,
   parseCorsOrigins,
 } from './config/env.validation';
+import { publicSecretWarning } from './config/public-secrets';
 import { parseTrustProxy } from './config/trust-proxy';
 
 export const API_PREFIX = 'api';
@@ -16,6 +21,12 @@ export function configureApp(app: INestApplication): void {
   const config = app.get(ConfigService<EnvironmentVariables, true>);
 
   app.useLogger(app.get(Logger));
+  const secretWarning = publicSecretWarning(
+    config.get('JWT_SECRET', { infer: true }),
+  );
+  if (secretWarning) {
+    new NestLogger('Config').warn(secretWarning);
+  }
   // Atrás de proxy, define de onde vem o req.ip (que o rate limit usa).
   const http = app.getHttpAdapter().getInstance() as Express;
   http.set(

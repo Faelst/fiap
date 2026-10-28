@@ -10,9 +10,11 @@ import {
   Matches,
   Max,
   Min,
+  MinLength,
   ValidateBy,
   validateSync,
 } from 'class-validator';
+import { isRefusedInProduction } from './public-secrets';
 import { parseTrustProxy } from './trust-proxy';
 
 export const LOG_LEVELS = [
@@ -76,8 +78,9 @@ export class EnvironmentVariables {
   @Max(65535)
   PORT: number = 3333;
 
+  /** HS256: 32+ caracteres, para não cair por força bruta a partir de um token. */
   @IsString()
-  @IsNotEmpty()
+  @MinLength(32)
   JWT_SECRET!: string;
 
   /**
@@ -124,6 +127,23 @@ export class EnvironmentVariables {
   NODE_ENV?: string;
 }
 
+/** Regras que só valem com NODE_ENV=production. */
+function productionProblems(env: EnvironmentVariables): string[] {
+  if (env.NODE_ENV !== 'production') {
+    return [];
+  }
+  const problems: string[] = [];
+  if (
+    typeof env.JWT_SECRET === 'string' &&
+    isRefusedInProduction(env.JWT_SECRET)
+  ) {
+    problems.push(
+      'JWT_SECRET: com NODE_ENV=production não use o valor do .env.example (gere um com `openssl rand -base64 48`)',
+    );
+  }
+  return problems;
+}
+
 export function validateEnv(
   config: Record<string, unknown>,
 ): EnvironmentVariables {
@@ -131,16 +151,18 @@ export function validateEnv(
     enableImplicitConversion: true,
     exposeDefaultValues: true,
   });
-  const errors = validateSync(env, { skipMissingProperties: false });
+  const problems = [
+    ...validateSync(env, { skipMissingProperties: false }).map(
+      (error) =>
+        `${error.property}: ${Object.values(error.constraints ?? {}).join(', ')}`,
+    ),
+    ...productionProblems(env),
+  ];
 
-  if (errors.length > 0) {
-    const details = errors
-      .map(
-        (error) =>
-          `${error.property}: ${Object.values(error.constraints ?? {}).join(', ')}`,
-      )
-      .join('; ');
-    throw new Error(`Configuração de ambiente inválida. ${details}`);
+  if (problems.length > 0) {
+    throw new Error(
+      `Configuração de ambiente inválida. ${problems.join('; ')}`,
+    );
   }
   return env;
 }

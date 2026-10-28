@@ -1,15 +1,20 @@
 import { parseCorsOrigins, validateEnv } from './env.validation';
+import {
+  COMPOSE_JWT_SECRET,
+  EXAMPLE_JWT_SECRET,
+  publicSecretWarning,
+} from './public-secrets';
 
 const validEnv = {
   DATABASE_URL: 'file:./dev.db',
-  JWT_SECRET: 'segredo',
+  JWT_SECRET: 'um-segredo-de-testes-com-mais-de-32-caracteres',
 };
 
 describe('validateEnv', () => {
   it('aplica os padrões de porta, expiração do token e CORS', () => {
     expect(validateEnv(validEnv)).toMatchObject({
       DATABASE_URL: 'file:./dev.db',
-      JWT_SECRET: 'segredo',
+      JWT_SECRET: 'um-segredo-de-testes-com-mais-de-32-caracteres',
       PORT: 3333,
       JWT_EXPIRES_IN: '7d',
       CORS_ORIGINS: '*',
@@ -54,14 +59,22 @@ describe('validateEnv', () => {
     },
   );
 
-  it.each(['3600', '500ms', 'sete dias', '7 dias', '-1d', '7x', '0s', '0m', '00d', '07d'])(
-    'recusa JWT_EXPIRES_IN "%s"',
-    (value) => {
-      expect(() => validateEnv({ ...validEnv, JWT_EXPIRES_IN: value })).toThrow(
-        'JWT_EXPIRES_IN',
-      );
-    },
-  );
+  it.each([
+    '3600',
+    '500ms',
+    'sete dias',
+    '7 dias',
+    '-1d',
+    '7x',
+    '0s',
+    '0m',
+    '00d',
+    '07d',
+  ])('recusa JWT_EXPIRES_IN "%s"', (value) => {
+    expect(() => validateEnv({ ...validEnv, JWT_EXPIRES_IN: value })).toThrow(
+      'JWT_EXPIRES_IN',
+    );
+  });
 
   it('converte o limite e a janela do rate limit do login para número', () => {
     expect(
@@ -82,6 +95,63 @@ describe('validateEnv', () => {
     ['LOGIN_THROTTLE_TTL_MS', '0'],
   ])('recusa %s = "%s"', (key, value) => {
     expect(() => validateEnv({ ...validEnv, [key]: value })).toThrow(key);
+  });
+});
+
+describe('validateEnv: JWT_SECRET', () => {
+  it('recusa segredo com menos de 32 caracteres', () => {
+    expect(() =>
+      validateEnv({ ...validEnv, JWT_SECRET: 'a'.repeat(31) }),
+    ).toThrow('JWT_SECRET');
+  });
+
+  it('aceita segredo de 32 caracteres', () => {
+    expect(
+      validateEnv({ ...validEnv, JWT_SECRET: 'a'.repeat(32) }).JWT_SECRET,
+    ).toHaveLength(32);
+  });
+
+  it('os segredos públicos do repo têm 32+ caracteres (sobem em dev)', () => {
+    for (const secret of [EXAMPLE_JWT_SECRET, COMPOSE_JWT_SECRET]) {
+      expect(validateEnv({ ...validEnv, JWT_SECRET: secret }).JWT_SECRET).toBe(
+        secret,
+      );
+    }
+  });
+
+  it('em produção recusa o segredo do .env.example', () => {
+    expect(() =>
+      validateEnv({
+        ...validEnv,
+        NODE_ENV: 'production',
+        CORS_ORIGINS: 'https://app.example.com',
+        JWT_SECRET: EXAMPLE_JWT_SECRET,
+      }),
+    ).toThrow('JWT_SECRET');
+  });
+
+  it('em produção aceita um segredo próprio', () => {
+    expect(() =>
+      validateEnv({
+        ...validEnv,
+        NODE_ENV: 'production',
+        CORS_ORIGINS: 'https://app.example.com',
+      }),
+    ).not.toThrow();
+  });
+});
+
+describe('publicSecretWarning', () => {
+  it('avisa quando o segredo é o padrão do docker-compose', () => {
+    expect(publicSecretWarning(COMPOSE_JWT_SECRET)).toContain('JWT_SECRET');
+  });
+
+  it('avisa quando o segredo é o do .env.example', () => {
+    expect(publicSecretWarning(EXAMPLE_JWT_SECRET)).toContain('JWT_SECRET');
+  });
+
+  it('não avisa para um segredo próprio', () => {
+    expect(publicSecretWarning(validEnv.JWT_SECRET)).toBeNull();
   });
 });
 
