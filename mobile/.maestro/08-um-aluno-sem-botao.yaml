@@ -34,6 +34,6 @@ tags:
     id: tab-boletim
 - extendedWaitUntil:
     visible:
-      id: boletim-year-dropdown
-      text: '.*1EF - 2025'
+      id: boletim-year-2025
+      text: 'Ano letivo 2025 · 1EF'
     timeout: 10000

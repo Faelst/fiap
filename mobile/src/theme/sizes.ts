@@ -57,6 +57,20 @@ export const sizes = {
   },
   /** Barra 0–10 e a marca do 7. */
   gradeBar: { card: 6, summary: 8, tick: 1 },
+  /**
+   * Boletim (2.11–2.16): selo da faixa, pontos da legenda, item do segmento
+   * de ano (largura fixa: o indicador desliza entre itens iguais) e os
+   * blocos do skeleton.
+   */
+  reportCard: {
+    chip: 24,
+    chipDot: 6,
+    legendDot: 8,
+    yearItem: 112,
+    skeletonSummary: 240,
+    skeletonSubject: 98,
+    skeletonYearWidth: '60%',
+  },
   /** Altura mínima do `NowBanner` e do banner de erro do login. */
   banner: 48,
   /** Ícone dos estados vazio e de erro. */

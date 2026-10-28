@@ -1,4 +1,5 @@
-# Bônus: o dropdown troca para o boletim de 2024 do Rafael ("6EF - 2024").
+# Bônus: o segmento de ano troca para o boletim de 2024 do Rafael
+# ("2024 · 6EF"), que abre no 3º trimestre (o último avaliado).
 appId: br.com.fiap.school
 name: 06 - Boletim de anos anteriores
 tags:
@@ -22,32 +23,27 @@ tags:
     id: tab-boletim
 - extendedWaitUntil:
     visible:
-      id: boletim-year-dropdown
-      text: '.*7EF - 2025'
+      id: boletim-year-2025
+      text: '.*2025 · 7EF'
     timeout: 10000
 - tapOn:
-    id: boletim-year-dropdown
-- tapOn:
-    id: boletim-year-dropdown-option-2024
+    id: boletim-year-2024
 - extendedWaitUntil:
     visible:
-      id: boletim-year-dropdown
-      text: '.*6EF - 2024'
+      id: boletim-year-2024
+      selected: true
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: boletim-term-tab-3
+      selected: true
     timeout: 10000
 
 # 2024, 1º trimestre > Língua Portuguesa: nota 8,0 e 1 falta.
+- tapOn:
+    id: boletim-term-tab-1
 - extendedWaitUntil:
     visible:
-      id: boletim-term-1
-    timeout: 10000
-- tapOn:
-    id: boletim-term-1
-- tapOn:
-    id: boletim-term-1-subject-0
-- scrollUntilVisible:
-    element:
-      id: boletim-term-1-subject-0-result
-    direction: DOWN
-- assertVisible:
-    id: boletim-term-1-subject-0-result
-    text: 'Nota 8,0, 1 falta'
+      id: boletim-term-1-subject-0
+      text: '(?s).*Nota 8,0.*1 falta\..*'
+    timeout: 5000

@@ -1,30 +1,36 @@
 import { useIsFocused } from '@react-navigation/native';
-import Animated, { FadeOut, ReduceMotion } from 'react-native-reanimated';
 
 import { BoletimSkeleton } from '../../components/BoletimSkeleton';
-import { Dropdown } from '../../components/Dropdown';
 import { EmptyState } from '../../components/EmptyState';
+import { Entrance } from '../../components/Entrance';
 import { ClockIcon } from '../../components/icons/ClockIcon';
 import { ErrorState } from '../../components/ErrorState';
 import { Screen } from '../../components/Screen';
+import { SegmentedControl } from '../../components/SegmentedControl';
 import { strings } from '../../constants/strings';
-import { Box, enterDown, useTheme } from '../../theme';
+import { Box, Text, useTheme } from '../../theme';
 import { TabScreenLayout } from '../header/TabScreenLayout';
-import { TermAccordion } from './components/TermAccordion';
+import { GradeLegend } from './components/GradeLegend';
+import { SubjectGradeCard } from './components/SubjectGradeCard';
+import { TermSummaryCard } from './components/TermSummaryCard';
 import { useReportCardViewModel } from './useReportCardViewModel';
 
 /**
- * Boletim (M5, 01-design.md 3.4 e 4.6): header compacto (v2, 2.6), dropdown
- * de turma e ano e os trimestres do ano em acordeão, o skeleton ou o erro.
- * Rola na `ScrollView` do layout das abas, por isso um `map`: são 3
- * trimestres de até 12 disciplinas, e o corpo de cada acordeão só monta na
- * 1ª abertura.
+ * Boletim v2 (01-design.md da v2, 3.4 e 4.5): o ano e o trimestre em
+ * segmentos, o resumo do trimestre com a legenda e as disciplinas em cards
+ * abertos (sem acordeão), ou o skeleton, o erro e os estados vazios. Tudo o
+ * que monta depois dos dados entra por valor animado (`Entrance`), não por
+ * animação de layout. Um `map`: são até 12 cards (o stagger para no 6º).
  */
 export function ReportCardScreen() {
   const vm = useReportCardViewModel();
   // As abas ficam montadas: só a visível anuncia o erro (3.8).
   const isFocused = useIsFocused();
-  const { motion, spacing } = useTheme();
+  const { motion } = useTheme();
+  const segmentsDelay = 3 * motion.stagger;
+  const cardDelay = (index: number) =>
+    vm.contentEnterDelay +
+    Math.min(index, motion.maxStaggered) * motion.subjectStagger;
 
   const errorState = (
     <ErrorState
@@ -59,55 +65,89 @@ export function ReportCardScreen() {
           ) : null}
           {vm.status === 'ready' && !vm.isEmpty ? (
             <>
-              <Animated.View entering={enterDown(motion, 3 * motion.stagger)}>
-                <Dropdown
-                  testID="boletim-year-dropdown"
-                  label={vm.selectedYearLabel}
-                  options={vm.yearOptions}
-                  selectedKey={vm.selectedYearKey}
-                  onSelect={vm.onSelectYear}
-                  accessibilityLabelPrefix={
-                    strings.boletim.yearAccessibilityPrefix
-                  }
-                  accessibilityHint={strings.boletim.yearHint}
-                  marginHorizontal="m"
-                />
-              </Animated.View>
-              <Box marginTop="m">
-                {vm.termsStatus === 'loading' ? (
-                  <BoletimSkeleton
-                    testID="boletim-skeleton"
-                    withDropdown={false}
+              <Box paddingHorizontal="m">
+                <Entrance
+                  delay={segmentsDelay}
+                  offsetY={motion.enterOffsetSmall}
+                >
+                  <SegmentedControl
+                    testID="boletim-year"
+                    size="sm"
+                    options={vm.yearOptions}
+                    selectedKey={vm.selectedYearKey}
+                    onChange={vm.onSelectYear}
                   />
+                </Entrance>
+              </Box>
+              <Box marginTop="sm">
+                {vm.termsStatus === 'loading' ? (
+                  <BoletimSkeleton testID="boletim-skeleton" withYear={false} />
                 ) : null}
                 {vm.termsStatus === 'error' ? errorState : null}
                 {vm.termsStatus === 'ready' ? (
-                  <Animated.View
-                    key={vm.contentKey}
-                    exiting={FadeOut.duration(motion.exitFast)
-                      .easing(motion.easeIn)
-                      .reduceMotion(ReduceMotion.System)}
-                    style={{ gap: spacing.m }}
-                  >
-                    {vm.terms.map((term, index) => (
-                      <Animated.View
-                        key={term.term}
-                        entering={enterDown(
-                          motion,
-                          vm.contentEnterDelay + index * motion.cardStagger,
-                        )}
-                      >
-                        <TermAccordion
-                          testID={`boletim-term-${term.term}`}
-                          term={term}
-                          onToggle={() => vm.onToggleTerm(term.term)}
-                          onToggleSubject={subjectIndex =>
-                            vm.onToggleSubject(term.term, subjectIndex)
-                          }
+                  <Box paddingHorizontal="m">
+                    <Entrance
+                      delay={segmentsDelay}
+                      offsetY={motion.enterOffsetSmall}
+                    >
+                      <SegmentedControl
+                        testID="boletim-term-tab"
+                        options={vm.termOptions}
+                        selectedKey={vm.selectedTermKey}
+                        onChange={vm.onSelectTerm}
+                      />
+                    </Entrance>
+                    <Box key={vm.contentKey} marginTop="m">
+                      {vm.summary?.evaluated ? (
+                        <>
+                          <Entrance
+                            delay={vm.contentEnterDelay}
+                            offsetX={vm.slideDirection * motion.slideOffset}
+                            easing={motion.emphasized}
+                          >
+                            <TermSummaryCard
+                              testID="boletim-summary"
+                              summary={vm.summary}
+                              barDelay={vm.contentEnterDelay + motion.base}
+                            />
+                            <GradeLegend testID="boletim-legend" />
+                          </Entrance>
+                          <Text
+                            variant="overline"
+                            marginTop="l"
+                            marginBottom="s"
+                            accessibilityRole="header"
+                          >
+                            {vm.subjectsHeader}
+                          </Text>
+                          <Box gap="s">
+                            {vm.subjects.map(subject => (
+                              <Entrance
+                                key={subject.key}
+                                delay={cardDelay(subject.index)}
+                                offsetY={motion.enterOffsetSmall}
+                              >
+                                <SubjectGradeCard
+                                  testID={`boletim-term-${vm.selectedTerm}-subject-${subject.index}`}
+                                  subject={subject}
+                                  barDelay={
+                                    cardDelay(subject.index) + motion.fast
+                                  }
+                                />
+                              </Entrance>
+                            ))}
+                          </Box>
+                        </>
+                      ) : (
+                        <EmptyState
+                          testID={`boletim-term-${vm.selectedTerm}-not-evaluated`}
+                          icon={ClockIcon}
+                          title={strings.boletim.notEvaluatedTitle}
+                          description={vm.notEvaluatedDescription}
                         />
-                      </Animated.View>
-                    ))}
-                  </Animated.View>
+                      )}
+                    </Box>
+                  </Box>
                 ) : null}
               </Box>
             </>

@@ -61,22 +61,70 @@ export const strings = {
   },
   boletim: {
     title: 'Boletim',
-    /** `7EF - 2025`. */
-    yearLabel: (className: string, year: number) => `${className} - ${year}`,
-    yearAccessibilityPrefix: 'Turma e ano',
-    yearHint: 'Toque para ver outros anos',
-    /** `1º TRIMESTRE` (ordinal `º`, U+00BA). */
-    term: (term: number) => `${term}º TRIMESTRE`,
+    /** `2025 · 7EF`. */
+    yearOption: (year: number, className: string) => `${year} · ${className}`,
+    /** Pílula única (aluno com 1 ano só). */
+    yearSingle: (year: number, className: string) =>
+      `Ano letivo ${year} · ${className}`,
+    /** `1º tri` (ordinal `º`, U+00BA). */
+    termShort: (term: number) => `${term}º tri`,
     termAccessibilityLabel: (term: number) => `${term}º trimestre`,
-    grade: 'Nota:',
-    absences: 'Faltas:',
-    /** "Nota 9,5, 0 faltas" / "Nota 8,0, 1 falta". */
-    resultAccessibilityLabel: (grade: string, absences: number) =>
-      `Nota ${grade}, ${absences} ${absences === 1 ? 'falta' : 'faltas'}`,
-    notReleasedAccessibilityLabel: 'Nota e faltas ainda não lançadas',
-    gradeNotReleased: 'não lançada',
-    absencesNotReleased: 'faltas não lançadas',
-    loadingAccessibilityLabel: 'Carregando boletim',
+    /** `1º trimestre · 2025` (maiúsculas pela variante `overline`). */
+    summaryTitle: (term: number, year: number) =>
+      `${term}º trimestre · ${year}`,
+    average: 'Média geral',
+    averagePartial: (evaluated: number) =>
+      `Média de ${evaluated} disciplinas avaliadas`,
+    statAbsences: (absences: number) => (absences === 1 ? 'falta' : 'faltas'),
+    statSubjects: 'disciplinas',
+    statBelow: 'abaixo de 7',
+    band: {
+      good: 'Bom',
+      warning: 'Atenção',
+      low: 'Baixo',
+      none: 'Sem nota',
+    },
+    legend: {
+      good: '7 ou mais',
+      warning: '5 a 6,9',
+      low: 'abaixo de 5',
+      accessibilityLabel:
+        'Faixas de nota: 7 ou mais, bom; 5 a 6,9, atenção; abaixo de 5, baixo.',
+    },
+    /** `Disciplinas · 12` (maiúsculas pela variante `overline`). */
+    subjectsHeader: (count: number) => `Disciplinas · ${count}`,
+    /** Nota no card sem nota lançada (en dash). */
+    gradeMissing: '–',
+    absencesCount: (absences: number | null) =>
+      absences === null
+        ? 'Faltas não lançadas'
+        : `${absences} ${absences === 1 ? 'falta' : 'faltas'}`,
+    notEvaluatedTitle: 'Ainda não avaliado',
+    notEvaluatedDescription: (term: number) =>
+      `As notas do ${term}º trimestre aparecem aqui assim que forem lançadas.`,
+    /** `Língua Portuguesa. Nota 9,5, Bom. 0 faltas.` */
+    subjectAccessibilityLabel: (
+      name: string,
+      grade: string,
+      band: string,
+      absences: string,
+    ) => `${name}. Nota ${grade}, ${band}. ${absences}.`,
+    subjectNotReleasedAccessibilityLabel: (name: string) =>
+      `${name}. Nota e faltas ainda não lançadas.`,
+    /** `1º trimestre de 2025. Média 8,2, Bom. 14 faltas em 12 disciplinas. 1 abaixo de 7.` */
+    summaryAccessibilityLabel: (
+      term: number,
+      year: number,
+      average: string,
+      band: string,
+      absences: number,
+      subjects: number,
+      below: number,
+    ) =>
+      `${term}º trimestre de ${year}. Média ${average}, ${band}. ${absences} ${
+        absences === 1 ? 'falta' : 'faltas'
+      } em ${subjects} disciplinas. ${below} abaixo de 7.`,
+    loadingAccessibilityLabel: 'Carregando boletim…',
     empty: 'Nenhum boletim disponível',
     error: {
       title: 'Não foi possível carregar o boletim.',
