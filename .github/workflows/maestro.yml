@@ -1,0 +1,188 @@
+name: maestro
+
+# Flows do Maestro (mobile/.maestro) no emulador Android, com a API subindo no
+# próprio job. Não roda a cada push: build Android + emulador custa uns 20–30
+# min (D32). Rode pelo Actions (workflow_dispatch) ou ponha a label `e2e` no PR.
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled]
+    paths:
+      - "mobile/**"
+      - "api/**"
+      - ".github/workflows/maestro.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maestro-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    name: flows do Maestro (emulador Android)
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'e2e') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      API_PORT: "3333"
+      APK: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+      REPORT_DIR: maestro-report
+      MAESTRO_CLI_NO_ANALYTICS: "1"
+      # O 1º boot do driver do Maestro num emulador de CI pode passar do padrão.
+      MAESTRO_DRIVER_STARTUP_TIMEOUT: "180000"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # yarn 1 na api/ e yarn 4 na mobile/, cada um pelo packageManager da pasta.
+      - name: Habilita o corepack
+        run: corepack enable
+
+      # ---------- API ----------
+      - name: API - instala dependências (roda prisma generate)
+        working-directory: api
+        run: yarn install --frozen-lockfile --non-interactive
+
+      # .env do exemplo com segredo novo e os limites do login altos: os flows
+      # logam muitas vezes seguidas, do mesmo IP e com o mesmo CPF.
+      - name: API - .env
+        working-directory: api
+        run: |
+          cp .env.example .env
+          secret="$(openssl rand -base64 48)"
+          echo "::add-mask::${secret}"
+          sed -i \
+            -e "s|^JWT_SECRET=.*|JWT_SECRET=\"${secret}\"|" \
+            -e "s|^PORT=.*|PORT=${API_PORT}|" \
+            -e "s|^LOGIN_THROTTLE_LIMIT=.*|LOGIN_THROTTLE_LIMIT=1000|" \
+            -e "s|^LOGIN_THROTTLE_CPF_LIMIT=.*|LOGIN_THROTTLE_CPF_LIMIT=1000|" \
+            .env
+
+      - name: API - banco (migrate deploy + seed)
+        working-directory: api
+        run: yarn prisma:setup
+
+      - name: API - build
+        working-directory: api
+        run: yarn build
+
+      # Fica de pé até o fim do job (o runner encerra os processos no final).
+      - name: API - sobe e espera o health
+        working-directory: api
+        run: |
+          nohup node dist/main > "${RUNNER_TEMP}/api.log" 2>&1 &
+          for _ in $(seq 1 60); do
+            if curl -fsS "http://127.0.0.1:${API_PORT}/api/health" > /dev/null; then
+              echo "API no ar"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "A API não respondeu o health em 60 s" >&2
+          tail -n 50 "${RUNNER_TEMP}/api.log" >&2
+          exit 1
+
+      # ---------- App ----------
+      - name: App - pasta de cache do yarn
+        id: yarn-cache
+        working-directory: mobile
+        run: echo "dir=$(yarn config get cacheFolder)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.yarn-cache.outputs.dir }}
+          key: yarn-mobile-${{ runner.os }}-${{ hashFiles('mobile/yarn.lock') }}
+          restore-keys: yarn-mobile-${{ runner.os }}-
+
+      - name: App - instala dependências
+        working-directory: mobile
+        run: yarn install --immutable
+
+      - name: App - checagem estática dos flows
+        working-directory: mobile
+        run: yarn maestro:check
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # O react-native-config grava o .env no build. 10.0.2.2 é a máquina
+      # (o runner) vista de dentro do emulador.
+      - name: App - .env apontando para a API do job
+        working-directory: mobile
+        run: echo "API_URL=http://10.0.2.2:${API_PORT}/api" > .env
+
+      # O APK debug não traz o JS (vem do Metro) e o release não fala HTTP
+      # (sem cleartext). Então: APK debug com o bundle de produção (dev=false)
+      # dentro dele; sem Metro no ar, o app carrega o bundle do APK. Sem
+      # __DEV__ não há LogBox cobrindo a tela nem Reactotron.
+      - name: App - bundle JS dentro do APK debug
+        working-directory: mobile
+        run: |
+          mkdir -p android/app/src/main/assets
+          npx react-native bundle \
+            --platform android \
+            --dev false \
+            --entry-file index.js \
+            --bundle-output android/app/src/main/assets/index.android.bundle \
+            --assets-dest android/app/src/main/res
+
+      # Só x86_64, o ABI do emulador.
+      - name: App - assembleDebug
+        working-directory: mobile/android
+        run: ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --no-daemon --stacktrace
+
+      # ---------- Maestro ----------
+      - name: Maestro - instala o CLI
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "${HOME}/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Habilita o KVM (aceleração do emulador)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # O script do emulator-runner roda linha a linha (sh): um comando por linha.
+      - name: Maestro - flows no emulador (API 34, x86_64)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            adb install -r "$APK"
+            mkdir -p "$REPORT_DIR/debug"
+            maestro test mobile/.maestro --format junit --output "$REPORT_DIR/report.xml" --debug-output "$REPORT_DIR/debug"
+
+      # Relatório JUnit e, nas falhas, os prints e logs de cada comando.
+      - name: Relatório do Maestro
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-report
+          path: ${{ env.REPORT_DIR }}/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Log da API
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-api-log
+          path: ${{ runner.temp }}/api.log
+          if-no-files-found: warn
+          retention-days: 7

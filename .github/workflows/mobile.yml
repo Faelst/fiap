@@ -64,6 +64,10 @@ jobs:
       - name: Typecheck
         run: yarn tsc
 
+      # Sem emulador: YAML, appId, subflows e todo id dos flows existindo em src/.
+      - name: Flows do Maestro (checagem estática)
+        run: yarn maestro:check
+
       - name: Testes de componente e ViewModels (jest --coverage)
         run: yarn test --coverage --ci
 
