@@ -1,3 +1,4 @@
+import { useIsFocused } from '@react-navigation/native';
 import Animated, {
   FadeInDown,
   FadeOut,
@@ -24,6 +25,8 @@ import { useReportCardViewModel } from './useReportCardViewModel';
  */
 export function ReportCardScreen() {
   const vm = useReportCardViewModel();
+  // As abas ficam montadas: só a visível anuncia o erro (3.8).
+  const isFocused = useIsFocused();
   const { motion, spacing } = useTheme();
 
   const enterDown = (delay: number) =>
@@ -43,6 +46,7 @@ export function ReportCardScreen() {
       onRetry={vm.onRetry}
       retrying={vm.retrying}
       shakeKey={vm.shakeKey}
+      announce={isFocused}
     />
   );
 

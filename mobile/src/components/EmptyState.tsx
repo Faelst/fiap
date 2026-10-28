@@ -110,7 +110,10 @@ export function EmptyState({
         </Animated.View>
       ) : null}
       {action ? (
-        <Animated.View entering={enter.text(2)} style={{ marginTop: spacing.l }}>
+        <Animated.View
+          entering={enter.text(2)}
+          style={{ marginTop: spacing.l }}
+        >
           {action}
         </Animated.View>
       ) : null}

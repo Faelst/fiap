@@ -1,6 +1,8 @@
 import { ThemeProvider } from '@shopify/restyle';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { useIsFocused } from '@react-navigation/native';
 import { http, HttpResponse } from 'msw';
+import { AccessibilityInfo } from 'react-native';
 
 import { queryClient, queryKeys } from '../../../app/queryClient';
 import { createSecureStorage } from '../../../services/storage/secureStorage';
@@ -15,6 +17,7 @@ import { LessonsScreen } from '../LessonsScreen';
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
   useNavigation: () => ({ navigate: jest.fn() }),
+  useIsFocused: jest.fn(() => true),
 }));
 
 const deferred = () => {
@@ -150,5 +153,36 @@ describe('LessonsScreen', () => {
       'Sem aulas neste dia',
     );
     expect(screen.queryByTestId('agenda-day-dropdown')).toBeNull();
+  });
+
+  describe('anúncio do erro só com a aba em foco (3.8)', () => {
+    const announce = AccessibilityInfo.announceForAccessibility as jest.Mock;
+    const focused = useIsFocused as jest.Mock;
+
+    beforeEach(() => {
+      announce.mockClear();
+      server.use(
+        http.get(`${API_URL}/students/:id/agenda`, () => HttpResponse.error()),
+      );
+    });
+    afterEach(() => focused.mockReturnValue(true));
+
+    it('aba escondida (montada, fora de foco) não anuncia o erro', async () => {
+      focused.mockReturnValue(false);
+      await renderScreen();
+
+      expect(await screen.findByTestId('agenda-error')).toBeOnTheScreen();
+      expect(announce).not.toHaveBeenCalled();
+    });
+
+    it('aba em foco anuncia o erro uma vez', async () => {
+      await renderScreen();
+
+      expect(await screen.findByTestId('agenda-error')).toBeOnTheScreen();
+      expect(announce).toHaveBeenCalledTimes(1);
+      expect(announce.mock.calls[0][0]).toMatch(
+        /^Não foi possível carregar a agenda\./,
+      );
+    });
   });
 });

@@ -46,9 +46,7 @@ describe('SelectStudentScreen', () => {
     render(
       <QueryWrapper>
         <ThemeProvider theme={theme}>
-          <SelectStudentScreen
-            {...({ navigation } as unknown as Props)}
-          />
+          <SelectStudentScreen {...({ navigation } as unknown as Props)} />
         </ThemeProvider>
       </QueryWrapper>,
     );

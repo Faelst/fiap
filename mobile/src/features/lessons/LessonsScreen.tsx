@@ -1,3 +1,4 @@
+import { useIsFocused } from '@react-navigation/native';
 import Animated, {
   FadeInDown,
   FadeOut,
@@ -24,6 +25,8 @@ import { useAgendaViewModel } from './useAgendaViewModel';
  */
 export function LessonsScreen() {
   const vm = useAgendaViewModel();
+  // As abas ficam montadas: só a visível anuncia o erro (3.8).
+  const isFocused = useIsFocused();
   const { motion, spacing } = useTheme();
 
   const enterDown = (delay: number) =>
@@ -60,6 +63,7 @@ export function LessonsScreen() {
               onRetry={vm.onRetry}
               retrying={vm.retrying}
               shakeKey={vm.shakeKey}
+              announce={isFocused}
             />
           ) : null}
           {vm.status === 'ready' ? (

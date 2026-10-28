@@ -9,6 +9,7 @@ describe('ErrorState', () => {
     title: 'Não conseguimos conectar.',
     description: 'Confira sua conexão e tente de novo.',
     testID: 'boot-error',
+    announce: true,
   };
 
   it('título, descrição e TENTAR DE NOVO com o testID derivado', async () => {
@@ -108,6 +109,53 @@ describe('ErrorState', () => {
         />,
       );
       expect(announce).toHaveBeenCalledTimes(3);
+    });
+
+    it('fora de foco (aba escondida) não anuncia', async () => {
+      await renderWithTheme(
+        <ErrorState
+          {...base}
+          announce={false}
+          onRetry={jest.fn()}
+          retrying={false}
+        />,
+      );
+
+      expect(announce).not.toHaveBeenCalled();
+    });
+
+    it('anuncia uma vez quando a tela com o erro ganha foco', async () => {
+      const { rerender } = await renderWithTheme(
+        <ErrorState
+          {...base}
+          announce={false}
+          onRetry={jest.fn()}
+          retrying={false}
+          shakeKey={1}
+        />,
+      );
+      await rerender(
+        <ErrorState
+          {...base}
+          announce
+          onRetry={jest.fn()}
+          retrying={false}
+          shakeKey={1}
+        />,
+      );
+      expect(announce).toHaveBeenCalledTimes(1);
+      expect(announce).toHaveBeenCalledWith(spoken);
+
+      await rerender(
+        <ErrorState
+          {...base}
+          announce={false}
+          onRetry={jest.fn()}
+          retrying={false}
+          shakeKey={1}
+        />,
+      );
+      expect(announce).toHaveBeenCalledTimes(1);
     });
   });
 });

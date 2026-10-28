@@ -28,6 +28,7 @@ export function BootErrorScreen({
         onRetry={vm.onRetry}
         retrying={vm.retrying}
         shakeKey={vm.shakeKey}
+        announce
       />
     </Screen>
   );

@@ -17,6 +17,12 @@ type ErrorStateProps = {
   retryTestID?: string;
   /** Muda a cada retry que falha: dispara o shake curto (4.8). */
   shakeKey?: number;
+  /**
+   * Se o leitor de tela deve ouvir o erro agora. As abas ficam montadas, então
+   * cada tela passa `useIsFocused()`: só a visível anuncia, e a outra anuncia
+   * quando o usuário chega nela. Fora de um navigator (BootError), `true`.
+   */
+  announce: boolean;
 };
 
 /**
@@ -33,6 +39,7 @@ export function ErrorState({
   testID,
   retryTestID,
   shakeKey = 0,
+  announce,
 }: ErrorStateProps) {
   const { motion, spacing } = useTheme();
   const shakeStyle = useShakeStyle(shakeKey, 'short');
@@ -41,8 +48,8 @@ export function ErrorState({
   // Anúncio explícito nas duas plataformas, sem live region (que no Android
   // só avisa mudança numa view que já existia e leria duas vezes).
   useEffect(() => {
-    AccessibilityInfo.announceForAccessibility(spoken);
-  }, [spoken, shakeKey]);
+    if (announce) AccessibilityInfo.announceForAccessibility(spoken);
+  }, [spoken, shakeKey, announce]);
   const enter = (index: number) =>
     FadeInDown.duration(motion.base)
       .delay(index * motion.stagger)
