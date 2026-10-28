@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { AccessibilityInfo } from 'react-native';
 import Animated, { FadeInDown, ReduceMotion } from 'react-native-reanimated';
 
 import { strings } from '../constants/strings';
@@ -20,6 +22,8 @@ type ErrorStateProps = {
 /**
  * Erro com TENTAR DE NOVO (01-design.md, 2.14): título em `emptyState`,
  * descrição e o botão secundário. Sem ilustração, para não parecer "vazio".
+ * O leitor de tela ouve o erro quando ele aparece e a cada retry que falha
+ * (3.8); o spinner do retry não repete o anúncio.
  */
 export function ErrorState({
   title,
@@ -32,6 +36,13 @@ export function ErrorState({
 }: ErrorStateProps) {
   const { motion, spacing } = useTheme();
   const shakeStyle = useShakeStyle(shakeKey, 'short');
+  const spoken = `${title} ${description}`;
+
+  // Anúncio explícito nas duas plataformas, sem live region (que no Android
+  // só avisa mudança numa view que já existia e leria duas vezes).
+  useEffect(() => {
+    AccessibilityInfo.announceForAccessibility(spoken);
+  }, [spoken, shakeKey]);
   const enter = (index: number) =>
     FadeInDown.duration(motion.base)
       .delay(index * motion.stagger)

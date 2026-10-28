@@ -1,9 +1,16 @@
 import { ThemeProvider } from '@shopify/restyle';
 import { render } from '@testing-library/react-native';
-import type { ReactElement } from 'react';
+import type { PropsWithChildren, ReactElement } from 'react';
 
 import { theme } from '../theme';
 
-/** `render` com o tema do app, para componentes que usam Restyle. */
+function ThemeWrapper({ children }: PropsWithChildren) {
+  return <ThemeProvider theme={theme}>{children}</ThemeProvider>;
+}
+
+/**
+ * `render` com o tema do app, para componentes que usam Restyle. O tema é o
+ * `wrapper`, então o `rerender` também fica dentro dele.
+ */
 export const renderWithTheme = (ui: ReactElement) =>
-  render(<ThemeProvider theme={theme}>{ui}</ThemeProvider>);
+  render(ui, { wrapper: ThemeWrapper });

@@ -1,4 +1,5 @@
 import { fireEvent, screen } from '@testing-library/react-native';
+import { AccessibilityInfo } from 'react-native';
 
 import { renderWithTheme } from '../../test/renderWithTheme';
 import { ErrorState } from '../ErrorState';
@@ -49,5 +50,64 @@ describe('ErrorState', () => {
     expect(screen.getByTestId('boot-error-retry-loading')).toBeOnTheScreen();
     await fireEvent.press(retry);
     expect(onRetry).not.toHaveBeenCalled();
+  });
+
+  describe('leitor de tela (3.8)', () => {
+    const announce = AccessibilityInfo.announceForAccessibility as jest.Mock;
+    const spoken =
+      'Não conseguimos conectar. Confira sua conexão e tente de novo.';
+
+    beforeEach(() => announce.mockClear());
+
+    it('anuncia título e descrição quando o erro aparece', async () => {
+      await renderWithTheme(
+        <ErrorState {...base} onRetry={jest.fn()} retrying={false} />,
+      );
+
+      expect(announce).toHaveBeenCalledTimes(1);
+      expect(announce).toHaveBeenCalledWith(spoken);
+    });
+
+    it('o spinner do TENTAR DE NOVO não repete o anúncio', async () => {
+      const { rerender } = await renderWithTheme(
+        <ErrorState {...base} onRetry={jest.fn()} retrying={false} />,
+      );
+      await rerender(<ErrorState {...base} onRetry={jest.fn()} retrying />);
+      await rerender(
+        <ErrorState {...base} onRetry={jest.fn()} retrying={false} />,
+      );
+
+      expect(announce).toHaveBeenCalledTimes(1);
+    });
+
+    it('anuncia de novo, uma vez, a cada TENTAR DE NOVO que falha', async () => {
+      const { rerender } = await renderWithTheme(
+        <ErrorState {...base} onRetry={jest.fn()} retrying={false} />,
+      );
+      await rerender(
+        <ErrorState {...base} onRetry={jest.fn()} retrying shakeKey={0} />,
+      );
+      await rerender(
+        <ErrorState
+          {...base}
+          onRetry={jest.fn()}
+          retrying={false}
+          shakeKey={1}
+        />,
+      );
+
+      expect(announce).toHaveBeenCalledTimes(2);
+      expect(announce).toHaveBeenLastCalledWith(spoken);
+
+      await rerender(
+        <ErrorState
+          {...base}
+          onRetry={jest.fn()}
+          retrying={false}
+          shakeKey={2}
+        />,
+      );
+      expect(announce).toHaveBeenCalledTimes(3);
+    });
   });
 });
