@@ -1,6 +1,11 @@
 import { screen } from '@testing-library/react-native';
 import { Text } from 'react-native';
-import { ReduceMotion, useReducedMotion } from 'react-native-reanimated';
+import {
+  ReduceMotion,
+  useReducedMotion,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 
 import type { RecordedAnimation } from '../../test/recordingAnimations';
 import { renderWithTheme } from '../../test/renderWithTheme';
@@ -8,11 +13,18 @@ import { theme } from '../../theme';
 import { EmptyState } from '../EmptyState';
 import type { IconProps } from '../icons/StrokeIcon';
 
-jest.mock('react-native-reanimated', () => ({
-  ...jest.requireActual('react-native-reanimated/mock'),
-  ...jest.requireActual('../../test/recordingAnimations').recordingAnimations(),
-  useReducedMotion: jest.fn(() => false),
-}));
+jest.mock('react-native-reanimated', () => {
+  const actual = jest.requireActual('react-native-reanimated/mock');
+  return {
+    ...actual,
+    ...jest
+      .requireActual('../../test/recordingAnimations')
+      .recordingAnimations(),
+    useReducedMotion: jest.fn(() => false),
+    withSpring: jest.fn(actual.withSpring),
+    withTiming: jest.fn(actual.withTiming),
+  };
+});
 
 const { colors, motion, sizes } = theme;
 
@@ -114,19 +126,25 @@ describe('EmptyState', () => {
   });
 
   describe('entrada', () => {
-    it('ícone: opacidade 0 → 1 e escala 0,96 → 1 em `base`', async () => {
+    it('ícone: opacidade 0 → 1 em `base` e escala popFrom → 1 com a mola gentle', async () => {
       await renderWithTheme(
         <EmptyState testID="vazio" icon={FakeIcon} title="Sem aulas" />,
       );
 
-      const entering = enteringOf(iconCircle());
-      expect(entering.name).toBe('Keyframe');
-      expect(entering.keyframes).toEqual({
-        0: { opacity: 0, transform: [{ scale: motion.illustrationScaleFrom }] },
-        100: { opacity: 1, transform: [{ scale: 1 }], easing: motion.easeOut },
+      const entering = enteringOf(iconCircle()) as unknown as (
+        values: unknown,
+      ) => { initialValues: unknown; animations: unknown };
+      expect(typeof entering).toBe('function');
+      const animation = entering({});
+      expect(animation.initialValues).toEqual({
+        opacity: 0,
+        transform: [{ scale: motion.popFrom }],
       });
-      expect(entering.calls.duration).toBe(motion.base);
-      expect(entering.calls.reduceMotion).toBe(ReduceMotion.System);
+      expect(withTiming).toHaveBeenCalledWith(1, {
+        duration: motion.base,
+        easing: motion.easeOut,
+      });
+      expect(withSpring).toHaveBeenCalledWith(1, motion.spring.gentle);
     });
 
     it('título, descrição e ação entram em cascata depois do ícone', async () => {

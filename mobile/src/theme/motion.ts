@@ -49,8 +49,6 @@ export const motion = {
     /** Selo "Agora", selo "Atual", ponto do rádio. */
     pop: { damping: 12, stiffness: 220, mass: 0.8 },
   },
-  /** Opacidade de ações de texto pressionadas (barra, dropdown, acordeão). */
-  pressedOpacity: 0.6,
   /** Escala de pílulas, cards e linhas pressionados. */
   pressScale: 0.97,
   /** Escala dos chips de dia e do chip do aluno pressionados. */
@@ -62,8 +60,6 @@ export const motion = {
   enterOffsetCard: 16,
   /** Troca de trimestre ou de ano (direção). */
   slideOffset: 16,
-  /** Ilustração do estado vazio entra de 0,96 para 1 (01-design.md, 4.5). */
-  illustrationScaleFrom: 0.96,
   /** Shake do formulário em erro (01-design.md, 4.2): 6 passos de 50 ms. */
   shake: { offsets: [-10, 10, -8, 8, -4, 0], step: 50 },
   /** Shake curto do estado de erro quando o retry falha de novo (4.8). */
@@ -105,6 +101,11 @@ export const motion = {
     exitToLoginEasing: emphasized,
   },
   // Legado v1: sai na fatia 9.
+  /**
+   * Opacidade de ações de texto pressionadas da v1 (barra, dropdown,
+   * acordeão). Componente novo usa `opacities.pressed`.
+   */
+  pressedOpacity: 0.6,
   /** Pulso do skeleton da v1: 0,5 ↔ 1 em 800 ms; parado em 0,7 com reduzir movimento. */
   skeleton: { duration: 800, min: 0.5, reduced: 0.7 },
 } as const;

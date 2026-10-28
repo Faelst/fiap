@@ -1,9 +1,11 @@
 import type { ComponentType, ReactNode } from 'react';
 import Animated, {
   FadeIn,
-  Keyframe,
   ReduceMotion,
   useReducedMotion,
+  withSpring,
+  withTiming,
+  type LayoutAnimation,
 } from 'react-native-reanimated';
 
 import { Box, enterDown, Text, useTheme, type Theme } from '../theme';
@@ -25,10 +27,10 @@ type EmptyStateProps = {
 type Motion = Theme['motion'];
 
 /**
- * Entradas (01-design.md da v2, 4.7): o ícone cresce de 0,96 para 1 enquanto
- * aparece e o resto vem em cascata depois dele. Com reduzir movimento, tudo
- * só aparece em fade: opacidade não é movimento, então o sistema não pode
- * pular (`ReduceMotion.Never`).
+ * Entradas (01-design.md da v2, 4.7): o ícone aparece em `base` e cresce de
+ * `popFrom` para 1 com a mola `gentle`; o resto vem em cascata depois dele.
+ * Com reduzir movimento, tudo só aparece em fade: opacidade não é
+ * movimento, então o sistema não pode pular (`ReduceMotion.Never`).
  */
 function entrances(motion: Motion, reduced: boolean) {
   if (reduced) {
@@ -41,13 +43,19 @@ function entrances(motion: Motion, reduced: boolean) {
       item: (index: number) => fade(index * motion.stagger),
     };
   }
+  const { base, easeOut, popFrom, spring } = motion;
+  const icon = (): LayoutAnimation => {
+    'worklet';
+    return {
+      initialValues: { opacity: 0, transform: [{ scale: popFrom }] },
+      animations: {
+        opacity: withTiming(1, { duration: base, easing: easeOut }),
+        transform: [{ scale: withSpring(1, spring.gentle) }],
+      },
+    };
+  };
   return {
-    icon: new Keyframe({
-      0: { opacity: 0, transform: [{ scale: motion.illustrationScaleFrom }] },
-      100: { opacity: 1, transform: [{ scale: 1 }], easing: motion.easeOut },
-    })
-      .duration(motion.base)
-      .reduceMotion(ReduceMotion.System),
+    icon,
     item: (index: number) => enterDown(motion, index * motion.stagger),
   };
 }
