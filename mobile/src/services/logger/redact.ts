@@ -8,7 +8,6 @@ const SENSITIVE_KEYS = new Set([
   'accesstoken',
   'token',
   'refreshtoken',
-  'expopushtoken',
 ]);
 
 function redactValue(value: unknown, seen: WeakSet<object>): unknown {
