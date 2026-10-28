@@ -144,10 +144,13 @@ export function StudentRow({
       )}
       accessibilityHint={switchable ? strings.profile.studentHint : undefined}
       accessibilityState={{ selected }}
-      disabled={!switchable}
-      onPress={onPress}
-      onPressIn={pressIn}
-      onPressOut={pressOut}
+      // Sem toque quando não dá para trocar (o atual ou aluno único), mas sem
+      // `disabled`: o VoiceOver leria "esmaecido" junto de "selecionado". O
+      // leitor de tela continua focando a linha.
+      pointerEvents={switchable ? 'auto' : 'none'}
+      onPress={switchable ? onPress : undefined}
+      onPressIn={switchable ? pressIn : undefined}
+      onPressOut={switchable ? pressOut : undefined}
     >
       <Animated.View style={scaleStyle}>
         <Box

@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { queryClient, queryKeys } from '../../../app/queryClient';
 import { createSecureStorage } from '../../../services/storage/secureStorage';
@@ -22,6 +22,12 @@ describe('useHeaderViewModel', () => {
     await createSecureStorage().setToken('jwt-salvo');
     useSessionStore.setState({ status: 'signedIn', signOutReason: null });
     queryClient.clear();
+  });
+
+  // O hook busca o /me ao montar (sem cache ou com cache velho): espera a
+  // busca terminar para o fim dela não atualizar o hook fora do act.
+  afterEach(async () => {
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
   });
 
   const renderHeader = () =>

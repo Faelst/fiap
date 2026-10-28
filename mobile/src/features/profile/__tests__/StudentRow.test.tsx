@@ -161,12 +161,14 @@ describe('StudentRow', () => {
     expect(marina.onPress).toHaveBeenCalledTimes(1);
   });
 
-  it('aluno atual com troca possível: sem papel de botão, desabilitado e sem escala ao toque', async () => {
+  it('aluno atual com troca possível: sem papel de botão, sem toque e sem "esmaecido"', async () => {
     await renderWithTheme(<StudentRow {...marina} selected />);
 
     expect(row()).toHaveProp('accessibilityRole', 'text');
     expect(row()).toBeSelected();
-    expect(row()).toBeDisabled();
+    // Sem `disabled` (o VoiceOver leria "esmaecido"); o toque é cortado.
+    expect(row()).not.toBeDisabled();
+    expect(row()).toHaveProp('pointerEvents', 'none');
     await fireEvent(row(), 'pressIn');
     await fireEvent.press(row());
 
