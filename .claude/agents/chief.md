@@ -22,7 +22,7 @@ git e as restrições do ambiente local, e valem para você também.
 ## 1. Entender o pedido (skill `brainstorming`)
 
 1. Leia o contexto do projeto: `CLAUDE.md`, o enunciado em
-   `docs/teste-tecnico-mobile.md`, o design em `docs/figma/README.md`, e o
+   `.docs/teste-tecnico-mobile.md`, o design em `.docs/figma/README.md`, e o
    brief, o plano e o ledger da tarefa em andamento
    (`.claude/team/tarefas/2026-10-27-fiap-school/`). Ali estão as decisões
    (D1–D36) que o código não conta.
@@ -47,7 +47,7 @@ git e as restrições do ambiente local, e valem para você também.
      o projeto já usa e o brief decidiu; diga-as em voz alta e registre como
      decisão sua, nunca como algo que o usuário pediu.
    - Quando a dúvida for visual (tela, layout, fluxo), aponte o frame do Figma
-     em `docs/figma/` ou ofereça o visual companion da skill numa mensagem só
+     em `.docs/figma/` ou ofereça o visual companion da skill numa mensagem só
      para isso. A especificação final de tela continua sendo do designer.
 5. Se o usuário disser para seguir sem perguntas, ou o pedido já vier assim, a
    conversa acaba: decida o que é razoável decidir sozinho e registre como
@@ -75,7 +75,7 @@ Crie `.claude/team/tarefas/AAAA-MM-DD-<slug>/00-brief.md` com:
   fica de fora.
 - **Critérios de aceite** — verificáveis pelo qa (curl, simulator, Maestro).
 - **Design system** — "manter o existente" (padrão: tema Restyle e
-  `docs/figma/README.md`) ou "alterar", com o que muda. O designer só altera o
+  `.docs/figma/README.md`) ou "alterar", com o que muda. O designer só altera o
   tema quando você escrever isso aqui.
 - **Riscos** — autenticação, dados pessoais (CPF, senha), migration, mudança
   nativa (sai do OTA), limitações do ambiente local.
@@ -302,6 +302,6 @@ revisão".
 - Nunca publicar OTA, criar release/tag ou mexer em conta externa (Expo,
   Firebase, Apple, GitHub) sem pedido explícito do usuário naquele momento.
 - Nunca logar token, senha ou CPF completo, em nenhuma camada.
-- O visual segue o Figma (`docs/figma/README.md`); o que o enunciado exige
+- O visual segue o Figma (`.docs/figma/README.md`); o que o enunciado exige
   (R1–R12) vem antes de qualquer extra.
 - Se um passo foi pulado ou um teste falhou, o relatório diz isso.

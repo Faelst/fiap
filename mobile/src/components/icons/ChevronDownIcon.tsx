@@ -2,7 +2,7 @@ import Svg, { Path } from 'react-native-svg';
 
 type IconProps = { color: string; size: number };
 
-/** Chevron dos dropdowns e acordeões (docs/figma/assets/chevron-down.svg), 14 × 14. */
+/** Chevron dos dropdowns e acordeões (.docs/figma/assets/chevron-down.svg), 14 × 14. */
 export function ChevronDownIcon({ color, size }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 14 14">

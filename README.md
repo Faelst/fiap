@@ -4,9 +4,9 @@ Teste técnico de Mobile da FIAP School. É um app para os responsáveis
 acompanharem as aulas do dia e o boletim anual (notas e faltas) dos alunos,
 mais uma API própria em NestJS, que substitui o JSON do enunciado.
 
-- Enunciado: [`docs/teste-tecnico-mobile.md`](docs/teste-tecnico-mobile.md)
-  (transcrição do [.docx original](docs/teste-tecnico-mobile.docx))
-- Design: [`docs/figma/README.md`](docs/figma/README.md) (tokens, componentes e
+- Enunciado: [`.docs/teste-tecnico-mobile.md`](.docs/teste-tecnico-mobile.md)
+  (transcrição do [.docx original](.docs/teste-tecnico-mobile.docx))
+- Design: [`.docs/figma/README.md`](.docs/figma/README.md) (tokens, componentes e
   telas extraídos do Figma)
 - Spec do projeto: [`00-brief.md`](.claude/team/tarefas/2026-10-27-fiap-school/00-brief.md)
 
@@ -166,7 +166,7 @@ mais de um aluno) e o botão `SAIR`. O rodapé navega entre Aulas e Boletim.
 
 O enunciado entrega um JSON com os responsáveis, alunos, agenda e boletim. Aqui
 ele virou a carga inicial do banco: o JSON oficial está em
-[`docs/data/responsaveis.json`](docs/data/responsaveis.json), uma cópia dele em
+[`.docs/data/responsaveis.json`](.docs/data/responsaveis.json), uma cópia dele em
 `api/prisma/seed-data/` alimenta o seed, e o app consome a API com autenticação.
 O seed separa `horario` em início e fim, guarda a senha com bcrypt e acrescenta
 um responsável sem aluno (Carlos), para o cenário de erro.
@@ -193,12 +193,12 @@ originais estão em
 
 | Login | Agenda | Boletim |
 |---|---|---|
-| ![Splash, login com erro e login certo](docs/media/login.gif) | ![Troca de dia na agenda, com dias sem aula](docs/media/agenda.gif) | ![Trimestres do boletim e troca para 2024](docs/media/boletim.gif) |
+| ![Splash, login com erro e login certo](.docs/media/login.gif) | ![Troca de dia na agenda, com dias sem aula](.docs/media/agenda.gif) | ![Trimestres do boletim e troca para 2024](.docs/media/boletim.gif) |
 | Splash animada, CPF com máscara, senha errada e login | Dropdown dos dias, aulas e dia sem aula | Trimestres em acordeão, `-` no não avaliado e ano anterior |
 
 | Troca de aluno | Sem aluno e erro |
 |---|---|
-| ![Troca de aluno a partir do boletim](docs/media/trocar-aluno.gif) | ![Responsável sem aluno e boletim com a API fora do ar](docs/media/estados.gif) |
+| ![Troca de aluno a partir do boletim](.docs/media/trocar-aluno.gif) | ![Responsável sem aluno e boletim com a API fora do ar](.docs/media/estados.gif) |
 | TROCAR PERFIL a partir do Boletim e da Agenda | Responsável sem aluno; boletim com a API parada e "Tentar de novo" |
 
 ## v2 (UI moderna)

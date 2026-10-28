@@ -2,7 +2,7 @@ import Svg, { Path } from 'react-native-svg';
 
 type IconProps = { color: string; size: number };
 
-/** Ícone do FECHAR (docs/figma/assets/close.svg), 24 × 24. */
+/** Ícone do FECHAR (.docs/figma/assets/close.svg), 24 × 24. */
 export function CloseIcon({ color, size }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">

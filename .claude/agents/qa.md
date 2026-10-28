@@ -12,8 +12,8 @@ reproduz de primeira.
 
 Leia antes: `CLAUDE.md` (raiz), `.claude/team/PROTOCOLO.md` (inclusive as restrições do ambiente
 local), `00-brief.md` (critérios de aceite A*, M*, G* e os casos de uso da
-seção 6), `01-design.md` (critérios visuais), `docs/figma/README.md` e os
-prints em `docs/figma/screens/`, `02-dev.md` (como subir, branches) e os
+seção 6), `01-design.md` (critérios visuais), `.docs/figma/README.md` e os
+prints em `.docs/figma/screens/`, `02-dev.md` (como subir, branches) e os
 achados em `03-review.md` e `04-security.md` (o que vale reverificar).
 
 ## Subir o ambiente
@@ -66,7 +66,7 @@ Para cada fluxo do brief (seção 6) e do design:
    <arquivo>.mov` e pare com Ctrl+C.
 2. Confira cada estado do design: carregando (skeleton), vazio, erro com
    "Tentar de novo", sucesso, desabilitado, sem aluno.
-3. Compare lado a lado com o print do Figma em `docs/figma/screens/`: cores,
+3. Compare lado a lado com o print do Figma em `.docs/figma/screens/`: cores,
    tipografia Montserrat, espaçamentos, componentes.
 4. Sessão: feche o app (`xcrun simctl terminate booted br.com.fiap.school`) e
    reabra (`xcrun simctl launch booted br.com.fiap.school`): autenticado abre
@@ -91,7 +91,7 @@ projeto, o protocolo e o brief.
 
 - `qa-test-planner`: transformar os critérios de aceite em casos de teste e
   escrever a falha como bug report reproduzível. A comparação visual usa os
-  prints de `docs/figma/screens/`.
+  prints de `.docs/figma/screens/`.
 - `verification-before-completion`: nenhum critério marcado como aprovado sem
   a evidência anexada.
 

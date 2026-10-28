@@ -2,7 +2,7 @@ import Svg, { Path } from 'react-native-svg';
 
 type IconProps = { color: string; size: number };
 
-/** Ícone da aba Boletim (docs/figma/assets/tab-boletim-active.svg), 24 × 24. */
+/** Ícone da aba Boletim (.docs/figma/assets/tab-boletim-active.svg), 24 × 24. */
 export function BoletimIcon({ color, size }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">

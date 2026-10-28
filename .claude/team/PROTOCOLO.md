@@ -137,8 +137,8 @@ dele seguem estas mesmas adaptações dentro do time.
 | Pasta | Stack | Comandos de verificação |
 |---|---|---|
 | `api/` | NestJS 11, Prisma + SQLite (migrations + seed), JWT (passport-jwt), class-validator, Jest + supertest, Swagger em `/docs`; prefixo `/api` | `yarn lint && yarn tsc --noEmit && yarn test && yarn test:e2e` |
-| `mobile/` | React Native CLI + TypeScript strict, Restyle (tokens em `mobile/src/theme`, spec em `docs/figma/README.md`), React Navigation (native-stack + bottom-tabs), TanStack Query, zustand + mmkv, zod, react-hook-form, reanimated, Expo Modules só para `expo-updates` e `expo-notifications`, Jest + Testing Library, Maestro | `yarn lint && yarn tsc && yarn test` (+ `yarn ios` quando a tarefa tem tela) |
-| raiz | yarn, husky + commitlint + lint-staged, GitHub Actions, `.claude/`, `docs/` | os do plano para a tarefa (ex.: `yarn commitlint`) |
+| `mobile/` | React Native CLI + TypeScript strict, Restyle (tokens em `mobile/src/theme`, spec em `.docs/figma/README.md`), React Navigation (native-stack + bottom-tabs), TanStack Query, zustand + mmkv, zod, react-hook-form, reanimated, Expo Modules só para `expo-updates` e `expo-notifications`, Jest + Testing Library, Maestro | `yarn lint && yarn tsc && yarn test` (+ `yarn ios` quando a tarefa tem tela) |
+| raiz | yarn, husky + commitlint + lint-staged, GitHub Actions, `.claude/`, `.docs/` | os do plano para a tarefa (ex.: `yarn commitlint`) |
 
 - Banco: SQLite em arquivo. Recriar do zero com
   `yarn prisma migrate reset --force` dentro de `api/` (migra e semeia). O e2e
