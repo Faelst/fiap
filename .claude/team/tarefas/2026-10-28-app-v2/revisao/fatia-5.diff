@@ -1,0 +1,3372 @@
+bbfb4e5 test(mobile): comentário do flow 01 com a mensagem de erro em uma linha
+0f07b7e fix(mobile): escala do olho da senha calculada fora do worklet
+6710209 fix(mobile): aluno atual sem toque e sem "esmaecido" e fim do aviso de act do header
+62e10c4 feat(mobile): login v2 com TextField, banner de erro e logo vindo da splash
+ mobile/.maestro/01-login-invalido.yaml             |   2 +-
+ mobile/src/components/CpfInput.tsx                 |  29 --
+ mobile/src/components/Screen.tsx                   |  77 +---
+ mobile/src/components/TextField.tsx                | 350 ++++++++++++++++++
+ mobile/src/components/UnderlineInput.tsx           | 115 ------
+ mobile/src/components/__tests__/CpfInput.test.tsx  | 102 ------
+ mobile/src/components/__tests__/Screen.test.tsx    |  68 ++--
+ mobile/src/components/__tests__/TextField.test.tsx | 341 ++++++++++++++++++
+ mobile/src/constants/strings.ts                    |  24 +-
+ mobile/src/features/auth/LoginScreen.tsx           | 391 +++++++++++++++------
+ .../features/auth/__tests__/LoginScreen.test.tsx   | 356 +++++++++++++------
+ .../auth/__tests__/useLoginViewModel.test.tsx      |   7 +-
+ .../features/auth/components/LoginErrorBanner.tsx  |  74 ++++
+ .../features/auth/components/LoginErrorMessage.tsx |  40 ---
+ .../components/__tests__/LoginErrorBanner.test.tsx | 104 ++++++
+ .../__tests__/LoginErrorMessage.test.tsx           |  49 ---
+ mobile/src/features/auth/useLoginViewModel.ts      |   8 +-
+ .../header/__tests__/useHeaderViewModel.test.tsx   |   8 +-
+ .../features/profile/__tests__/StudentRow.test.tsx |   6 +-
+ .../src/features/profile/components/StudentRow.tsx |  11 +-
+ mobile/src/features/splash/SplashScreen.tsx        |  28 +-
+ .../splash/__tests__/SplashScreen.test.tsx         |  31 ++
+ .../splash/__tests__/useSplashAnimation.test.tsx   |  29 ++
+ mobile/src/features/splash/useSplashAnimation.ts   |  16 +-
+ .../src/hooks/__tests__/useKeyboardReveal.test.tsx | 214 +++++++++++
+ mobile/src/hooks/useKeyboardReveal.ts              | 135 +++++++
+ mobile/src/theme/__tests__/theme.test.ts           |  18 +
+ mobile/src/theme/motion.ts                         |   9 +
+ mobile/src/theme/sizes.ts                          |   6 +
+ mobile/src/utils/__tests__/loginLayout.test.ts     |  47 +++
+ mobile/src/utils/loginLayout.ts                    |  39 ++
+ 31 files changed, 2044 insertions(+), 690 deletions(-)
+diff --git a/mobile/.maestro/01-login-invalido.yaml b/mobile/.maestro/01-login-invalido.yaml
+index 8ed0545..615622f 100644
+--- a/mobile/.maestro/01-login-invalido.yaml
++++ b/mobile/.maestro/01-login-invalido.yaml
+@@ -7,13 +7,13 @@ tags:
+ - runFlow: subflows/launch-clean.yaml
+ - runFlow:
+     file: subflows/login.yaml
+     env:
+       CPF: '96929456004'
+       PASSWORD: '000000'
+-# O texto tem quebra de linha (no iOS o rótulo acessível vem sem ela).
++# Banner acima do botão; o regex casa o início da mensagem (uma linha só na v2).
+ - extendedWaitUntil:
+     visible:
+       id: login-error-message
+       text: '(?s)Usuário ou senha inválida\..*'
+     timeout: 10000
+ - assertVisible:
+diff --git a/mobile/src/components/CpfInput.tsx b/mobile/src/components/CpfInput.tsx
+deleted file mode 100644
+index 7efd960..0000000
+--- a/mobile/src/components/CpfInput.tsx
++++ /dev/null
+@@ -1,29 +0,0 @@
+-import { strings } from '../constants/strings';
+-import { formatCpf } from '../utils/cpf';
+-import { UnderlineInput, type UnderlineInputProps } from './UnderlineInput';
+-
+-/** Dígitos do CPF com a máscara `XXX.XXX.XXX-XX`. */
+-const CPF_MASKED_LENGTH = 14;
+-
+-type CpfInputProps = Omit<
+-  UnderlineInputProps,
+-  'keyboardType' | 'maxLength' | 'textContentType' | 'autoComplete'
+->;
+-
+-/**
+- * `UnderlineInput` do CPF (01-design.md, 2.6): teclado numérico e máscara
+- * progressiva aplicada a cada mudança, inclusive ao colar só os dígitos.
+- */
+-export function CpfInput({ onChangeText, ...props }: CpfInputProps) {
+-  return (
+-    <UnderlineInput
+-      accessibilityHint={strings.login.cpfHint}
+-      {...props}
+-      onChangeText={text => onChangeText(formatCpf(text))}
+-      keyboardType="number-pad"
+-      maxLength={CPF_MASKED_LENGTH}
+-      textContentType="username"
+-      autoComplete="username"
+-    />
+-  );
+-}
+diff --git a/mobile/src/components/Screen.tsx b/mobile/src/components/Screen.tsx
+index 21ec113..d2235fd 100644
+--- a/mobile/src/components/Screen.tsx
++++ b/mobile/src/components/Screen.tsx
+@@ -1,86 +1,33 @@
+ import type { ReactNode } from 'react';
+-import { KeyboardAvoidingView, ScrollView, StyleSheet } from 'react-native';
+ import { useSafeAreaInsets } from 'react-native-safe-area-context';
+ 
+ import { Box, useTheme } from '../theme';
+ 
+ type ScreenProps = {
+   children: ReactNode;
+   testID: string;
+-  scroll?: boolean;
+-  keyboard?: boolean;
+-  /**
+-   * Fica fora da rolagem, colado na base (ex.: o botão do login), e cuida do
+-   * inset de baixo.
+-   */
+-  footer?: ReactNode;
+ };
+ 
+ /**
+  * Base de toda tela (01-design.md, 2.1): fundo `background` na janela
+- * inteira, área segura em cima, rolagem e teclado opcionais. No tablet o
+- * conteúdo fica numa coluna centralizada.
++ * inteira e o conteúdo abaixo da área segura de cima. No tablet o conteúdo
++ * fica numa coluna centralizada. Rolagem e teclado são de cada tela (o Login
++ * cuida do teclado com `useKeyboardReveal`).
+  */
+-export function Screen({
+-  children,
+-  testID,
+-  scroll = false,
+-  keyboard = false,
+-  footer,
+-}: ScreenProps) {
++export function Screen({ children, testID }: ScreenProps) {
+   const insets = useSafeAreaInsets();
+   const { sizes } = useTheme();
+-  const insetStyle = { paddingTop: insets.top };
+-  const column = { width: '100%', maxWidth: sizes.contentMaxWidth } as const;
+-
+-  const content = scroll ? (
+-    <ScrollView
+-      style={styles.fill}
+-      contentContainerStyle={[styles.grow, insetStyle]}
+-      keyboardShouldPersistTaps="handled"
+-      showsVerticalScrollIndicator={false}
+-    >
+-      <Box flex={1} alignSelf="center" style={column}>
+-        {children}
+-      </Box>
+-    </ScrollView>
+-  ) : (
+-    <Box flex={1} alignSelf="center" style={[column, insetStyle]}>
+-      {children}
+-    </Box>
+-  );
+-
+-  const body = (
+-    <>
+-      {content}
+-      {footer}
+-    </>
+-  );
+ 
+   return (
+     <Box testID={testID} flex={1} backgroundColor="background">
+-      {keyboard ? (
+-        <KeyboardAvoidingView
+-          style={styles.fill}
+-          // `padding` nas duas plataformas: com o edge-to-edge do Android
+-          // (gradle.properties) o adjustResize não redimensiona a janela, e
+-          // o RN só informa onde o teclado está.
+-          behavior="padding"
+-          // O rodapé pinta o inset de baixo (home indicator no iOS, barra de
+-          // navegação no Android); com o teclado aberto esse pedaço fica
+-          // atrás do teclado, não acima dele.
+-          keyboardVerticalOffset={footer ? -insets.bottom : 0}
+-        >
+-          {body}
+-        </KeyboardAvoidingView>
+-      ) : (
+-        body
+-      )}
++      <Box
++        flex={1}
++        alignSelf="center"
++        width="100%"
++        style={{ maxWidth: sizes.contentMaxWidth, paddingTop: insets.top }}
++      >
++        {children}
++      </Box>
+     </Box>
+   );
+ }
+-
+-const styles = StyleSheet.create({
+-  fill: { flex: 1 },
+-  grow: { flexGrow: 1 },
+-});
+diff --git a/mobile/src/components/TextField.tsx b/mobile/src/components/TextField.tsx
+new file mode 100644
+index 0000000..e3f1fbe
+--- /dev/null
++++ b/mobile/src/components/TextField.tsx
+@@ -0,0 +1,350 @@
++import {
++  createRestyleComponent,
++  createVariant,
++  type VariantProps,
++} from '@shopify/restyle';
++import { useEffect, useState, type ReactNode, type Ref } from 'react';
++import {
++  AccessibilityInfo,
++  Pressable,
++  StyleSheet,
++  TextInput,
++  type TextInputInstance,
++  type TextInputProps,
++} from 'react-native';
++import Animated, {
++  FadeIn,
++  FadeInDown,
++  ReduceMotion,
++  useAnimatedStyle,
++  useReducedMotion,
++  withTiming,
++} from 'react-native-reanimated';
++
++import { strings } from '../constants/strings';
++import { Box, Text, useTheme, type Theme } from '../theme';
++import { formatCpf } from '../utils/cpf';
++import { AlertIcon } from './icons/AlertIcon';
++import { EyeIcon } from './icons/EyeIcon';
++import { EyeOffIcon } from './icons/EyeOffIcon';
++
++/** TextInput com as `textVariants` do tema. */
++const ThemedTextInput = createRestyleComponent<
++  VariantProps<Theme, 'textVariants'> &
++    TextInputProps & { ref?: Ref<TextInputInstance> },
++  Theme
++>([createVariant({ themeKey: 'textVariants' })], TextInput);
++
++/** CPF com máscara: `XXX.XXX.XXX-XX`. */
++const CPF_MASKED_LENGTH = 14;
++
++export type TextFieldProps = Pick<
++  TextInputProps,
++  | 'onBlur'
++  | 'onFocus'
++  | 'keyboardType'
++  | 'textContentType'
++  | 'autoComplete'
++  | 'returnKeyType'
++  | 'onSubmitEditing'
++  | 'submitBehavior'
++  | 'accessibilityHint'
++> & {
++  label: string;
++  /** Recebe a cor do ícone da esquerda. */
++  icon: (color: string) => ReactNode;
++  value: string;
++  onChangeText: (text: string) => void;
++  /** Texto do erro do campo: borda `danger`, linha embaixo e dica do leitor. */
++  error?: string | null;
++  /** Senha: oculta, com o botão de olho para mostrar/ocultar. */
++  secureToggle?: boolean;
++  mask?: 'cpf';
++  /** Placeholder que só aparece com foco e o campo vazio. */
++  placeholderWhenFocused?: string;
++  inputRef?: Ref<TextInputInstance>;
++  editable?: boolean;
++  /** Padrão: o próprio `label`. */
++  accessibilityLabel?: string;
++  /** Vai no `TextInput`; os filhos derivam dele (`X-error`, `X-toggle`...). */
++  testID: string;
++};
++
++/** Props do `TextInput` que a máscara de CPF fixa (2.5). */
++const cpfInputProps = {
++  keyboardType: 'number-pad',
++  maxLength: CPF_MASKED_LENGTH,
++  textContentType: 'username',
++  autoComplete: 'username',
++} as const;
++
++/**
++ * Campo de texto da v2 (01-design.md da v2, 2.5), no lugar do
++ * `UnderlineInput` e do `CpfInput`: caixa arredondada com ícone, rótulo
++ * flutuante (sobe e encolhe com foco ou valor), camadas de foco e de erro por
++ * opacidade (o erro vence o foco), máscara de CPF e olho da senha. Só
++ * `transform` e `opacity` animam; a cor muda por crossfade de camadas.
++ */
++export function TextField({
++  label,
++  icon,
++  value,
++  onChangeText,
++  onFocus,
++  onBlur,
++  error,
++  secureToggle = false,
++  mask,
++  placeholderWhenFocused,
++  inputRef,
++  editable = true,
++  accessibilityLabel,
++  accessibilityHint,
++  testID,
++  ...inputProps
++}: TextFieldProps) {
++  const { borderRadii, colors, motion, opacities, shadows, sizes, spacing } =
++    useTheme();
++  const reducedMotion = useReducedMotion();
++  const [focused, setFocused] = useState(false);
++  const [secureHidden, setSecureHidden] = useState(true);
++  const raised = focused || value.length > 0;
++  const hasError = Boolean(error);
++
++  // Anunciado uma vez quando aparece (6.4); depois fica ligado ao campo pela
++  // dica. Explícito nas duas plataformas, como o banner do login.
++  useEffect(() => {
++    if (error) AccessibilityInfo.announceForAccessibility(error);
++  }, [error]);
++
++  /** Posição e escala: direto com reduzir movimento; opacidade sempre anima. */
++  const move = (target: number) => {
++    'worklet';
++    return reducedMotion
++      ? target
++      : withTiming(target, { duration: motion.base, easing: motion.easeOut });
++  };
++  const fade = (target: number) => {
++    'worklet';
++    return withTiming(target, {
++      duration: motion.fast,
++      reduceMotion: ReduceMotion.Never,
++    });
++  };
++
++  const containerStyle = useAnimatedStyle(() => ({
++    opacity: fade(editable ? 1 : opacities.busy),
++  }));
++  const labelStyle = useAnimatedStyle(() => ({
++    transform: [
++      { translateY: move(raised ? -(spacing.m - spacing.xxs) : 0) },
++      { scale: move(raised ? motion.fieldLabelScale : 1) },
++    ],
++  }));
++  const activeLabelStyle = useAnimatedStyle(() => ({
++    opacity: fade(focused ? 1 : 0),
++  }));
++  const focusLayerStyle = useAnimatedStyle(() => ({
++    opacity: fade(focused && !hasError ? 1 : 0),
++  }));
++  const errorLayerStyle = useAnimatedStyle(() => ({
++    opacity: fade(hasError ? 1 : 0),
++  }));
++  // O ícone que entra cresce de 0,85 a 1 (sem escala com reduzir movimento).
++  // Calculadas no JS: o worklet só lê números.
++  const iconScale = (visible: boolean) =>
++    reducedMotion || visible ? 1 : motion.toggleIconFrom;
++  const showIconScale = iconScale(secureHidden);
++  const hideIconScale = iconScale(!secureHidden);
++  const showIconStyle = useAnimatedStyle(() => ({
++    opacity: fade(secureHidden ? 1 : 0),
++    transform: [{ scale: move(showIconScale) }],
++  }));
++  const hideIconStyle = useAnimatedStyle(() => ({
++    opacity: fade(secureHidden ? 0 : 1),
++    transform: [{ scale: move(hideIconScale) }],
++  }));
++
++  const errorEntering = reducedMotion
++    ? FadeIn.duration(motion.fast).reduceMotion(ReduceMotion.Never)
++    : FadeInDown.duration(motion.base)
++        .easing(motion.easeOut)
++        .withInitialValues({
++          transform: [{ translateY: motion.enterOffsetSmall }],
++        })
++        .reduceMotion(ReduceMotion.System);
++
++  const layer = {
++    ...StyleSheet.absoluteFill,
++    // Por cima da borda de 1 da caixa.
++    top: -1,
++    left: -1,
++    right: -1,
++    bottom: -1,
++    borderRadius: borderRadii.m,
++    borderWidth: sizes.textFieldFocusBorder,
++  };
++
++  return (
++    <Animated.View testID={`${testID}-container`} style={containerStyle}>
++      <Box
++        testID={`${testID}-box`}
++        height={sizes.textField}
++        borderRadius="m"
++        backgroundColor="surfaceSunken"
++        borderColor="borderInput"
++        borderWidth={1}
++        flexDirection="row"
++        alignItems="center"
++        paddingLeft="m"
++        paddingRight={secureToggle ? 'none' : 'm'}
++      >
++        {icon(colors.textSecondary)}
++        <Box flex={1} alignSelf="stretch" marginLeft="sm">
++          <Animated.View
++            testID={`${testID}-label`}
++            pointerEvents="none"
++            importantForAccessibility="no-hide-descendants"
++            accessibilityElementsHidden
++            style={[styles.label, labelStyle]}
++          >
++            <Box>
++              <Text
++                variant="inputLabel"
++                numberOfLines={1}
++                maxFontSizeMultiplier={sizes.fixedHeightFontScale}
++              >
++                {label}
++              </Text>
++              <Animated.View
++                testID={`${testID}-label-active`}
++                style={[StyleSheet.absoluteFill, activeLabelStyle]}
++              >
++                <Text
++                  variant="inputLabel"
++                  color="primary"
++                  numberOfLines={1}
++                  maxFontSizeMultiplier={sizes.fixedHeightFontScale}
++                >
++                  {label}
++                </Text>
++              </Animated.View>
++            </Box>
++          </Animated.View>
++          <ThemedTextInput
++            ref={inputRef}
++            testID={testID}
++            variant="input"
++            style={[
++              styles.input,
++              { paddingTop: spacing.m + spacing.xs, paddingBottom: spacing.s },
++            ]}
++            value={value}
++            onChangeText={text =>
++              onChangeText(mask === 'cpf' ? formatCpf(text) : text)
++            }
++            onFocus={event => {
++              setFocused(true);
++              onFocus?.(event);
++            }}
++            onBlur={event => {
++              setFocused(false);
++              onBlur?.(event);
++            }}
++            editable={editable}
++            secureTextEntry={secureToggle ? secureHidden : undefined}
++            placeholder={focused && !value ? placeholderWhenFocused : undefined}
++            placeholderTextColor={colors.textTertiary}
++            accessibilityLabel={accessibilityLabel ?? label}
++            accessibilityHint={error ?? accessibilityHint}
++            selectionColor={colors.primary}
++            cursorColor={colors.primary}
++            maxFontSizeMultiplier={sizes.fixedHeightFontScale}
++            autoCorrect={false}
++            autoCapitalize="none"
++            {...(mask === 'cpf' ? cpfInputProps : null)}
++            {...inputProps}
++          />
++        </Box>
++        {secureToggle ? (
++          <Pressable
++            testID={`${testID}-toggle`}
++            accessibilityRole="button"
++            accessibilityLabel={
++              secureHidden
++                ? strings.login.showPassword
++                : strings.login.hidePassword
++            }
++            // Trocar o modo não tira o foco do campo (a rolagem do login usa
++            // keyboardShouldPersistTaps="handled").
++            onPress={() => setSecureHidden(current => !current)}
++            style={[
++              styles.center,
++              { width: sizes.touchTarget, height: sizes.touchTarget },
++            ]}
++          >
++            <Animated.View
++              testID={`${testID}-toggle-show`}
++              style={[StyleSheet.absoluteFill, styles.center, showIconStyle]}
++            >
++              <EyeIcon color={colors.textSecondary} />
++            </Animated.View>
++            <Animated.View
++              testID={`${testID}-toggle-hide`}
++              style={[StyleSheet.absoluteFill, styles.center, hideIconStyle]}
++            >
++              <EyeOffIcon color={colors.textSecondary} />
++            </Animated.View>
++          </Pressable>
++        ) : null}
++        <Animated.View
++          testID={`${testID}-focus-layer`}
++          pointerEvents="none"
++          style={[
++            layer,
++            {
++              borderColor: colors.primary,
++              boxShadow: [shadows.glowPrimary],
++            },
++            focusLayerStyle,
++          ]}
++        />
++        <Animated.View
++          testID={`${testID}-error-layer`}
++          pointerEvents="none"
++          style={[layer, { borderColor: colors.danger }, errorLayerStyle]}
++        />
++      </Box>
++      {error ? (
++        <Animated.View
++          key={error}
++          testID={`${testID}-error-enter`}
++          entering={errorEntering}
++        >
++          <Box flexDirection="row" alignItems="center" marginTop="xs">
++            <AlertIcon color={colors.danger} size={sizes.fieldErrorIcon} />
++            <Text
++              testID={`${testID}-error`}
++              variant="error"
++              marginLeft="xs"
++              flexShrink={1}
++            >
++              {error}
++            </Text>
++          </Box>
++        </Animated.View>
++      ) : null}
++    </Animated.View>
++  );
++}
++
++const styles = StyleSheet.create({
++  label: {
++    ...StyleSheet.absoluteFill,
++    justifyContent: 'center',
++    // O rótulo encolhe a partir da borda esquerda, alinhado ao texto (2.5).
++    transformOrigin: 'left center',
++  },
++  input: { flex: 1 },
++  center: { alignItems: 'center', justifyContent: 'center' },
++});
+diff --git a/mobile/src/components/UnderlineInput.tsx b/mobile/src/components/UnderlineInput.tsx
+deleted file mode 100644
+index b379021..0000000
+--- a/mobile/src/components/UnderlineInput.tsx
++++ /dev/null
+@@ -1,115 +0,0 @@
+-import {
+-  createRestyleComponent,
+-  createVariant,
+-  spacing as spacingRestyle,
+-  type SpacingProps,
+-  type VariantProps,
+-} from '@shopify/restyle';
+-import { useState, type Ref } from 'react';
+-import {
+-  TextInput,
+-  type TextInputInstance,
+-  type TextInputProps,
+-} from 'react-native';
+-import Animated, {
+-  useAnimatedStyle,
+-  withTiming,
+-} from 'react-native-reanimated';
+-
+-import { Box, Text, useTheme, type Theme } from '../theme';
+-
+-/** TextInput com as `textVariants` e o espaçamento do tema. */
+-const ThemedTextInput = createRestyleComponent<
+-  VariantProps<Theme, 'textVariants'> &
+-    SpacingProps<Theme> &
+-    TextInputProps & { ref?: Ref<TextInputInstance> },
+-  Theme
+->([createVariant({ themeKey: 'textVariants' }), ...spacingRestyle], TextInput);
+-
+-export type UnderlineInputProps = Pick<
+-  TextInputProps,
+-  | 'value'
+-  | 'onBlur'
+-  | 'onFocus'
+-  | 'secureTextEntry'
+-  | 'keyboardType'
+-  | 'textContentType'
+-  | 'autoComplete'
+-  | 'returnKeyType'
+-  | 'onSubmitEditing'
+-  | 'submitBehavior'
+-  | 'editable'
+-  | 'maxLength'
+-  | 'accessibilityHint'
+-> & {
+-  label: string;
+-  onChangeText: (text: string) => void;
+-  testID: string;
+-  /** Rótulo lido pelo leitor de tela (padrão: o próprio `label`). */
+-  accessibilityLabel?: string;
+-  inputRef?: Ref<TextInputInstance>;
+-};
+-
+-/**
+- * Campo do login (01-design.md, 2.6): rótulo centralizado, valor grande e uma
+- * linha embaixo. O rótulo fica em negrito com o foco; a linha passa de
+- * `inputLine` para `text` quando há valor.
+- */
+-export function UnderlineInput({
+-  label,
+-  value,
+-  onChangeText,
+-  onBlur,
+-  onFocus,
+-  testID,
+-  accessibilityLabel,
+-  inputRef,
+-  ...inputProps
+-}: UnderlineInputProps) {
+-  const { colors, motion, sizes, spacing } = useTheme();
+-  const [focused, setFocused] = useState(false);
+-  const lineColor = value ? colors.text : colors.inputLine;
+-
+-  const lineStyle = useAnimatedStyle(() => ({
+-    backgroundColor: withTiming(lineColor, { duration: motion.fast }),
+-  }));
+-
+-  return (
+-    <Box width="100%">
+-      <Text
+-        variant={focused ? 'labelFocused' : 'labelV1'}
+-        importantForAccessibility="no"
+-        accessibilityElementsHidden
+-      >
+-        {label}
+-      </Text>
+-      <ThemedTextInput
+-        ref={inputRef}
+-        testID={testID}
+-        variant="inputValue"
+-        marginTop="l"
+-        padding="none"
+-        value={value}
+-        onChangeText={onChangeText}
+-        onFocus={event => {
+-          setFocused(true);
+-          onFocus?.(event);
+-        }}
+-        onBlur={event => {
+-          setFocused(false);
+-          onBlur?.(event);
+-        }}
+-        accessibilityLabel={accessibilityLabel ?? label}
+-        selectionColor={colors.primary}
+-        cursorColor={colors.primary}
+-        autoCorrect={false}
+-        autoCapitalize="none"
+-        {...inputProps}
+-      />
+-      <Animated.View
+-        testID={`${testID}-line`}
+-        style={[{ height: sizes.inputLine, marginTop: spacing.s }, lineStyle]}
+-      />
+-    </Box>
+-  );
+-}
+diff --git a/mobile/src/components/__tests__/CpfInput.test.tsx b/mobile/src/components/__tests__/CpfInput.test.tsx
+deleted file mode 100644
+index 7cfa3df..0000000
+--- a/mobile/src/components/__tests__/CpfInput.test.tsx
++++ /dev/null
+@@ -1,102 +0,0 @@
+-import { fireEvent, screen } from '@testing-library/react-native';
+-import { useState } from 'react';
+-
+-import { renderWithTheme } from '../../test/renderWithTheme';
+-import { theme } from '../../theme';
+-import { CpfInput } from '../CpfInput';
+-
+-/** CPF controlado, como o ViewModel faz. */
+-function ControlledCpf({ onChange }: { onChange?: (value: string) => void }) {
+-  const [value, setValue] = useState('');
+-  return (
+-    <CpfInput
+-      label="CPF"
+-      testID="login-cpf-input"
+-      value={value}
+-      onChangeText={text => {
+-        setValue(text);
+-        onChange?.(text);
+-      }}
+-    />
+-  );
+-}
+-
+-const input = () => screen.getByTestId('login-cpf-input');
+-// O rótulo visual fica fora do leitor de tela: quem lê "CPF" é o próprio campo.
+-const label = () => screen.getByText('CPF', { includeHiddenElements: true });
+-
+-describe('CpfInput', () => {
+-  it('aplica a máscara enquanto digita', async () => {
+-    const onChange = jest.fn();
+-    await renderWithTheme(<ControlledCpf onChange={onChange} />);
+-
+-    await fireEvent.changeText(input(), '9692');
+-    expect(onChange).toHaveBeenLastCalledWith('969.2');
+-    expect(input()).toHaveProp('value', '969.2');
+-
+-    await fireEvent.changeText(input(), '969.294.5600');
+-    expect(input()).toHaveProp('value', '969.294.560-0');
+-  });
+-
+-  it('colar só os dígitos vira o CPF mascarado e corta no 11º dígito', async () => {
+-    await renderWithTheme(<ControlledCpf />);
+-
+-    await fireEvent.changeText(input(), '9692945600499');
+-
+-    expect(input()).toHaveProp('value', '969.294.560-04');
+-  });
+-
+-  it('teclado numérico, 14 caracteres e preenchimento de usuário', async () => {
+-    await renderWithTheme(<ControlledCpf />);
+-
+-    expect(input()).toHaveProp('keyboardType', 'number-pad');
+-    expect(input()).toHaveProp('maxLength', 14);
+-    expect(input()).toHaveProp('textContentType', 'username');
+-    expect(input()).toHaveProp('autoComplete', 'username');
+-    expect(input()).toHaveProp('accessibilityLabel', 'CPF');
+-    expect(input()).toHaveProp('accessibilityHint', 'Somente números');
+-  });
+-
+-  it('o rótulo fica em negrito com o foco e volta ao sair', async () => {
+-    await renderWithTheme(<ControlledCpf />);
+-
+-    expect(label()).toHaveStyle({
+-      fontFamily: 'Montserrat-Regular',
+-    });
+-
+-    await fireEvent(input(), 'focus');
+-    expect(label()).toHaveStyle({
+-      fontFamily: 'Montserrat-SemiBold',
+-    });
+-
+-    await fireEvent(input(), 'blur');
+-    expect(label()).toHaveStyle({
+-      fontFamily: 'Montserrat-Regular',
+-    });
+-  });
+-
+-  it('a linha é inputLine vazia e text preenchida', async () => {
+-    await renderWithTheme(<ControlledCpf />);
+-
+-    expect(screen.getByTestId('login-cpf-input-line')).toHaveStyle({
+-      backgroundColor: theme.colors.inputLine,
+-    });
+-
+-    await fireEvent.changeText(input(), '969');
+-
+-    expect(screen.getByTestId('login-cpf-input-line')).toHaveStyle({
+-      backgroundColor: '#FFFFFF',
+-    });
+-  });
+-
+-  it('o valor usa a variante inputValue (32, centralizado)', async () => {
+-    await renderWithTheme(<ControlledCpf />);
+-
+-    expect(input()).toHaveStyle({
+-      fontFamily: 'Montserrat-Regular',
+-      fontSize: 32,
+-      textAlign: 'center',
+-      color: '#FFFFFF',
+-    });
+-  });
+-});
+diff --git a/mobile/src/components/__tests__/Screen.test.tsx b/mobile/src/components/__tests__/Screen.test.tsx
+index 10d99a0..a35bdf5 100644
+--- a/mobile/src/components/__tests__/Screen.test.tsx
++++ b/mobile/src/components/__tests__/Screen.test.tsx
+@@ -1,62 +1,48 @@
+ import { screen } from '@testing-library/react-native';
+-import { Platform, Text } from 'react-native';
++import { StyleSheet, Text } from 'react-native';
+ import { useSafeAreaInsets } from 'react-native-safe-area-context';
+ 
+ import { renderWithTheme } from '../../test/renderWithTheme';
++import { theme } from '../../theme';
+ import { Screen } from '../Screen';
+ 
+-// O KeyboardAvoidingView não repassa `behavior` à View nativa: o mock expõe
+-// as props recebidas numa View com testID próprio.
+-jest.mock(
+-  'react-native/Libraries/Components/Keyboard/KeyboardAvoidingView',
+-  () => {
+-    const { View } = require('react-native');
+-    return {
+-      __esModule: true,
+-      default: (props: object) => <View testID="keyboard-avoider" {...props} />,
+-    };
+-  },
+-);
+-
+ const insets = { top: 47, bottom: 34, left: 0, right: 0 };
+ 
+-const renderKeyboardScreen = () =>
+-  renderWithTheme(
+-    <Screen testID="tela" keyboard scroll footer={<Text>rodapé</Text>}>
+-      <Text>conteúdo</Text>
+-    </Screen>,
+-  );
+-
+-const keyboardAvoider = () => screen.getByTestId('keyboard-avoider').props;
+-
+ describe('Screen', () => {
+   beforeEach(() => {
+     jest.mocked(useSafeAreaInsets).mockReturnValue(insets);
+   });
+ 
+   afterEach(() => {
+     jest.restoreAllMocks();
+   });
+ 
+-  it('no iOS o teclado empurra o conteúdo com padding', async () => {
+-    jest.replaceProperty(Platform, 'OS', 'ios');
+-
+-    await renderKeyboardScreen();
+-
+-    expect(keyboardAvoider().behavior).toBe('padding');
+-  });
+-
+-  it('no Android (edge-to-edge, sem adjustResize) também usa padding', async () => {
+-    jest.replaceProperty(Platform, 'OS', 'android');
+-
+-    await renderKeyboardScreen();
+-
+-    expect(keyboardAvoider().behavior).toBe('padding');
++  it('fundo `background` na tela inteira', async () => {
++    await renderWithTheme(
++      <Screen testID="tela">
++        <Text>conteúdo</Text>
++      </Screen>,
++    );
++
++    expect(screen.getByTestId('tela')).toHaveStyle({
++      flex: 1,
++      backgroundColor: theme.colors.background,
++    });
+   });
+ 
+-  it('com rodapé cuidando do inset, o inset de baixo fica atrás do teclado', async () => {
+-    await renderKeyboardScreen();
+-
+-    expect(keyboardAvoider().keyboardVerticalOffset).toBe(-insets.bottom);
++  it('conteúdo abaixo da área segura de cima, numa coluna de no máximo 600', async () => {
++    await renderWithTheme(
++      <Screen testID="tela">
++        <Text>conteúdo</Text>
++      </Screen>,
++    );
++
++    const [column] = screen.getByTestId('tela').children as unknown as {
++      props: { style: unknown };
++    }[];
++    expect(StyleSheet.flatten(column.props.style as object)).toMatchObject({
++      paddingTop: insets.top,
++      maxWidth: theme.sizes.contentMaxWidth,
++    });
+   });
+ });
+diff --git a/mobile/src/components/__tests__/TextField.test.tsx b/mobile/src/components/__tests__/TextField.test.tsx
+new file mode 100644
+index 0000000..f950ea2
+--- /dev/null
++++ b/mobile/src/components/__tests__/TextField.test.tsx
+@@ -0,0 +1,341 @@
++import { fireEvent, screen } from '@testing-library/react-native';
++import { createRef } from 'react';
++import {
++  AccessibilityInfo,
++  StyleSheet,
++  Text,
++  type TextInputInstance,
++} from 'react-native';
++import { ReduceMotion, useReducedMotion } from 'react-native-reanimated';
++
++import type { RecordedAnimation } from '../../test/recordingAnimations';
++import { renderWithTheme } from '../../test/renderWithTheme';
++import { theme } from '../../theme';
++import { TextField, type TextFieldProps } from '../TextField';
++
++jest.mock('react-native-reanimated', () => {
++  const actual = jest.requireActual('react-native-reanimated/mock');
++  return {
++    ...actual,
++    ...jest
++      .requireActual('../../test/recordingAnimations')
++      .recordingAnimations(),
++    useReducedMotion: jest.fn(() => false),
++  };
++});
++
++const { borderRadii, colors, motion, opacities, shadows, sizes, spacing } =
++  theme;
++const reducedMotionMock = useReducedMotion as jest.Mock;
++const hidden = { includeHiddenElements: true };
++
++const renderField = (props: Partial<TextFieldProps> = {}) =>
++  renderWithTheme(
++    <TextField
++      testID="campo"
++      label="CPF"
++      icon={color => <Text>ícone {color}</Text>}
++      value=""
++      onChangeText={jest.fn()}
++      {...props}
++    />,
++  );
++
++const input = () => screen.getByTestId('campo');
++const style = (testID: string) =>
++  StyleSheet.flatten(screen.getByTestId(testID, hidden).props.style);
++const entering = (testID: string) =>
++  (
++    screen.getByTestId(testID, hidden) as unknown as {
++      props: { entering?: RecordedAnimation };
++    }
++  ).props.entering;
++
++/** Deslocamento do rótulo flutuando (2.5): −(m − xxs). */
++const raisedY = -(spacing.m - spacing.xxs);
++
++beforeEach(() => {
++  jest.clearAllMocks();
++  reducedMotionMock.mockReturnValue(false);
++});
++
++describe('TextField', () => {
++  it('caixa de 60 com raio m, fundo afundado, borda de campo e o ícone em textSecondary', async () => {
++    await renderField();
++
++    expect(style('campo-box')).toMatchObject({
++      height: sizes.textField,
++      borderRadius: borderRadii.m,
++      backgroundColor: colors.surfaceSunken,
++      borderColor: colors.borderInput,
++      borderWidth: 1,
++    });
++    expect(screen.getByText(`ícone ${colors.textSecondary}`)).toBeOnTheScreen();
++  });
++
++  it('o TextInput tem o rótulo para o leitor, cursor teal e teto de fonte', async () => {
++    await renderField();
++
++    expect(input()).toHaveProp('accessibilityLabel', 'CPF');
++    expect(input()).toHaveProp('selectionColor', colors.primary);
++    expect(input()).toHaveProp('cursorColor', colors.primary);
++    expect(input()).toHaveProp(
++      'maxFontSizeMultiplier',
++      sizes.fixedHeightFontScale,
++    );
++    expect(input()).toHaveStyle({ fontFamily: 'Montserrat-Medium' });
++  });
++
++  it('em repouso e vazio, o rótulo fica no meio e sem camada de foco', async () => {
++    await renderField();
++
++    expect(style('campo-label')).toMatchObject({
++      transform: [{ translateY: 0 }, { scale: 1 }],
++      transformOrigin: 'left center',
++    });
++    expect(style('campo-label-active').opacity).toBe(0);
++    expect(style('campo-focus-layer').opacity).toBe(0);
++    expect(style('campo-error-layer').opacity).toBe(0);
++  });
++
++  it('com foco o rótulo sobe e encolhe, fica teal, e a camada de foco acende com brilho', async () => {
++    await renderField();
++
++    await fireEvent(input(), 'focus');
++
++    expect(style('campo-label').transform).toEqual([
++      { translateY: raisedY },
++      { scale: motion.fieldLabelScale },
++    ]);
++    expect(style('campo-label-active').opacity).toBe(1);
++    expect(style('campo-focus-layer')).toMatchObject({
++      opacity: 1,
++      borderColor: colors.primary,
++      borderWidth: sizes.textFieldFocusBorder,
++      borderRadius: borderRadii.m,
++      boxShadow: [shadows.glowPrimary],
++    });
++
++    await fireEvent(input(), 'blur');
++    expect(style('campo-focus-layer').opacity).toBe(0);
++  });
++
++  it('com valor e sem foco o rótulo continua em cima, na cor de repouso', async () => {
++    await renderField({ value: '969' });
++
++    expect(style('campo-label').transform).toEqual([
++      { translateY: raisedY },
++      { scale: motion.fieldLabelScale },
++    ]);
++    expect(style('campo-label-active').opacity).toBe(0);
++  });
++
++  it('repassa onFocus e onBlur', async () => {
++    const onFocus = jest.fn();
++    const onBlur = jest.fn();
++    await renderField({ onFocus, onBlur });
++
++    await fireEvent(input(), 'focus');
++    await fireEvent(input(), 'blur');
++
++    expect(onFocus).toHaveBeenCalledTimes(1);
++    expect(onBlur).toHaveBeenCalledTimes(1);
++  });
++
++  it('erro: camada danger (vence o foco), texto embaixo e o erro vira a dica do campo', async () => {
++    await renderField({ error: 'Confira o CPF digitado.' });
++    await fireEvent(input(), 'focus');
++
++    expect(style('campo-error-layer')).toMatchObject({
++      opacity: 1,
++      borderColor: colors.danger,
++    });
++    expect(style('campo-focus-layer').opacity).toBe(0);
++    expect(screen.getByTestId('campo-error')).toHaveTextContent(
++      'Confira o CPF digitado.',
++    );
++    expect(input()).toHaveProp('accessibilityHint', 'Confira o CPF digitado.');
++  });
++
++  it('o erro é anunciado uma vez ao leitor de tela quando aparece', async () => {
++    const announce = jest
++      .spyOn(AccessibilityInfo, 'announceForAccessibility')
++      .mockImplementation(() => {});
++    announce.mockClear();
++    const view = await renderField();
++    expect(announce).not.toHaveBeenCalled();
++
++    await view.rerender(
++      <TextField
++        testID="campo"
++        label="CPF"
++        icon={() => null}
++        value=""
++        onChangeText={jest.fn()}
++        error="Confira o CPF digitado."
++      />,
++    );
++
++    expect(announce).toHaveBeenCalledTimes(1);
++    expect(announce).toHaveBeenCalledWith('Confira o CPF digitado.');
++    announce.mockRestore();
++  });
++
++  it('sem erro, a dica é a que veio por prop', async () => {
++    await renderField({ accessibilityHint: 'Somente números' });
++
++    expect(input()).toHaveProp('accessibilityHint', 'Somente números');
++    expect(screen.queryByTestId('campo-error')).toBeNull();
++  });
++
++  it('o erro entra com FadeInDown de 8 em base; com reduzir movimento, FadeIn em fast', async () => {
++    const view = await renderField({ error: 'Erro' });
++
++    expect(entering('campo-error-enter')).toMatchObject({
++      name: 'FadeInDown',
++      calls: {
++        duration: motion.base,
++        withInitialValues: {
++          transform: [{ translateY: motion.enterOffsetSmall }],
++        },
++      },
++    });
++
++    reducedMotionMock.mockReturnValue(true);
++    await view.rerender(
++      <TextField
++        testID="campo"
++        label="CPF"
++        icon={() => null}
++        value=""
++        onChangeText={jest.fn()}
++        error="Erro de novo"
++      />,
++    );
++    expect(entering('campo-error-enter')).toMatchObject({
++      name: 'FadeIn',
++      calls: { duration: motion.fast, reduceMotion: ReduceMotion.Never },
++    });
++  });
++
++  describe('máscara de CPF', () => {
++    it('teclado numérico, 14 caracteres e autofill de usuário', async () => {
++      await renderField({ mask: 'cpf' });
++
++      expect(input()).toHaveProp('keyboardType', 'number-pad');
++      expect(input()).toHaveProp('maxLength', 14);
++      expect(input()).toHaveProp('textContentType', 'username');
++      expect(input()).toHaveProp('autoComplete', 'username');
++    });
++
++    it('aplica a máscara enquanto digita', async () => {
++      const onChangeText = jest.fn();
++      await renderField({ mask: 'cpf', onChangeText });
++
++      await fireEvent.changeText(input(), '9692945');
++
++      expect(onChangeText).toHaveBeenCalledWith('969.294.5');
++    });
++  });
++
++  it('o placeholder só aparece com foco e vazio', async () => {
++    const view = await renderField({
++      placeholderWhenFocused: '000.000.000-00',
++    });
++
++    expect(input().props.placeholder).toBeUndefined();
++    await fireEvent(input(), 'focus');
++    expect(input()).toHaveProp('placeholder', '000.000.000-00');
++    expect(input()).toHaveProp('placeholderTextColor', colors.textTertiary);
++
++    await view.rerender(
++      <TextField
++        testID="campo"
++        label="CPF"
++        icon={() => null}
++        value="9"
++        onChangeText={jest.fn()}
++        placeholderWhenFocused="000.000.000-00"
++      />,
++    );
++    expect(input().props.placeholder).toBeUndefined();
++  });
++
++  describe('senha (secureToggle)', () => {
++    const toggle = () => screen.getByTestId('campo-toggle');
++
++    it('começa oculta, com o botão "Mostrar senha" de 44 × 44', async () => {
++      await renderField({ label: 'Senha', secureToggle: true });
++
++      expect(input()).toHaveProp('secureTextEntry', true);
++      expect(toggle()).toHaveProp('accessibilityRole', 'button');
++      expect(toggle()).toHaveAccessibleName('Mostrar senha');
++      expect(toggle()).toHaveStyle({
++        width: sizes.touchTarget,
++        height: sizes.touchTarget,
++      });
++    });
++
++    it('o toque alterna o modo e o rótulo, com crossfade e escala no ícone que entra', async () => {
++      await renderField({ label: 'Senha', secureToggle: true });
++      expect(style('campo-toggle-show')).toMatchObject({
++        opacity: 1,
++        transform: [{ scale: 1 }],
++      });
++      expect(style('campo-toggle-hide')).toMatchObject({
++        opacity: 0,
++        transform: [{ scale: motion.toggleIconFrom }],
++      });
++
++      await fireEvent.press(toggle());
++
++      expect(input()).toHaveProp('secureTextEntry', false);
++      expect(toggle()).toHaveAccessibleName('Ocultar senha');
++      expect(style('campo-toggle-show').opacity).toBe(0);
++      expect(style('campo-toggle-hide')).toMatchObject({
++        opacity: 1,
++        transform: [{ scale: 1 }],
++      });
++
++      await fireEvent.press(toggle());
++      expect(input()).toHaveProp('secureTextEntry', true);
++    });
++
++    it('com reduzir movimento os ícones só fazem crossfade, sem escala', async () => {
++      reducedMotionMock.mockReturnValue(true);
++      await renderField({ label: 'Senha', secureToggle: true });
++
++      expect(style('campo-toggle-hide').transform).toEqual([{ scale: 1 }]);
++    });
++
++    it('campo sem secureToggle não tem botão', async () => {
++      await renderField();
++
++      expect(screen.queryByTestId('campo-toggle')).toBeNull();
++      expect(input().props.secureTextEntry).toBeFalsy();
++    });
++  });
++
++  it('desabilitado (envio): não editável e a 0,6', async () => {
++    await renderField({ editable: false });
++
++    expect(input()).toHaveProp('editable', false);
++    expect(style('campo-container').opacity).toBe(opacities.busy);
++  });
++
++  it('o inputRef chega no TextInput', async () => {
++    const ref = createRef<TextInputInstance>();
++    await renderField({ inputRef: ref });
++
++    expect(ref.current).not.toBeNull();
++  });
++
++  it('repassa returnKeyType e onSubmitEditing', async () => {
++    const onSubmitEditing = jest.fn();
++    await renderField({ returnKeyType: 'go', onSubmitEditing });
++
++    expect(input()).toHaveProp('returnKeyType', 'go');
++    await fireEvent(input(), 'submitEditing');
++    expect(onSubmitEditing).toHaveBeenCalled();
++  });
++});
+diff --git a/mobile/src/constants/strings.ts b/mobile/src/constants/strings.ts
+index 0ac8bed..e5d319d 100644
+--- a/mobile/src/constants/strings.ts
++++ b/mobile/src/constants/strings.ts
+@@ -1,27 +1,29 @@
+ /**
+  * Textos da interface, exatamente como na tela (01-design.md, seção 5). As
+  * telas, os testes e o Maestro leem daqui para não duplicar texto.
+  */
+ export const strings = {
+   login: {
++    title: 'Bem-vindo',
++    subtitle: 'Acompanhe as aulas e o boletim do seu filho.',
+     cpfLabel: 'CPF',
+     cpfHint: 'Somente números',
+-    passwordLabel: 'SENHA',
+-    passwordAccessibilityLabel: 'Senha',
+-    submit: 'FAZER LOGIN',
+-    submitAccessibilityLabel: 'Fazer login',
+-    submittingAccessibilityLabel: 'Entrando',
++    cpfPlaceholder: '000.000.000-00',
++    passwordLabel: 'Senha',
++    showPassword: 'Mostrar senha',
++    hidePassword: 'Ocultar senha',
++    submit: 'Entrar',
++    submittingAccessibilityLabel: 'Entrando…',
++    help: 'Problemas para entrar? Fale com a secretaria da FIAP School.',
+     error: {
+-      invalid: 'Usuário ou senha inválida.\nPode tentar novamente?',
++      invalid: 'Usuário ou senha inválida. Confira e tente de novo.',
+       cpf: 'Confira o CPF digitado.',
+-      network:
+-        'Não conseguimos falar com o servidor.\nConfira sua conexão e tente de novo.',
+-      tooMany:
+-        'Muitas tentativas seguidas.\nAguarde um minuto e tente de novo.',
+-      server: 'Algo deu errado do nosso lado.\nTente de novo em instantes.',
++      network: 'Não conseguimos falar com o servidor. Confira sua conexão.',
++      tooMany: 'Muitas tentativas seguidas. Aguarde um minuto e tente de novo.',
++      server: 'Algo deu errado do nosso lado. Tente de novo em instantes.',
+       sessionExpired: 'Sua sessão expirou. Entre de novo.',
+       storage:
+         'Não foi possível salvar o acesso neste aparelho. Tente de novo.',
+     },
+   },
+   header: {
+diff --git a/mobile/src/features/auth/LoginScreen.tsx b/mobile/src/features/auth/LoginScreen.tsx
+index 2a45db0..03e3589 100644
+--- a/mobile/src/features/auth/LoginScreen.tsx
++++ b/mobile/src/features/auth/LoginScreen.tsx
+@@ -1,166 +1,329 @@
+-import { Image, StyleSheet } from 'react-native';
++import {
++  Image,
++  ScrollView,
++  StyleSheet,
++  useWindowDimensions,
++} from 'react-native';
+ import Animated, {
+   FadeIn,
+   FadeInDown,
++  Keyframe,
+   ReduceMotion,
+-  SlideInDown,
+   useReducedMotion,
+ } from 'react-native-reanimated';
+ import { useSafeAreaInsets } from 'react-native-safe-area-context';
++import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
+ 
+-import { CpfInput } from '../../components/CpfInput';
+-import { PrimaryButton } from '../../components/PrimaryButton';
++import { IdCardIcon } from '../../components/icons/IdCardIcon';
++import { LockIcon } from '../../components/icons/LockIcon';
++import { PillButton } from '../../components/PillButton';
+ import { Screen } from '../../components/Screen';
+-import { UnderlineInput } from '../../components/UnderlineInput';
++import { TextField } from '../../components/TextField';
+ import { strings } from '../../constants/strings';
++import { useKeyboardReveal } from '../../hooks/useKeyboardReveal';
+ import { useShakeStyle } from '../../hooks/useShakeStyle';
+ import type { RootStackScreenProps } from '../../navigation/types';
+-import { Box, useTheme, type Theme } from '../../theme';
+-import { LoginErrorMessage } from './components/LoginErrorMessage';
++import { Box, Card, Text, useTheme, type Theme } from '../../theme';
++import { loginLogoTop } from '../../utils/loginLayout';
++import { LoginErrorBanner } from './components/LoginErrorBanner';
+ import { useLoginViewModel } from './useLoginViewModel';
+ 
+ const logo = require('../../../assets/logo-fiap-school.png');
+ 
++const HALO_GRADIENT_ID = 'login-halo-gradient';
++
++const cpfIcon = (color: string) => <IdCardIcon color={color} />;
++const passwordIcon = (color: string) => <LockIcon color={color} />;
++
+ type Motion = Theme['motion'];
+ 
+ /**
+- * Entradas do Login (01-design.md, 4.1). Vindo da splash, o logo já está no
+- * lugar e não anima; campos e botão entram. Com reduzir movimento, só fade
+- * (opacidade não é movimento, então o sistema não pode pular). Vindo do
+- * logout, tudo entra com fade.
++ * Entradas do Login (01-design.md da v2, 4.2). Vindo da splash, o logo já
++ * está no lugar e não anima; o halo acende devagar, o card sobe com uma
++ * escala leve e os itens dele entram em cascata. Vindo do logout, o logo
++ * também entra em fade. Com reduzir movimento, tudo vira um fade curto que o
++ * sistema não pula (opacidade não é movimento).
+  */
+ function entrances(motion: Motion, fromSplash: boolean, reduced: boolean) {
+-  if (fromSplash && reduced) {
+-    const fade = () =>
+-      FadeIn.duration(motion.fast).reduceMotion(ReduceMotion.Never);
+-    return { logo: fade(), field: () => fade(), button: fade() };
+-  }
+-  if (fromSplash) {
++  const fade = (duration: number) =>
++    FadeIn.duration(duration).reduceMotion(ReduceMotion.Never);
++  const halo = fade(fromSplash ? motion.slower : motion.base).easing(
++    motion.easeOut,
++  );
++
++  if (reduced) {
+     return {
+-      logo: undefined,
+-      field: (index: number) =>
+-        FadeInDown.duration(motion.base)
+-          .delay(index * motion.stagger)
+-          .easing(motion.easeOut)
+-          .withInitialValues({
+-            transform: [{ translateY: motion.enterOffset }],
+-          })
+-          .reduceMotion(ReduceMotion.System),
+-      button: SlideInDown.duration(motion.base)
+-        .easing(motion.easeOut)
+-        .reduceMotion(ReduceMotion.System),
++      logo: fade(motion.fast),
++      halo,
++      card: fade(motion.fast),
++      item: () => fade(motion.fast),
++      help: fade(motion.fast),
+     };
+   }
+-  const fade = () =>
+-    FadeIn.duration(motion.base).reduceMotion(ReduceMotion.System);
+-  return { logo: fade(), field: () => fade(), button: fade() };
++  return {
++    logo: fromSplash ? undefined : fade(motion.base),
++    halo,
++    // O FadeInDown só anima o translateY; a escala leve pede um Keyframe.
++    card: new Keyframe({
++      from: {
++        opacity: 0,
++        transform: [
++          { translateY: motion.enterOffsetCard },
++          { scale: motion.loginCardScaleFrom },
++        ],
++      },
++      to: {
++        opacity: 1,
++        transform: [{ translateY: 0 }, { scale: 1 }],
++        easing: motion.emphasized,
++      },
++    })
++      .duration(motion.slow)
++      .reduceMotion(ReduceMotion.System),
++    item: (index: number) =>
++      FadeInDown.duration(motion.base)
++        .delay(motion.loginItemsDelay + index * motion.stagger)
++        .easing(motion.easeOut)
++        .withInitialValues({
++          transform: [{ translateY: motion.enterOffsetSmall }],
++        })
++        .reduceMotion(ReduceMotion.System),
++    help: FadeIn.duration(motion.base)
++      .delay(motion.loginHelpDelay)
++      .reduceMotion(ReduceMotion.System),
++  };
+ }
+ 
+-/** Login (01-design.md, 3.2): CPF + senha, botão colado na base. */
++/**
++ * Login (01-design.md da v2, 3.2): logo no lugar onde a splash o deixa
++ * (`utils/loginLayout`), card com os campos, o banner de erro e o botão
++ * "Entrar", e a ajuda embaixo. A regra é toda do `useLoginViewModel`.
++ */
+ export function LoginScreen({ route }: RootStackScreenProps<'Login'>) {
+   const fromSplash = route.params?.fromSplash === true;
+   const reducedMotion = useReducedMotion();
+   const insets = useSafeAreaInsets();
+-  const { motion, sizes, spacing } = useTheme();
++  const { height: windowHeight, width } = useWindowDimensions();
++  const { breakpoints, gradients, motion, sizes, spacing } = useTheme();
+   const vm = useLoginViewModel();
+   const shakeStyle = useShakeStyle(vm.shakeKey);
++  const reveal = useKeyboardReveal({
++    viewportTop: insets.top,
++    margin: spacing.m,
++  });
+   const enter = entrances(motion, fromSplash, reducedMotion);
+   const editable = !vm.isSubmitting;
++  const compact = width < breakpoints.phone;
++  const tablet = width >= breakpoints.tablet;
++
++  const logoTop = loginLogoTop({
++    windowHeight,
++    insetTop: insets.top,
++    insetBottom: insets.bottom,
++  });
++  const halo = sizes.loginHalo;
++  const logoSize = sizes.logoLoginV2;
+ 
+   return (
+-    <Screen
+-      testID="login-screen"
+-      scroll
+-      keyboard
+-      footer={
+-        <Animated.View entering={enter.button}>
+-          <PrimaryButton
+-            testID="login-submit-button"
+-            loadingTestID="login-submit-loading"
+-            label={strings.login.submit}
+-            accessibilityLabel={strings.login.submitAccessibilityLabel}
+-            loadingAccessibilityLabel={
+-              strings.login.submittingAccessibilityLabel
+-            }
+-            disabled={!vm.canSubmit}
+-            loading={vm.isSubmitting}
+-            onPress={vm.submit}
+-            bottomInset={insets.bottom}
+-          />
+-        </Animated.View>
+-      }
+-    >
+-      <Box
+-        testID="login-content"
+-        alignItems="center"
+-        style={{ paddingTop: spacing.hero }}
++    <Screen testID="login-screen">
++      <ScrollView
++        testID="login-scroll"
++        ref={reveal.scrollRef}
++        style={styles.fill}
++        contentContainerStyle={styles.grow}
++        keyboardShouldPersistTaps="handled"
++        // iOS: o sistema abre embaixo o espaço do teclado. Android: o
++        // `keyboardInset` do hook entra no padding de baixo.
++        automaticallyAdjustKeyboardInsets
++        contentInsetAdjustmentBehavior="never"
++        showsVerticalScrollIndicator={false}
++        onScroll={reveal.onScroll}
++        scrollEventThrottle={16}
+       >
+-        <Animated.View entering={enter.logo}>
+-          <Image
+-            testID="login-logo"
+-            source={logo}
+-            accessibilityRole="image"
+-            accessibilityLabel={strings.common.logoLabel}
+-            style={sizes.logoLogin}
+-          />
+-        </Animated.View>
+         <Box
+-          width="100%"
+-          paddingHorizontal="huge"
+-          paddingBottom="xxl"
++          testID="login-content"
+           alignItems="center"
+-          style={{ marginTop: spacing.hero }}
++          paddingHorizontal={compact ? 's' : 'm'}
++          style={{
++            paddingTop: logoTop,
++            paddingBottom: insets.bottom + spacing.l + reveal.keyboardInset,
++          }}
+         >
+-          <Animated.View
+-            style={[styles.form, { maxWidth: sizes.formMaxWidth }, shakeStyle]}
+-          >
+-            <Animated.View entering={enter.field(0)}>
+-              <CpfInput
+-                testID="login-cpf-input"
+-                label={strings.login.cpfLabel}
+-                accessibilityLabel={strings.login.cpfLabel}
+-                value={vm.cpf.value}
+-                onChangeText={vm.cpf.onChangeText}
+-                onBlur={vm.cpf.onBlur}
+-                returnKeyType="next"
+-                submitBehavior="submit"
+-                onSubmitEditing={vm.focusPassword}
+-                editable={editable}
+-              />
+-            </Animated.View>
++          <Box width={logoSize.width} height={logoSize.height}>
+             <Animated.View
+-              entering={enter.field(1)}
+-              style={{ marginTop: spacing.xxxl }}
++              testID="login-halo"
++              entering={enter.halo}
++              pointerEvents="none"
++              importantForAccessibility="no-hide-descendants"
++              accessibilityElementsHidden
++              style={[
++                styles.halo,
++                {
++                  width: halo,
++                  height: halo,
++                  left: (logoSize.width - halo) / 2,
++                  top: (logoSize.height - halo) / 2,
++                },
++              ]}
+             >
+-              <UnderlineInput
+-                testID="login-password-input"
+-                inputRef={vm.passwordRef}
+-                label={strings.login.passwordLabel}
+-                accessibilityLabel={strings.login.passwordAccessibilityLabel}
+-                value={vm.password.value}
+-                onChangeText={vm.password.onChangeText}
+-                onBlur={vm.password.onBlur}
+-                secureTextEntry
+-                textContentType="password"
+-                autoComplete="password"
+-                returnKeyType="go"
+-                onSubmitEditing={vm.submit}
+-                editable={editable}
+-              />
++              <Svg width="100%" height="100%">
++                <Defs>
++                  <RadialGradient
++                    id={HALO_GRADIENT_ID}
++                    cx="50%"
++                    cy="50%"
++                    r="50%"
++                  >
++                    <Stop
++                      offset="0"
++                      stopColor={gradients.loginHalo.color}
++                      stopOpacity={gradients.loginHalo.centerOpacity}
++                    />
++                    <Stop
++                      offset="1"
++                      stopColor={gradients.loginHalo.color}
++                      stopOpacity={gradients.loginHalo.edgeOpacity}
++                    />
++                  </RadialGradient>
++                </Defs>
++                <Rect
++                  width="100%"
++                  height="100%"
++                  fill={`url(#${HALO_GRADIENT_ID})`}
++                />
++              </Svg>
+             </Animated.View>
+-            {vm.errorMessage ? (
+-              <LoginErrorMessage
+-                key={vm.errorMessage}
+-                message={vm.errorMessage}
++            <Animated.View testID="login-logo-enter" entering={enter.logo}>
++              <Image
++                testID="login-logo"
++                source={logo}
++                accessibilityRole="image"
++                accessibilityLabel={strings.common.logoLabel}
++                style={logoSize}
+               />
+-            ) : null}
++            </Animated.View>
++          </Box>
++
++          <Animated.View
++            testID="login-card-enter"
++            entering={enter.card}
++            onLayout={reveal.onTargetLayout}
++            style={[styles.stretch, { marginTop: spacing.xxxl }]}
++          >
++            <Animated.View style={shakeStyle}>
++              <Card
++                testID="login-card"
++                variant="surface"
++                width="100%"
++                maxWidth={sizes.formMaxWidth}
++                alignSelf="center"
++                borderRadius={tablet ? 'xl' : 'l'}
++                padding={tablet ? 'xxl' : compact ? 'm' : 'l'}
++              >
++                <Animated.View testID="login-item-0" entering={enter.item(0)}>
++                  <Text variant="title" accessibilityRole="header">
++                    {strings.login.title}
++                  </Text>
++                </Animated.View>
++                <Animated.View testID="login-item-1" entering={enter.item(1)}>
++                  <Text variant="body" color="textSecondary" marginTop="xs">
++                    {strings.login.subtitle}
++                  </Text>
++                </Animated.View>
++                <Animated.View
++                  testID="login-item-2"
++                  entering={enter.item(2)}
++                  style={{ marginTop: spacing.l }}
++                >
++                  <TextField
++                    testID="login-cpf-input"
++                    label={strings.login.cpfLabel}
++                    icon={cpfIcon}
++                    mask="cpf"
++                    placeholderWhenFocused={strings.login.cpfPlaceholder}
++                    accessibilityHint={strings.login.cpfHint}
++                    value={vm.cpf.value}
++                    onChangeText={vm.cpf.onChangeText}
++                    onBlur={vm.cpf.onBlur}
++                    error={vm.cpf.error}
++                    returnKeyType="next"
++                    submitBehavior="submit"
++                    onSubmitEditing={vm.focusPassword}
++                    editable={editable}
++                  />
++                </Animated.View>
++                <Animated.View
++                  testID="login-item-3"
++                  entering={enter.item(3)}
++                  style={{ marginTop: spacing.sm }}
++                >
++                  <TextField
++                    testID="login-password-input"
++                    inputRef={vm.passwordRef}
++                    label={strings.login.passwordLabel}
++                    icon={passwordIcon}
++                    secureToggle
++                    value={vm.password.value}
++                    onChangeText={vm.password.onChangeText}
++                    onFocus={reveal.armed.onFocus}
++                    onBlur={() => {
++                      reveal.armed.onBlur();
++                      vm.password.onBlur();
++                    }}
++                    textContentType="password"
++                    autoComplete="password"
++                    returnKeyType="go"
++                    onSubmitEditing={vm.submit}
++                    editable={editable}
++                  />
++                </Animated.View>
++                {vm.errorMessage ? (
++                  <Box marginTop="sm">
++                    <LoginErrorBanner
++                      key={vm.errorMessage}
++                      message={vm.errorMessage}
++                    />
++                  </Box>
++                ) : null}
++                <Animated.View
++                  testID="login-item-4"
++                  entering={enter.item(4)}
++                  style={{ marginTop: spacing.l }}
++                >
++                  <PillButton
++                    testID="login-submit-button"
++                    label={strings.login.submit}
++                    loadingAccessibilityLabel={
++                      strings.login.submittingAccessibilityLabel
++                    }
++                    disabled={!vm.canSubmit}
++                    loading={vm.isSubmitting}
++                    onPress={vm.submit}
++                    fullWidth
++                  />
++                </Animated.View>
++              </Card>
++            </Animated.View>
++          </Animated.View>
++
++          <Animated.View
++            testID="login-help"
++            entering={enter.help}
++            style={{ maxWidth: sizes.formMaxWidth, marginTop: spacing.l }}
++          >
++            <Text variant="caption" color="textTertiary" textAlign="center">
++              {strings.login.help}
++            </Text>
+           </Animated.View>
+         </Box>
+-      </Box>
++      </ScrollView>
+     </Screen>
+   );
+ }
+ 
+ const styles = StyleSheet.create({
+-  form: { width: '100%' },
++  fill: { flex: 1 },
++  grow: { flexGrow: 1 },
++  stretch: { alignSelf: 'stretch' },
++  halo: { position: 'absolute' },
+ });
+diff --git a/mobile/src/features/auth/__tests__/LoginScreen.test.tsx b/mobile/src/features/auth/__tests__/LoginScreen.test.tsx
+index 99775a3..9d76044 100644
+--- a/mobile/src/features/auth/__tests__/LoginScreen.test.tsx
++++ b/mobile/src/features/auth/__tests__/LoginScreen.test.tsx
+@@ -4,44 +4,46 @@ import {
+   fireEvent,
+   render,
+   screen,
+   waitFor,
+ } from '@testing-library/react-native';
+ import { http, HttpResponse } from 'msw';
+-import { StyleSheet } from 'react-native';
++import { Dimensions, StyleSheet } from 'react-native';
+ import {
+-  FadeIn,
+   ReduceMotion,
+   useReducedMotion,
+   withSequence,
+ } from 'react-native-reanimated';
+ 
+ import { queryClient } from '../../../app/queryClient';
+ import { strings } from '../../../constants/strings';
+ import type { RootStackScreenProps } from '../../../navigation/types';
+ import { useSessionStore } from '../../../stores/session.store';
+ import { API_URL, loginResponse } from '../../../test/fixtures';
+ import { server } from '../../../test/msw/server';
+ import { QueryWrapper } from '../../../test/queryWrapper';
++import type { RecordedAnimation } from '../../../test/recordingAnimations';
+ import { theme } from '../../../theme';
++import { loginLogoTop } from '../../../utils/loginLayout';
+ import { LoginScreen } from '../LoginScreen';
+ 
+ jest.mock('react-native-reanimated', () => {
+-  const mock = require('react-native-reanimated/mock');
+-  const builder: Record<string, jest.Mock> = {};
+-  for (const method of ['duration', 'delay', 'easing', 'reduceMotion']) {
+-    builder[method] = jest.fn(() => builder);
+-  }
++  const actual = jest.requireActual('react-native-reanimated/mock');
+   return {
+-    ...mock,
++    ...actual,
++    ...jest
++      .requireActual('../../../test/recordingAnimations')
++      .recordingAnimations(),
+     useReducedMotion: jest.fn(() => false),
+     withSequence: jest.fn(() => 0),
+-    FadeIn: builder,
+   };
+ });
+ 
++const { colors, motion, sizes } = theme;
++const hidden = { includeHiddenElements: true };
++
+ type Props = RootStackScreenProps<'Login'>;
+ 
+ const renderLogin = (params: Props['route']['params'] = undefined) =>
+   render(
+     <QueryWrapper>
+       <ThemeProvider theme={theme}>
+@@ -53,12 +55,20 @@ const renderLogin = (params: Props['route']['params'] = undefined) =>
+     </QueryWrapper>,
+   );
+ 
+ const cpfInput = () => screen.getByTestId('login-cpf-input');
+ const passwordInput = () => screen.getByTestId('login-password-input');
+ const submitButton = () => screen.getByTestId('login-submit-button');
++const entering = (testID: string) =>
++  (
++    screen.getByTestId(testID, hidden) as unknown as {
++      props: { entering?: RecordedAnimation };
++    }
++  ).props.entering;
++const flatStyle = (testID: string) =>
++  StyleSheet.flatten(screen.getByTestId(testID, hidden).props.style);
+ 
+ const fillAndSubmit = async (password: string) => {
+   await fireEvent.changeText(cpfInput(), '96929456004');
+   await fireEvent.changeText(passwordInput(), password);
+   await waitFor(() =>
+     expect(submitButton().props.accessibilityState.disabled).toBe(false),
+@@ -72,121 +82,269 @@ describe('LoginScreen', () => {
+     useSessionStore.setState({ signOutReason: null });
+     queryClient.clear();
+     jest.mocked(useReducedMotion).mockReturnValue(false);
+     jest.mocked(withSequence).mockClear();
+   });
+ 
+-  it('desenha o logo 306×49 no topo + hero, onde a splash o deixa', async () => {
+-    await renderLogin({ fromSplash: true });
++  describe('layout', () => {
++    it('logo 245 × 39 na posição do util compartilhado com a splash', async () => {
++      await renderLogin({ fromSplash: true });
+ 
+-    const logo = screen.getByTestId('login-logo');
+-    expect(logo).toHaveProp('accessibilityLabel', 'FIAP School');
+-    expect(StyleSheet.flatten(logo.props.style)).toMatchObject({
+-      width: 306,
+-      height: 49,
++      const logo = screen.getByTestId('login-logo');
++      expect(logo).toHaveProp('accessibilityLabel', 'FIAP School');
++      expect(StyleSheet.flatten(logo.props.style)).toMatchObject(
++        sizes.logoLoginV2,
++      );
++      // Insets do mock = 0.
++      const top = loginLogoTop({
++        windowHeight: Dimensions.get('window').height,
++        insetTop: 0,
++      });
++      expect(flatStyle('login-content')).toMatchObject({ paddingTop: top });
+     });
+-    // Insets do mock = 0: o topo do logo fica em spacing.hero (80).
+-    expect(
+-      StyleSheet.flatten(screen.getByTestId('login-content').props.style),
+-    ).toMatchObject({ paddingTop: 80, alignItems: 'center' });
+-  });
+ 
+-  it('vindo da splash com reduzir movimento, o logo faz fade que o sistema não pula', async () => {
+-    jest.mocked(useReducedMotion).mockReturnValue(true);
+-    const fadeIn = FadeIn as unknown as Record<string, jest.Mock>;
+-    fadeIn.reduceMotion.mockClear();
++    it('halo de 360 decorativo atrás do logo', async () => {
++      await renderLogin();
++
++      const halo = screen.getByTestId('login-halo', hidden);
++      expect(halo).toHaveProp('pointerEvents', 'none');
++      expect(flatStyle('login-halo')).toMatchObject({
++        position: 'absolute',
++        width: sizes.loginHalo,
++        height: sizes.loginHalo,
++      });
++      expect(screen.queryByTestId('login-halo')).toBeNull();
++    });
+ 
+-    await renderLogin({ fromSplash: true });
++    it('rolagem sem KeyboardAvoidingView: iOS ajusta o inset do teclado e os toques passam', async () => {
++      await renderLogin();
+ 
+-    expect(fadeIn.duration).toHaveBeenCalledWith(theme.motion.fast);
+-    expect(fadeIn.reduceMotion).toHaveBeenCalledWith(ReduceMotion.Never);
+-  });
++      const scroll = screen.getByTestId('login-scroll');
++      expect(scroll).toHaveProp('keyboardShouldPersistTaps', 'handled');
++      expect(scroll).toHaveProp('automaticallyAdjustKeyboardInsets', true);
++      expect(scroll).toHaveProp('contentInsetAdjustmentBehavior', 'never');
++    });
+ 
+-  it('mostra os campos e o botão FAZER LOGIN desabilitado', async () => {
+-    await renderLogin();
+-
+-    expect(screen.getByTestId('login-screen')).toBeOnTheScreen();
+-    expect(cpfInput()).toHaveProp('returnKeyType', 'next');
+-    expect(passwordInput()).toHaveProp('secureTextEntry', true);
+-    expect(passwordInput()).toHaveProp('returnKeyType', 'go');
+-    expect(passwordInput()).toHaveProp('textContentType', 'password');
+-    expect(passwordInput()).toHaveProp('accessibilityLabel', 'Senha');
+-    expect(screen.getByText(strings.login.submit)).toBeOnTheScreen();
+-    expect(submitButton().props.accessibilityState.disabled).toBe(true);
+-    expect(screen.queryByTestId('login-error-message')).toBeNull();
++    it('card com título, texto, campos, botão "Entrar" e a ajuda embaixo', async () => {
++      await renderLogin();
++
++      expect(screen.getByTestId('login-screen')).toBeOnTheScreen();
++      expect(flatStyle('login-card')).toMatchObject({
++        backgroundColor: colors.surface,
++        maxWidth: sizes.formMaxWidth,
++      });
++      expect(screen.getByText(strings.login.title)).toBeOnTheScreen();
++      expect(screen.getByText(strings.login.subtitle)).toBeOnTheScreen();
++      expect(screen.getByText(strings.login.help)).toBeOnTheScreen();
++      expect(screen.getByText('Entrar')).toBeOnTheScreen();
++      expect(submitButton()).toHaveAccessibleName('Entrar');
++      expect(submitButton().props.accessibilityState.disabled).toBe(true);
++      expect(screen.queryByTestId('login-error-message')).toBeNull();
++    });
+   });
+ 
+-  it('CPF mascarado e senha preenchida habilitam o botão', async () => {
+-    await renderLogin();
++  describe('campos', () => {
++    it('CPF: teclado numérico, dica "Somente números" e "next"', async () => {
++      await renderLogin();
++
++      expect(cpfInput()).toHaveProp('accessibilityLabel', 'CPF');
++      expect(cpfInput()).toHaveProp('keyboardType', 'number-pad');
++      expect(cpfInput()).toHaveProp('accessibilityHint', 'Somente números');
++      expect(cpfInput()).toHaveProp('returnKeyType', 'next');
++    });
+ 
+-    await fireEvent.changeText(cpfInput(), '96929456004');
+-    await fireEvent.changeText(passwordInput(), '123456');
++    it('CPF focado e vazio mostra o placeholder 000.000.000-00', async () => {
++      await renderLogin();
+ 
+-    expect(cpfInput()).toHaveProp('value', '969.294.560-04');
+-    await waitFor(() =>
+-      expect(submitButton().props.accessibilityState.disabled).toBe(false),
+-    );
+-  });
++      await fireEvent(cpfInput(), 'focus');
+ 
+-  it('senha errada mostra a mensagem do Figma e faz o shake', async () => {
+-    await renderLogin();
++      expect(cpfInput()).toHaveProp(
++        'placeholder',
++        strings.login.cpfPlaceholder,
++      );
++    });
+ 
+-    await fillAndSubmit('errada');
++    it('Senha: oculta, com o olho, "go" e autofill de senha', async () => {
++      await renderLogin();
+ 
+-    const message = await screen.findByTestId('login-error-message');
+-    expect(message).toHaveTextContent(strings.login.error.invalid);
+-    expect(message).toHaveProp(
+-      'accessibilityLabel',
+-      'Usuário ou senha inválida. Pode tentar novamente?',
+-    );
+-    expect(withSequence).toHaveBeenCalled();
++      expect(passwordInput()).toHaveProp('accessibilityLabel', 'Senha');
++      expect(passwordInput()).toHaveProp('secureTextEntry', true);
++      expect(passwordInput()).toHaveProp('returnKeyType', 'go');
++      expect(passwordInput()).toHaveProp('textContentType', 'password');
++      expect(passwordInput()).toHaveProp('autoComplete', 'password');
++
++      await fireEvent.press(screen.getByTestId('login-password-input-toggle'));
++
++      expect(passwordInput()).toHaveProp('secureTextEntry', false);
++    });
++
++    it('CPF mascarado e senha preenchida habilitam o botão', async () => {
++      await renderLogin();
++
++      await fireEvent.changeText(cpfInput(), '96929456004');
++      await fireEvent.changeText(passwordInput(), '123456');
++
++      expect(cpfInput()).toHaveProp('value', '969.294.560-04');
++      await waitFor(() =>
++        expect(submitButton().props.accessibilityState.disabled).toBe(false),
++      );
++    });
++
++    it('CPF com DV errado mostra o erro no campo, não no banner', async () => {
++      await renderLogin();
++
++      await fireEvent.changeText(cpfInput(), '96929456005');
++      await act(() => fireEvent(cpfInput(), 'blur'));
++
++      expect(
++        await screen.findByTestId('login-cpf-input-error'),
++      ).toHaveTextContent(strings.login.error.cpf);
++      expect(screen.queryByTestId('login-error-message')).toBeNull();
++    });
+   });
+ 
+-  it('com reduzir movimento o erro aparece sem shake', async () => {
+-    jest.mocked(useReducedMotion).mockReturnValue(true);
+-    await renderLogin();
++  describe('envio', () => {
++    it('senha errada mostra o banner e faz o shake do card', async () => {
++      await renderLogin();
+ 
+-    await fillAndSubmit('errada');
++      await fillAndSubmit('errada');
+ 
+-    expect(await screen.findByTestId('login-error-message')).toBeOnTheScreen();
+-    expect(withSequence).not.toHaveBeenCalled();
++      const message = await screen.findByTestId('login-error-message');
++      expect(message).toHaveTextContent(strings.login.error.invalid);
++      expect(withSequence).toHaveBeenCalled();
++      // Em erro de envio a borda dos campos não fica vermelha (3.2).
++      expect(flatStyle('login-cpf-input-error-layer').opacity).toBe(0);
++    });
++
++    it('com reduzir movimento o erro aparece sem shake', async () => {
++      jest.mocked(useReducedMotion).mockReturnValue(true);
++      await renderLogin();
++
++      await fillAndSubmit('errada');
++
++      expect(
++        await screen.findByTestId('login-error-message'),
++      ).toBeOnTheScreen();
++      expect(withSequence).not.toHaveBeenCalled();
++    });
++
++    it('enquanto envia mostra o spinner e trava os campos', async () => {
++      let release: () => void = () => {};
++      server.use(
++        http.post(`${API_URL}/auth/login`, async () => {
++          await new Promise<void>(resolve => {
++            release = resolve;
++          });
++          return HttpResponse.json(loginResponse);
++        }),
++      );
++      await renderLogin();
++
++      await fillAndSubmit('123456');
++
++      expect(
++        await screen.findByTestId('login-submit-button-loading'),
++      ).toBeOnTheScreen();
++      expect(cpfInput()).toHaveProp('editable', false);
++      expect(passwordInput()).toHaveProp('editable', false);
++      expect(submitButton().props.accessibilityState.busy).toBe(true);
++      expect(submitButton()).toHaveAccessibleName('Entrando…');
++
++      await act(async () => release());
++      await waitFor(() =>
++        expect(useSessionStore.getState().status).toBe('signedIn'),
++      );
++      await waitFor(() =>
++        expect(screen.queryByTestId('login-submit-button-loading')).toBeNull(),
++      );
++    });
++
++    it('sessão expirada abre com o aviso no banner', async () => {
++      useSessionStore.setState({ signOutReason: 'expired' });
++
++      await renderLogin({ fromSplash: true });
++
++      expect(screen.getByTestId('login-error-message')).toHaveTextContent(
++        strings.login.error.sessionExpired,
++      );
++    });
+   });
+ 
+-  it('enquanto envia mostra o spinner e trava os campos', async () => {
+-    let release: () => void = () => {};
+-    server.use(
+-      http.post(`${API_URL}/auth/login`, async () => {
+-        await new Promise<void>(resolve => {
+-          release = resolve;
++  describe('entrada (4.2)', () => {
++    const items = [0, 1, 2, 3, 4];
++
++    it('vindo da splash: logo parado, halo em fade, card sobe com escala e os itens em cascata', async () => {
++      await renderLogin({ fromSplash: true });
++
++      expect(entering('login-logo-enter')).toBeUndefined();
++      expect(entering('login-halo')).toMatchObject({
++        name: 'FadeIn',
++        calls: {
++          duration: motion.slower,
++          reduceMotion: ReduceMotion.Never,
++        },
++      });
++      // FadeInDown só anima o translateY: a escala pede um Keyframe.
++      expect(entering('login-card-enter')).toMatchObject({
++        name: 'Keyframe',
++        keyframes: {
++          from: {
++            opacity: 0,
++            transform: [
++              { translateY: motion.enterOffsetCard },
++              { scale: motion.loginCardScaleFrom },
++            ],
++          },
++          to: {
++            opacity: 1,
++            transform: [{ translateY: 0 }, { scale: 1 }],
++            easing: motion.emphasized,
++          },
++        },
++        calls: { duration: motion.slow },
++      });
++      for (const i of items) {
++        expect(entering(`login-item-${i}`)).toMatchObject({
++          name: 'FadeInDown',
++          calls: {
++            duration: motion.base,
++            delay: motion.loginItemsDelay + i * motion.stagger,
++          },
+         });
+-        return HttpResponse.json(loginResponse);
+-      }),
+-    );
+-    await renderLogin();
+-
+-    await fillAndSubmit('123456');
+-
+-    expect(await screen.findByTestId('login-submit-loading')).toBeOnTheScreen();
+-    expect(cpfInput()).toHaveProp('editable', false);
+-    expect(passwordInput()).toHaveProp('editable', false);
+-    expect(submitButton().props.accessibilityState.busy).toBe(true);
+-
+-    await act(async () => release());
+-    await waitFor(() =>
+-      expect(useSessionStore.getState().status).toBe('signedIn'),
+-    );
+-    // A mutation avisa o fim num tick seguinte: espera o spinner sair.
+-    await waitFor(() =>
+-      expect(screen.queryByTestId('login-submit-loading')).toBeNull(),
+-    );
+-  });
++      }
++      expect(entering('login-help')).toMatchObject({
++        name: 'FadeIn',
++        calls: { duration: motion.base, delay: motion.loginHelpDelay },
++      });
++    });
+ 
+-  it('sessão expirada abre com o aviso', async () => {
+-    useSessionStore.setState({ signOutReason: 'expired' });
++    it('vindo do logout: o logo também entra com fade', async () => {
++      await renderLogin();
+ 
+-    await renderLogin({ fromSplash: true });
++      expect(entering('login-logo-enter')).toMatchObject({
++        name: 'FadeIn',
++        calls: { duration: motion.base },
++      });
++    });
++
++    it('com reduzir movimento tudo vira FadeIn curto, sem atraso, que o sistema não pula', async () => {
++      jest.mocked(useReducedMotion).mockReturnValue(true);
++
++      await renderLogin({ fromSplash: true });
+ 
+-    expect(screen.getByTestId('login-error-message')).toHaveTextContent(
+-      strings.login.error.sessionExpired,
+-    );
++      for (const id of [
++        // A splash some em fade e o logo do Login aparece em fade (3.1).
++        'login-logo-enter',
++        'login-card-enter',
++        ...items.map(i => `login-item-${i}`),
++        'login-help',
++      ]) {
++        const animation = entering(id);
++        expect(animation).toMatchObject({
++          name: 'FadeIn',
++          calls: { duration: motion.fast, reduceMotion: ReduceMotion.Never },
++        });
++        expect(animation?.calls.delay).toBeUndefined();
++      }
++    });
+   });
+ });
+diff --git a/mobile/src/features/auth/__tests__/useLoginViewModel.test.tsx b/mobile/src/features/auth/__tests__/useLoginViewModel.test.tsx
+index 88f3f7d..c25bd2c 100644
+--- a/mobile/src/features/auth/__tests__/useLoginViewModel.test.tsx
++++ b/mobile/src/features/auth/__tests__/useLoginViewModel.test.tsx
+@@ -111,25 +111,28 @@ describe('useLoginViewModel', () => {
+     it('ao sair do campo mostra "Confira o CPF digitado." e some quando o CPF muda', async () => {
+       const { result } = await setup();
+       await act(() => result.current.cpf.onChangeText(INVALID_DV_CPF));
+ 
+       await act(() => result.current.cpf.onBlur());
+       await waitFor(() =>
+-        expect(result.current.errorMessage).toBe(strings.login.error.cpf),
++        expect(result.current.cpf.error).toBe(strings.login.error.cpf),
+       );
++      // O erro é do campo, não do banner (3.2).
++      expect(result.current.errorMessage).toBeNull();
+ 
+       await act(() => result.current.cpf.onChangeText('9692945600'));
+-      expect(result.current.errorMessage).toBeNull();
++      expect(result.current.cpf.error).toBeNull();
+     });
+ 
+     it('CPF incompleto não mostra erro ao sair do campo', async () => {
+       const { result } = await setup();
+       await act(() => result.current.cpf.onChangeText('969294'));
+ 
+       await act(() => result.current.cpf.onBlur());
+ 
++      expect(result.current.cpf.error).toBeNull();
+       expect(result.current.errorMessage).toBeNull();
+     });
+   });
+ 
+   describe('envio', () => {
+     it('credencial certa abre a sessão (o stack troca para as abas)', async () => {
+diff --git a/mobile/src/features/auth/components/LoginErrorBanner.tsx b/mobile/src/features/auth/components/LoginErrorBanner.tsx
+new file mode 100644
+index 0000000..8a48da9
+--- /dev/null
++++ b/mobile/src/features/auth/components/LoginErrorBanner.tsx
+@@ -0,0 +1,74 @@
++import { useEffect } from 'react';
++import { AccessibilityInfo } from 'react-native';
++import Animated, {
++  FadeIn,
++  FadeInDown,
++  FadeOut,
++  ReduceMotion,
++  useReducedMotion,
++} from 'react-native-reanimated';
++
++import { AlertIcon } from '../../../components/icons/AlertIcon';
++import { Box, Text, useTheme } from '../../../theme';
++
++type LoginErrorBannerProps = { message: string };
++
++/**
++ * Banner de erro do login (01-design.md da v2, 3.2 e 4.2), acima do botão:
++ * erros de envio e o aviso de sessão expirada. Rosa escuro com borda
++ * `danger`, ícone de alerta e o texto em `text`. Entra com fade de baixo e é
++ * anunciado uma vez ao leitor de tela.
++ */
++export function LoginErrorBanner({ message }: LoginErrorBannerProps) {
++  const { colors, motion, sizes } = useTheme();
++  const reducedMotion = useReducedMotion();
++
++  // A live region do Android só avisa mudança numa view que já existia, e o
++  // banner nasce agora (remonta a cada erro): o anúncio é explícito nas duas
++  // plataformas, sem live region para não ler duas vezes.
++  useEffect(() => {
++    AccessibilityInfo.announceForAccessibility(message);
++  }, [message]);
++
++  const entering = reducedMotion
++    ? FadeIn.duration(motion.fast).reduceMotion(ReduceMotion.Never)
++    : FadeInDown.duration(motion.base)
++        .easing(motion.easeOut)
++        .withInitialValues({
++          transform: [{ translateY: motion.enterOffsetSmall }],
++        })
++        .reduceMotion(ReduceMotion.System);
++
++  return (
++    <Animated.View
++      testID="login-error-banner"
++      entering={entering}
++      exiting={FadeOut.duration(motion.fast).reduceMotion(ReduceMotion.Never)}
++    >
++      <Box
++        testID="login-error-box"
++        minHeight={sizes.banner}
++        borderRadius="m"
++        backgroundColor="accentMuted"
++        borderColor="danger"
++        borderWidth={1}
++        paddingHorizontal="sm"
++        paddingVertical="s"
++        flexDirection="row"
++        alignItems="center"
++      >
++        <AlertIcon color={colors.danger} />
++        <Text
++          testID="login-error-message"
++          variant="error"
++          color="text"
++          marginLeft="s"
++          flexShrink={1}
++          accessibilityLabel={message}
++        >
++          {message}
++        </Text>
++      </Box>
++    </Animated.View>
++  );
++}
+diff --git a/mobile/src/features/auth/components/LoginErrorMessage.tsx b/mobile/src/features/auth/components/LoginErrorMessage.tsx
+deleted file mode 100644
+index 043bda2..0000000
+--- a/mobile/src/features/auth/components/LoginErrorMessage.tsx
++++ /dev/null
+@@ -1,40 +0,0 @@
+-import { useEffect } from 'react';
+-import { AccessibilityInfo } from 'react-native';
+-import Animated, { FadeOut, ReduceMotion } from 'react-native-reanimated';
+-
+-import { enterDown, Text, useTheme } from '../../../theme';
+-
+-type LoginErrorMessageProps = { message: string };
+-
+-/**
+- * Mensagem de erro do login (01-design.md, 3.2 e 4.2), em `primary`, abaixo
+- * da senha. Entra com fade + deslocamento curto e é anunciada uma vez pelo
+- * `announceForAccessibility` (iOS e Android).
+- */
+-export function LoginErrorMessage({ message }: LoginErrorMessageProps) {
+-  const { motion } = useTheme();
+-  const spoken = message.replace(/\n/g, ' ');
+-
+-  // A live region do Android só avisa mudança numa view que já existia, e a
+-  // mensagem nasce agora (remonta a cada erro): o anúncio é explícito nas
+-  // duas plataformas, sem live region para não ler duas vezes.
+-  useEffect(() => {
+-    AccessibilityInfo.announceForAccessibility(spoken);
+-  }, [spoken]);
+-
+-  return (
+-    <Animated.View
+-      entering={enterDown(motion)}
+-      exiting={FadeOut.duration(motion.fast).reduceMotion(ReduceMotion.System)}
+-    >
+-      <Text
+-        testID="login-error-message"
+-        variant="errorV1"
+-        marginTop="xxl"
+-        accessibilityLabel={spoken}
+-      >
+-        {message}
+-      </Text>
+-    </Animated.View>
+-  );
+-}
+diff --git a/mobile/src/features/auth/components/__tests__/LoginErrorBanner.test.tsx b/mobile/src/features/auth/components/__tests__/LoginErrorBanner.test.tsx
+new file mode 100644
+index 0000000..b73936b
+--- /dev/null
++++ b/mobile/src/features/auth/components/__tests__/LoginErrorBanner.test.tsx
+@@ -0,0 +1,104 @@
++import { screen } from '@testing-library/react-native';
++import { AccessibilityInfo, Platform, StyleSheet } from 'react-native';
++import { ReduceMotion, useReducedMotion } from 'react-native-reanimated';
++
++import { strings } from '../../../../constants/strings';
++import type { RecordedAnimation } from '../../../../test/recordingAnimations';
++import { renderWithTheme } from '../../../../test/renderWithTheme';
++import { theme } from '../../../../theme';
++import { LoginErrorBanner } from '../LoginErrorBanner';
++
++jest.mock('react-native-reanimated', () => {
++  const actual = jest.requireActual('react-native-reanimated/mock');
++  return {
++    ...actual,
++    ...jest
++      .requireActual('../../../../test/recordingAnimations')
++      .recordingAnimations(),
++    useReducedMotion: jest.fn(() => false),
++  };
++});
++
++const { borderRadii, colors, motion, sizes, spacing } = theme;
++const reducedMotionMock = useReducedMotion as jest.Mock;
++const MESSAGE = strings.login.error.invalid;
++
++const entering = () =>
++  (
++    screen.getByTestId('login-error-banner') as unknown as {
++      props: { entering?: RecordedAnimation };
++    }
++  ).props.entering;
++
++describe('LoginErrorBanner', () => {
++  let announce: jest.SpyInstance;
++
++  beforeEach(() => {
++    reducedMotionMock.mockReturnValue(false);
++    announce = jest
++      .spyOn(AccessibilityInfo, 'announceForAccessibility')
++      .mockImplementation(() => {});
++    // O preset do RN já mocka o método: o spy reaproveita o mesmo jest.fn.
++    announce.mockClear();
++  });
++
++  afterEach(() => {
++    jest.restoreAllMocks();
++  });
++
++  it('caixa de 48 em accentMuted com borda danger, raio m e o texto em `text`', async () => {
++    await renderWithTheme(<LoginErrorBanner message={MESSAGE} />);
++
++    expect(
++      StyleSheet.flatten(screen.getByTestId('login-error-box').props.style),
++    ).toMatchObject({
++      minHeight: sizes.banner,
++      borderRadius: borderRadii.m,
++      backgroundColor: colors.accentMuted,
++      borderColor: colors.danger,
++      borderWidth: 1,
++      paddingHorizontal: spacing.sm,
++    });
++    const text = screen.getByTestId('login-error-message');
++    expect(text).toHaveTextContent(MESSAGE);
++    expect(text).toHaveStyle({ color: colors.text });
++    expect(text).toHaveProp('accessibilityLabel', MESSAGE);
++  });
++
++  it.each(['ios', 'android'] as const)(
++    'anuncia a mensagem uma vez no %s',
++    async os => {
++      jest.replaceProperty(Platform, 'OS', os);
++
++      await renderWithTheme(<LoginErrorBanner message={MESSAGE} />);
++
++      expect(announce).toHaveBeenCalledTimes(1);
++      expect(announce).toHaveBeenCalledWith(MESSAGE);
++    },
++  );
++
++  it('entra com FadeInDown de 8 em base', async () => {
++    await renderWithTheme(<LoginErrorBanner message={MESSAGE} />);
++
++    expect(entering()).toMatchObject({
++      name: 'FadeInDown',
++      calls: {
++        duration: motion.base,
++        withInitialValues: {
++          transform: [{ translateY: motion.enterOffsetSmall }],
++        },
++      },
++    });
++  });
++
++  it('com reduzir movimento entra com FadeIn em fast, que o sistema não pula', async () => {
++    reducedMotionMock.mockReturnValue(true);
++
++    await renderWithTheme(<LoginErrorBanner message={MESSAGE} />);
++
++    expect(entering()).toMatchObject({
++      name: 'FadeIn',
++      calls: { duration: motion.fast, reduceMotion: ReduceMotion.Never },
++    });
++  });
++});
+diff --git a/mobile/src/features/auth/components/__tests__/LoginErrorMessage.test.tsx b/mobile/src/features/auth/components/__tests__/LoginErrorMessage.test.tsx
+deleted file mode 100644
+index e76b675..0000000
+--- a/mobile/src/features/auth/components/__tests__/LoginErrorMessage.test.tsx
++++ /dev/null
+@@ -1,49 +0,0 @@
+-import { screen } from '@testing-library/react-native';
+-import { AccessibilityInfo, Platform } from 'react-native';
+-
+-import { strings } from '../../../../constants/strings';
+-import { renderWithTheme } from '../../../../test/renderWithTheme';
+-import { LoginErrorMessage } from '../LoginErrorMessage';
+-
+-const SPOKEN = 'Usuário ou senha inválida. Pode tentar novamente?';
+-
+-describe('LoginErrorMessage', () => {
+-  let announce: jest.SpyInstance;
+-
+-  beforeEach(() => {
+-    announce = jest
+-      .spyOn(AccessibilityInfo, 'announceForAccessibility')
+-      .mockImplementation(() => {});
+-    // No preset do RN o método já é um jest.fn: o spy reaproveita o mesmo
+-    // mock, e as chamadas do teste anterior ficariam contadas.
+-    announce.mockClear();
+-  });
+-
+-  afterEach(() => {
+-    jest.restoreAllMocks();
+-  });
+-
+-  it.each(['ios', 'android'] as const)(
+-    'anuncia a mensagem uma vez, sem quebra de linha, no %s',
+-    async os => {
+-      jest.replaceProperty(Platform, 'OS', os);
+-
+-      await renderWithTheme(
+-        <LoginErrorMessage message={strings.login.error.invalid} />,
+-      );
+-
+-      expect(announce).toHaveBeenCalledTimes(1);
+-      expect(announce).toHaveBeenCalledWith(SPOKEN);
+-    },
+-  );
+-
+-  it('mostra o texto em 2 linhas e lê sem a quebra', async () => {
+-    await renderWithTheme(
+-      <LoginErrorMessage message={strings.login.error.invalid} />,
+-    );
+-
+-    const message = screen.getByTestId('login-error-message');
+-    expect(message).toHaveTextContent(strings.login.error.invalid);
+-    expect(message).toHaveProp('accessibilityLabel', SPOKEN);
+-  });
+-});
+diff --git a/mobile/src/features/auth/useLoginViewModel.ts b/mobile/src/features/auth/useLoginViewModel.ts
+index 9c1412e..9b7c42b 100644
+--- a/mobile/src/features/auth/useLoginViewModel.ts
++++ b/mobile/src/features/auth/useLoginViewModel.ts
+@@ -73,25 +73,26 @@ export function useLoginViewModel() {
+    * a 0 quando o erro sai da tela. Derivado no render, sem estado extra.
+    */
+   const shakeKey =
+     mutation.error && mutation.error.kind !== 'canceled'
+       ? mutation.submittedAt
+       : 0;
++  /** Banner acima do botão: erro de envio ou o aviso de sessão expirada. */
+   const errorMessage =
+-    submitError ??
+-    (showCpfError ? strings.login.error.cpf : null) ??
+-    (showExpired ? strings.login.error.sessionExpired : null);
++    submitError ?? (showExpired ? strings.login.error.sessionExpired : null);
+ 
+   const submit = handleSubmit(values => {
+     if (mutation.isPending) return;
+     mutation.mutate(values);
+   });
+ 
+   return {
+     cpf: {
+       value: cpfField.value,
++      /** Erro do próprio campo (DV errado no blur); some quando o CPF muda. */
++      error: showCpfError ? strings.login.error.cpf : null,
+       onChangeText: (text: string) => {
+         clearMessages();
+         cpfField.onChange(formatCpf(text));
+       },
+       onBlur: () => {
+         cpfField.onBlur();
+@@ -116,11 +117,12 @@ export function useLoginViewModel() {
+     /** Botão e "go" do teclado da senha. Ignora se o formulário não vale. */
+     submit: () => {
+       submit();
+     },
+     canSubmit,
+     isSubmitting,
++    /** Texto do banner (erros de envio e sessão expirada). */
+     errorMessage,
+     /** Muda a cada erro de envio: a View faz o shake do formulário. */
+     shakeKey,
+   };
+ }
+diff --git a/mobile/src/features/header/__tests__/useHeaderViewModel.test.tsx b/mobile/src/features/header/__tests__/useHeaderViewModel.test.tsx
+index 0dd9312..40242bd 100644
+--- a/mobile/src/features/header/__tests__/useHeaderViewModel.test.tsx
++++ b/mobile/src/features/header/__tests__/useHeaderViewModel.test.tsx
+@@ -1,7 +1,7 @@
+-import { act, renderHook } from '@testing-library/react-native';
++import { act, renderHook, waitFor } from '@testing-library/react-native';
+ 
+ import { queryClient, queryKeys } from '../../../app/queryClient';
+ import { createSecureStorage } from '../../../services/storage/secureStorage';
+ import { useSessionStore } from '../../../stores/session.store';
+ import { meResponse } from '../../../test/fixtures';
+ import { QueryWrapper } from '../../../test/queryWrapper';
+@@ -21,12 +21,18 @@ describe('useHeaderViewModel', () => {
+     await useSessionStore.getState().signOut();
+     await createSecureStorage().setToken('jwt-salvo');
+     useSessionStore.setState({ status: 'signedIn', signOutReason: null });
+     queryClient.clear();
+   });
+ 
++  // O hook busca o /me ao montar (sem cache ou com cache velho): espera a
++  // busca terminar para o fim dela não atualizar o hook fora do act.
++  afterEach(async () => {
++    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
++  });
++
+   const renderHeader = () =>
+     renderHook(() => useHeaderViewModel({ navigate }), {
+       wrapper: QueryWrapper,
+     });
+ 
+   it('mostra o primeiro nome do responsável e o aluno em uso, para o chip', async () => {
+diff --git a/mobile/src/features/profile/__tests__/StudentRow.test.tsx b/mobile/src/features/profile/__tests__/StudentRow.test.tsx
+index f7422ce..95ccb21 100644
+--- a/mobile/src/features/profile/__tests__/StudentRow.test.tsx
++++ b/mobile/src/features/profile/__tests__/StudentRow.test.tsx
+@@ -158,18 +158,20 @@ describe('StudentRow', () => {
+ 
+     await fireEvent.press(row());
+ 
+     expect(marina.onPress).toHaveBeenCalledTimes(1);
+   });
+ 
+-  it('aluno atual com troca possível: sem papel de botão, desabilitado e sem escala ao toque', async () => {
++  it('aluno atual com troca possível: sem papel de botão, sem toque e sem "esmaecido"', async () => {
+     await renderWithTheme(<StudentRow {...marina} selected />);
+ 
+     expect(row()).toHaveProp('accessibilityRole', 'text');
+     expect(row()).toBeSelected();
+-    expect(row()).toBeDisabled();
++    // Sem `disabled` (o VoiceOver leria "esmaecido"); o toque é cortado.
++    expect(row()).not.toBeDisabled();
++    expect(row()).toHaveProp('pointerEvents', 'none');
+     await fireEvent(row(), 'pressIn');
+     await fireEvent.press(row());
+ 
+     expect(marina.onPress).not.toHaveBeenCalled();
+     expect(withSpring).not.toHaveBeenCalled();
+   });
+diff --git a/mobile/src/features/profile/components/StudentRow.tsx b/mobile/src/features/profile/components/StudentRow.tsx
+index 09e012e..b3113fc 100644
+--- a/mobile/src/features/profile/components/StudentRow.tsx
++++ b/mobile/src/features/profile/components/StudentRow.tsx
+@@ -141,16 +141,19 @@ export function StudentRow({
+         className,
+         rm,
+         period,
+       )}
+       accessibilityHint={switchable ? strings.profile.studentHint : undefined}
+       accessibilityState={{ selected }}
+-      disabled={!switchable}
+-      onPress={onPress}
+-      onPressIn={pressIn}
+-      onPressOut={pressOut}
++      // Sem toque quando não dá para trocar (o atual ou aluno único), mas sem
++      // `disabled`: o VoiceOver leria "esmaecido" junto de "selecionado". O
++      // leitor de tela continua focando a linha.
++      pointerEvents={switchable ? 'auto' : 'none'}
++      onPress={switchable ? onPress : undefined}
++      onPressIn={switchable ? pressIn : undefined}
++      onPressOut={switchable ? pressOut : undefined}
+     >
+       <Animated.View style={scaleStyle}>
+         <Box
+           testID={`${testID}-surface`}
+           flexDirection="row"
+           alignItems="center"
+diff --git a/mobile/src/features/splash/SplashScreen.tsx b/mobile/src/features/splash/SplashScreen.tsx
+index 7a16d98..d071121 100644
+--- a/mobile/src/features/splash/SplashScreen.tsx
++++ b/mobile/src/features/splash/SplashScreen.tsx
+@@ -1,15 +1,20 @@
+ import { useCallback, useEffect, useMemo, useRef } from 'react';
+-import { Image, type LayoutChangeEvent } from 'react-native';
++import {
++  Image,
++  useWindowDimensions,
++  type LayoutChangeEvent,
++} from 'react-native';
+ import BootSplash from 'react-native-bootsplash';
+ import Animated from 'react-native-reanimated';
+ import { useSafeAreaInsets } from 'react-native-safe-area-context';
+ 
+ import { strings } from '../../constants/strings';
+ import type { RootStackScreenProps } from '../../navigation/types';
+ import { Box, useTheme } from '../../theme';
++import { splashToLoginOffsetY } from '../../utils/loginLayout';
+ import { useSplashAnimation } from './useSplashAnimation';
+ import { useSplashViewModel } from './useSplashViewModel';
+ 
+ const logo = require('../../../assets/logo-fiap-school.png');
+ 
+ /**
+@@ -18,12 +23,13 @@ const logo = require('../../../assets/logo-fiap-school.png');
+  */
+ export function SplashScreen({ navigation }: RootStackScreenProps<'Splash'>) {
+   const { destination, showLoader, reducedMotion, onExitFinished } =
+     useSplashViewModel(navigation);
+   const { colors, sizes, spacing } = useTheme();
+   const insets = useSafeAreaInsets();
++  const { height: windowHeight } = useWindowDimensions();
+   const { width, height } = sizes.logoLogin;
+   const animation = useSplashAnimation({ reducedMotion, trackWidth: width });
+   const { start, startLoop, exit, segmentWidth, styles } = animation;
+ 
+   const started = useRef(false);
+   const rootHeight = useRef(0);
+@@ -42,20 +48,32 @@ export function SplashScreen({ navigation }: RootStackScreenProps<'Splash'>) {
+   useEffect(() => {
+     if (showLoader) startLoop();
+   }, [showLoader, startLoop]);
+ 
+   useEffect(() => {
+     if (!destination) return;
+-    // Centro da tela → posição do logo no Login (inset de cima + hero).
+-    const centeredTop = (rootHeight.current - height) / 2;
++    // Centro da tela → centro do logo do Login, pela mesma conta que o
++    // Login usa para desenhá-lo (utils/loginLayout).
+     exit({
+       destination,
+-      loginOffsetY: insets.top + spacing.hero - centeredTop,
++      loginOffsetY: splashToLoginOffsetY({
++        rootHeight: rootHeight.current,
++        windowHeight,
++        insetTop: insets.top,
++        insetBottom: insets.bottom,
++      }),
+       onFinished: onExitFinished,
+     });
+-  }, [destination, exit, height, insets.top, spacing.hero, onExitFinished]);
++  }, [
++    destination,
++    exit,
++    windowHeight,
++    insets.top,
++    insets.bottom,
++    onExitFinished,
++  ]);
+ 
+   const layers = useMemo(() => {
+     const badge = sizes.logoBadge;
+     const badgeRect = {
+       position: 'absolute' as const,
+       left: badge.x * width,
+diff --git a/mobile/src/features/splash/__tests__/SplashScreen.test.tsx b/mobile/src/features/splash/__tests__/SplashScreen.test.tsx
+index f493cc3..c5aee5d 100644
+--- a/mobile/src/features/splash/__tests__/SplashScreen.test.tsx
++++ b/mobile/src/features/splash/__tests__/SplashScreen.test.tsx
+@@ -1,15 +1,18 @@
+ import { ThemeProvider } from '@shopify/restyle';
+ import { act, fireEvent, render, screen } from '@testing-library/react-native';
++import { Dimensions } from 'react-native';
+ import BootSplash from 'react-native-bootsplash';
+ 
+ import type { RootStackScreenProps } from '../../../navigation/types';
+ import { useBootStore } from '../../../stores/boot.store';
+ import { useSessionStore } from '../../../stores/session.store';
+ import { theme } from '../../../theme';
++import { splashToLoginOffsetY } from '../../../utils/loginLayout';
+ import { SplashScreen } from '../SplashScreen';
++import * as splashAnimation from '../useSplashAnimation';
+ 
+ type Props = RootStackScreenProps<'Splash'>;
+ 
+ const layout = {
+   nativeEvent: { layout: { x: 0, y: 0, width: 414, height: 736 } },
+ };
+@@ -91,7 +94,35 @@ describe('SplashScreen', () => {
+ 
+     expect(navigation.reset).toHaveBeenCalledWith({
+       index: 0,
+       routes: [{ name: 'Login', params: { fromSplash: true } }],
+     });
+   });
++
++  it('a saída para o Login mira o centro do logo do Login (util compartilhado)', async () => {
++    const actual = splashAnimation.useSplashAnimation;
++    const exit = jest.fn();
++    const spy = jest
++      .spyOn(splashAnimation, 'useSplashAnimation')
++      .mockImplementation(options => ({ ...actual(options), exit }));
++    await renderSplash();
++    await fireEvent(screen.getByTestId('splash-screen'), 'layout', layout);
++
++    await act(async () => {
++      await jest.advanceTimersByTimeAsync(1200);
++    });
++
++    // Insets do mock = 0; raiz de 736 (layout) e a janela do Jest.
++    expect(exit).toHaveBeenCalledWith(
++      expect.objectContaining({
++        destination: 'login',
++        loginOffsetY: splashToLoginOffsetY({
++          rootHeight: 736,
++          windowHeight: Dimensions.get('window').height,
++          insetTop: 0,
++          insetBottom: 0,
++        }),
++      }),
++    );
++    spy.mockRestore();
++  });
+ });
+diff --git a/mobile/src/features/splash/__tests__/useSplashAnimation.test.tsx b/mobile/src/features/splash/__tests__/useSplashAnimation.test.tsx
+index 912d00c..79b778e 100644
+--- a/mobile/src/features/splash/__tests__/useSplashAnimation.test.tsx
++++ b/mobile/src/features/splash/__tests__/useSplashAnimation.test.tsx
+@@ -72,6 +72,35 @@ describe('useSplashAnimation com reduzir movimento', () => {
+       for (const config of configs()) {
+         expect(config).toMatchObject({ reduceMotion: ReduceMotion.Never });
+       }
+     },
+   );
+ });
++
++describe('useSplashAnimation: saída para o Login (3.1 da v2)', () => {
++  beforeEach(() => timing.mockClear());
++
++  it('desce até o logo do Login e encolhe para 0,8 juntos, em slow com emphasized', async () => {
++    const { result } = await renderHook(
++      () => useSplashAnimation({ reducedMotion: false, trackWidth: 306 }),
++      { wrapper },
++    );
++    const onFinished = jest.fn();
++
++    result.current.exit({
++      destination: 'login',
++      loginOffsetY: -200.5,
++      onFinished,
++    });
++
++    const { motion } = theme;
++    const exitConfig = {
++      duration: motion.slow,
++      easing: motion.splash.exitToLoginEasing,
++    };
++    expect(timing).toHaveBeenCalledWith(-200.5, exitConfig, expect.anything());
++    expect(timing).toHaveBeenCalledWith(motion.loginLogoScale, exitConfig);
++    // Troca de tela uma vez só, no fim do grupo.
++    await Promise.resolve();
++    expect(onFinished).toHaveBeenCalledTimes(1);
++  });
++});
+diff --git a/mobile/src/features/splash/useSplashAnimation.ts b/mobile/src/features/splash/useSplashAnimation.ts
+index 842109c..432be0b 100644
+--- a/mobile/src/features/splash/useSplashAnimation.ts
++++ b/mobile/src/features/splash/useSplashAnimation.ts
+@@ -186,31 +186,33 @@ export function useSplashAnimation({ reducedMotion, trackWidth }: Options) {
+ 
+       if (reducedMotion) {
+         groupOpacity.set(withTiming(0, { ...fade, easing: linear }, done));
+         return;
+       }
+       if (destination === 'login') {
+-        groupY.set(
+-          withTiming(
+-            loginOffsetY,
+-            { duration: motion.slow, easing: splash.exitToLoginEasing },
+-            done,
+-          ),
+-        );
++        // Até o lugar do logo do Login, já no tamanho dele (0,8): os dois
++        // transforms juntos, no mesmo grupo (01-design.md da v2, 3.1).
++        const toLogin = {
++          duration: motion.slow,
++          easing: splash.exitToLoginEasing,
++        };
++        groupScale.set(withTiming(motion.loginLogoScale, toLogin));
++        groupY.set(withTiming(loginOffsetY, toLogin, done));
+         return;
+       }
+       const config = { duration: splash.exitDuration, easing: motion.easeIn };
+       groupScale.set(withTiming(splash.exitScaleTo, config));
+       groupOpacity.set(withTiming(0, config, done));
+     },
+     [
+       reducedMotion,
+       splash,
+       motion.fast,
+       motion.slow,
+       motion.easeIn,
++      motion.loginLogoScale,
+       loaderX,
+       badgeBreath,
+       loaderOpacity,
+       groupOpacity,
+       groupY,
+       groupScale,
+diff --git a/mobile/src/hooks/__tests__/useKeyboardReveal.test.tsx b/mobile/src/hooks/__tests__/useKeyboardReveal.test.tsx
+new file mode 100644
+index 0000000..6901e3e
+--- /dev/null
++++ b/mobile/src/hooks/__tests__/useKeyboardReveal.test.tsx
+@@ -0,0 +1,214 @@
++import { act, renderHook } from '@testing-library/react-native';
++import {
++  Dimensions,
++  Keyboard,
++  Platform,
++  type KeyboardEvent,
++  type LayoutChangeEvent,
++} from 'react-native';
++import { useReducedMotion } from 'react-native-reanimated';
++
++import { revealOffset, useKeyboardReveal } from '../useKeyboardReveal';
++
++jest.mock('react-native-reanimated', () => ({
++  ...jest.requireActual('react-native-reanimated/mock'),
++  useReducedMotion: jest.fn(() => false),
++}));
++
++describe('revealOffset', () => {
++  const base = { viewportTop: 20, margin: 16 };
++
++  it('alvo visível acima do teclado: não rola', () => {
++    // Fundo do alvo em 400 do conteúdo; janela visível até 500 − 20.
++    expect(
++      revealOffset({
++        ...base,
++        targetBottom: 400,
++        keyboardTop: 500,
++        scrollY: 0,
++      }),
++    ).toBeNull();
++  });
++
++  it('alvo atrás do teclado: rola até ele ficar `margin` acima', () => {
++    // Precisa ver 600 + 16 = 616; vê até 0 + 480 − 20 = 460 → rola 156.
++    expect(
++      revealOffset({
++        ...base,
++        targetBottom: 600,
++        keyboardTop: 480,
++        scrollY: 0,
++      }),
++    ).toBe(156);
++  });
++
++  it('conta a rolagem que já existe', () => {
++    expect(
++      revealOffset({
++        ...base,
++        targetBottom: 600,
++        keyboardTop: 480,
++        scrollY: 100,
++      }),
++    ).toBe(156);
++    expect(
++      revealOffset({
++        ...base,
++        targetBottom: 600,
++        keyboardTop: 480,
++        scrollY: 200,
++      }),
++    ).toBeNull();
++  });
++});
++
++describe('useKeyboardReveal', () => {
++  const windowHeight = Dimensions.get('window').height;
++  let listeners: Record<string, (event: KeyboardEvent) => void>;
++
++  const keyboardEvent = (screenY: number) =>
++    ({
++      endCoordinates: {
++        screenY,
++        height: windowHeight - screenY,
++        screenX: 0,
++        width: 0,
++      },
++    } as KeyboardEvent);
++
++  const layout = (y: number, height: number) =>
++    ({
++      nativeEvent: { layout: { x: 0, y, width: 300, height } },
++    } as LayoutChangeEvent);
++
++  const setup = async () => {
++    const scrollTo = jest.fn();
++    const hook = await renderHook(() =>
++      useKeyboardReveal({ viewportTop: 0, margin: 16 }),
++    );
++    // A ScrollView real não existe no renderHook.
++    (hook.result.current.scrollRef as { current: unknown }).current = {
++      scrollTo,
++    };
++    await act(() => hook.result.current.onTargetLayout(layout(800, 400)));
++    return { ...hook, scrollTo };
++  };
++
++  beforeEach(() => {
++    listeners = {};
++    jest.mocked(useReducedMotion).mockReturnValue(false);
++    jest.spyOn(Keyboard, 'addListener').mockImplementation(((
++      name: string,
++      callback: (event: KeyboardEvent) => void,
++    ) => {
++      listeners[name] = callback;
++      return { remove: jest.fn() };
++    }) as unknown as typeof Keyboard.addListener);
++  });
++
++  afterEach(() => {
++    jest.restoreAllMocks();
++  });
++
++  describe('no iOS', () => {
++    beforeEach(() => {
++      jest.replaceProperty(Platform, 'OS', 'ios');
++    });
++
++    it('com o alvo armado, o teclado subindo rola até o fim do alvo', async () => {
++      const { result, scrollTo } = await setup();
++      await act(() => result.current.armed.onFocus());
++
++      // Alvo de 800 a 1200; teclado a partir de 900: rola 1216 − 900.
++      await act(() => listeners.keyboardWillShow(keyboardEvent(900)));
++
++      expect(scrollTo).toHaveBeenCalledWith({ y: 316, animated: true });
++    });
++
++    it('sem o alvo armado (outro campo com foco), o teclado não rola nada', async () => {
++      const { scrollTo } = await setup();
++
++      await act(() => listeners.keyboardWillShow(keyboardEvent(900)));
++
++      expect(scrollTo).not.toHaveBeenCalled();
++    });
++
++    it('com o teclado já aberto, armar o alvo rola na hora', async () => {
++      const { result, scrollTo } = await setup();
++      await act(() => listeners.keyboardWillShow(keyboardEvent(900)));
++
++      await act(() => result.current.armed.onFocus());
++
++      expect(scrollTo).toHaveBeenCalledWith({ y: 316, animated: true });
++    });
++
++    it('depois do blur, o teclado não rola mais', async () => {
++      const { result, scrollTo } = await setup();
++      await act(() => result.current.armed.onFocus());
++      await act(() => result.current.armed.onBlur());
++
++      await act(() => listeners.keyboardWillShow(keyboardEvent(900)));
++
++      expect(scrollTo).not.toHaveBeenCalled();
++    });
++
++    it('com reduzir movimento rola sem animação', async () => {
++      jest.mocked(useReducedMotion).mockReturnValue(true);
++      const { result, scrollTo } = await setup();
++      await act(() => result.current.armed.onFocus());
++
++      await act(() => listeners.keyboardWillShow(keyboardEvent(900)));
++
++      expect(scrollTo).toHaveBeenCalledWith({ y: 316, animated: false });
++    });
++
++    it('o espaço do teclado é do sistema (automaticallyAdjustKeyboardInsets): inset 0', async () => {
++      const { result } = await setup();
++
++      await act(() => listeners.keyboardWillShow(keyboardEvent(900)));
++
++      expect(result.current.keyboardInset).toBe(0);
++    });
++  });
++
++  describe('no Android (edge-to-edge)', () => {
++    beforeEach(() => {
++      jest.replaceProperty(Platform, 'OS', 'android');
++    });
++
++    it('o teclado abre espaço embaixo da rolagem e some ao fechar', async () => {
++      const { result } = await setup();
++
++      await act(() => listeners.keyboardDidShow(keyboardEvent(900)));
++      expect(result.current.keyboardInset).toBe(windowHeight - 900);
++
++      await act(() => listeners.keyboardDidHide(keyboardEvent(windowHeight)));
++      expect(result.current.keyboardInset).toBe(0);
++    });
++
++    it('com o alvo armado, rola até o fim do alvo', async () => {
++      const { result, scrollTo } = await setup();
++      await act(() => result.current.armed.onFocus());
++
++      await act(() => listeners.keyboardDidShow(keyboardEvent(900)));
++
++      expect(scrollTo).toHaveBeenCalledWith({ y: 316, animated: true });
++    });
++  });
++
++  it('acompanha a rolagem atual', async () => {
++    jest.replaceProperty(Platform, 'OS', 'ios');
++    const { result, scrollTo } = await setup();
++    await act(() =>
++      result.current.onScroll({
++        nativeEvent: { contentOffset: { x: 0, y: 400 } },
++      } as Parameters<typeof result.current.onScroll>[0]),
++    );
++    await act(() => result.current.armed.onFocus());
++
++    await act(() => listeners.keyboardWillShow(keyboardEvent(900)));
++
++    // 1216 já está à vista com 400 rolados (400 + 900 = 1300).
++    expect(scrollTo).not.toHaveBeenCalled();
++  });
++});
+diff --git a/mobile/src/hooks/useKeyboardReveal.ts b/mobile/src/hooks/useKeyboardReveal.ts
+new file mode 100644
+index 0000000..c9ac565
+--- /dev/null
++++ b/mobile/src/hooks/useKeyboardReveal.ts
+@@ -0,0 +1,135 @@
++import { useCallback, useEffect, useRef, useState } from 'react';
++import {
++  Keyboard,
++  Platform,
++  useWindowDimensions,
++  type KeyboardEvent,
++  type LayoutChangeEvent,
++  type NativeScrollEvent,
++  type NativeSyntheticEvent,
++  type ScrollViewInstance,
++} from 'react-native';
++import { useReducedMotion } from 'react-native-reanimated';
++
++type RevealInput = {
++  /** Fundo do alvo, em coordenadas do conteúdo da rolagem. */
++  targetBottom: number;
++  /** Topo do teclado, em coordenadas da janela (`endCoordinates.screenY`). */
++  keyboardTop: number;
++  /** Topo da área da rolagem na janela. */
++  viewportTop: number;
++  scrollY: number;
++  /** Folga entre o alvo e o teclado. */
++  margin: number;
++};
++
++/**
++ * Quanto rolar para o alvo ficar `margin` acima do teclado, ou `null` se ele
++ * já está à vista. Só desce: nunca rola para cima.
++ */
++export function revealOffset({
++  targetBottom,
++  keyboardTop,
++  viewportTop,
++  scrollY,
++  margin,
++}: RevealInput): number | null {
++  const visibleBottom = scrollY + keyboardTop - viewportTop;
++  const needed = targetBottom + margin;
++  return needed > visibleBottom ? needed - (keyboardTop - viewportTop) : null;
++}
++
++/**
++ * Eventos de teclado por plataforma. No iOS o `will` chega com o quadro
++ * final, a tempo de a rolagem andar junto com o teclado; no Android só
++ * existe o `did`.
++ */
++const keyboardEvents = () =>
++  Platform.OS === 'ios'
++    ? ({ show: 'keyboardWillShow', hide: 'keyboardWillHide' } as const)
++    : ({ show: 'keyboardDidShow', hide: 'keyboardDidHide' } as const);
++
++/**
++ * Mantém um alvo (o fim do card do login, com o botão) acima do teclado
++ * enquanto o campo "armado" tem foco (01-design.md da v2, 3.2). Sem
++ * `KeyboardAvoidingView`, para nada se mexer no 1º frame:
++ * - iOS: a `ScrollView` usa `automaticallyAdjustKeyboardInsets` (o sistema
++ *   abre o espaço embaixo) e este hook só rola até o alvo;
++ * - Android (edge-to-edge, o `adjustResize` não encolhe a janela):
++ *   `keyboardInset` é a altura coberta pelo teclado, para a tela somar ao
++ *   padding de baixo da rolagem, e a mesma conta rola até o alvo.
++ */
++export function useKeyboardReveal({
++  viewportTop,
++  margin,
++}: {
++  viewportTop: number;
++  margin: number;
++}) {
++  const reducedMotion = useReducedMotion();
++  const { height: windowHeight } = useWindowDimensions();
++  const scrollRef = useRef<ScrollViewInstance>(null);
++  const scrollY = useRef(0);
++  const targetBottom = useRef(0);
++  const keyboardTop = useRef<number | null>(null);
++  const armed = useRef(false);
++  const [keyboardInset, setKeyboardInset] = useState(0);
++
++  const reveal = useCallback(() => {
++    if (!armed.current || keyboardTop.current === null) return;
++    const y = revealOffset({
++      targetBottom: targetBottom.current,
++      keyboardTop: keyboardTop.current,
++      viewportTop,
++      scrollY: scrollY.current,
++      margin,
++    });
++    if (y !== null) {
++      scrollRef.current?.scrollTo({ y, animated: !reducedMotion });
++    }
++  }, [viewportTop, margin, reducedMotion]);
++
++  useEffect(() => {
++    const events = keyboardEvents();
++    const show = Keyboard.addListener(events.show, (event: KeyboardEvent) => {
++      keyboardTop.current = event.endCoordinates.screenY;
++      if (Platform.OS === 'android') {
++        setKeyboardInset(
++          Math.max(0, windowHeight - event.endCoordinates.screenY),
++        );
++      }
++      reveal();
++    });
++    const hide = Keyboard.addListener(events.hide, () => {
++      keyboardTop.current = null;
++      setKeyboardInset(0);
++    });
++    return () => {
++      show.remove();
++      hide.remove();
++    };
++  }, [reveal, windowHeight]);
++
++  return {
++    scrollRef,
++    keyboardInset,
++    onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => {
++      scrollY.current = event.nativeEvent.contentOffset.y;
++    },
++    /** `onLayout` do alvo, filho direto do conteúdo da rolagem. */
++    onTargetLayout: (event: LayoutChangeEvent) => {
++      const { y, height } = event.nativeEvent.layout;
++      targetBottom.current = y + height;
++    },
++    /** Foco e blur do campo que, com foco, mantém o alvo à vista. */
++    armed: {
++      onFocus: () => {
++        armed.current = true;
++        reveal();
++      },
++      onBlur: () => {
++        armed.current = false;
++      },
++    },
++  };
++}
+diff --git a/mobile/src/theme/__tests__/theme.test.ts b/mobile/src/theme/__tests__/theme.test.ts
+index 74d66b1..c20e3b6 100644
+--- a/mobile/src/theme/__tests__/theme.test.ts
++++ b/mobile/src/theme/__tests__/theme.test.ts
+@@ -148,7 +148,25 @@ describe('tema v2', () => {
+       radioBorder: 1.5,
+       currentBadge: 28,
+       currentBadgeIcon: 16,
+     });
+     expect(theme.motion.rowSelectFrom).toBe(0.98);
+   });
++
++  it('Login (2.5 e 3.2): campo, ícone do erro, halo e as escalas do rótulo e do olho', () => {
++    expect(theme.sizes).toMatchObject({
++      textField: 60,
++      textFieldFocusBorder: 1.5,
++      fieldErrorIcon: 16,
++      loginHalo: 360,
++      loginStackHeight: 460,
++      banner: 48,
++    });
++    expect(theme.motion).toMatchObject({
++      fieldLabelScale: 0.8,
++      toggleIconFrom: 0.85,
++      loginItemsDelay: 60,
++      loginHelpDelay: 300,
++      loginCardScaleFrom: 0.98,
++    });
++  });
+ });
+diff --git a/mobile/src/theme/motion.ts b/mobile/src/theme/motion.ts
+index 0b064bb..cc51d96 100644
+--- a/mobile/src/theme/motion.ts
++++ b/mobile/src/theme/motion.ts
+@@ -31,12 +31,21 @@ export const motion = {
+   /** Anel do ponto de agora. */
+   nowPulse: { duration: 2000, scaleTo: 2.2 },
+   /** Escala inicial dos selos. */
+   popFrom: 0.9,
+   /** Linha do aluno que acabou de ser escolhido no Perfil: 0,98 → 1 (4.6). */
+   rowSelectFrom: 0.98,
++  /** Rótulo flutuante do campo: encolhe para 0,8 ao subir (2.5). */
++  fieldLabelScale: 0.8,
++  /** Ícone do olho que entra: 0,85 → 1 (2.5). */
++  toggleIconFrom: 0.85,
++  /** Login (4.2): atraso do 1º item do card e da ajuda do rodapé. */
++  loginItemsDelay: 60,
++  loginHelpDelay: 300,
++  /** Card do login entra de 0,98 → 1 (4.2). */
++  loginCardScaleFrom: 0.98,
+   /** Logo da splash ao chegar no login (0,8). */
+   loginLogoScale: sizes.logoLoginV2.width / sizes.logoLogin.width,
+   easeOut: Easing.out(Easing.cubic),
+   easeIn: Easing.in(Easing.cubic),
+   /** Entradas de card, troca de trimestre e saída da splash para o login. */
+   emphasized,
+diff --git a/mobile/src/theme/sizes.ts b/mobile/src/theme/sizes.ts
+index 2d4139b..ed40a6c 100644
+--- a/mobile/src/theme/sizes.ts
++++ b/mobile/src/theme/sizes.ts
+@@ -23,12 +23,18 @@ export const sizes = {
+   /** Card do login. */
+   formMaxWidth: 400,
+   contentMaxWidth: 600,
+   studentChip: { height: 40, avatar: 28, maxWidth: 200, chevron: 16 },
+   avatar: { s: 28, m: 44, l: 56 },
+   textField: 60,
++  /** Borda da camada de foco e de erro do campo (2.5). */
++  textFieldFocusBorder: 1.5,
++  /** `AlertIcon` do erro embaixo do campo. */
++  fieldErrorIcon: 16,
++  /** Halo radial atrás do logo do login (3.2). */
++  loginHalo: 360,
+   /** Alturas do `PillButton`. */
+   pill: { md: 56, sm: 44, xs: 32 },
+   floatingTabBar: {
+     height: 64,
+     maxWidth: 420,
+     indicatorHeight: 48,
+diff --git a/mobile/src/utils/__tests__/loginLayout.test.ts b/mobile/src/utils/__tests__/loginLayout.test.ts
+new file mode 100644
+index 0000000..8176250
+--- /dev/null
++++ b/mobile/src/utils/__tests__/loginLayout.test.ts
+@@ -0,0 +1,47 @@
++import {
++  loginLogoCenterY,
++  loginLogoTop,
++  splashToLoginOffsetY,
++} from '../loginLayout';
++
++describe('loginLogoTop', () => {
++  // Casos do 01-design.md da v2, 3.2 (status bar de 20, sem home indicator).
++  it.each([
++    [736, 128],
++    [667, 93],
++    [568, 64],
++  ])('janela de %i de altura: logo a %i do inset de cima', (height, top) => {
++    expect(loginLogoTop({ windowHeight: height, insetTop: 20 })).toBe(top);
++  });
++
++  it('desconta o inset de baixo (home indicator)', () => {
++    // (852 − 59 − 34 − 460) / 2 = 149,5 → 149
++    expect(
++      loginLogoTop({ windowHeight: 852, insetTop: 59, insetBottom: 34 }),
++    ).toBe(149);
++  });
++
++  it('nunca fica a menos de `spacing.section` (64) do topo', () => {
++    expect(loginLogoTop({ windowHeight: 400, insetTop: 20 })).toBe(64);
++  });
++});
++
++describe('loginLogoCenterY', () => {
++  it('centro do logo de 245 × 39 do Login, contado do topo da janela', () => {
++    // 20 + 128 + 39 / 2
++    expect(loginLogoCenterY({ windowHeight: 736, insetTop: 20 })).toBe(167.5);
++  });
++});
++
++describe('splashToLoginOffsetY', () => {
++  it('leva o centro da splash (meio da tela) ao centro do logo do Login', () => {
++    // 167,5 − 736 / 2
++    expect(
++      splashToLoginOffsetY({
++        rootHeight: 736,
++        windowHeight: 736,
++        insetTop: 20,
++      }),
++    ).toBe(-200.5);
++  });
++});
+diff --git a/mobile/src/utils/loginLayout.ts b/mobile/src/utils/loginLayout.ts
+new file mode 100644
+index 0000000..66c2be9
+--- /dev/null
++++ b/mobile/src/utils/loginLayout.ts
+@@ -0,0 +1,39 @@
++import { sizes } from '../theme/sizes';
++import { theme } from '../theme/theme';
++
++type LoginLayoutInput = {
++  windowHeight: number;
++  insetTop: number;
++  insetBottom?: number;
++};
++
++/**
++ * Distância do inset de cima até o topo do logo do Login (01-design.md da
++ * v2, 3.2): o bloco de referência (logo + card + ajuda) fica centralizado na
++ * área segura, mas nunca a menos de `spacing.section` do topo. Não depende da
++ * fonte nem do teclado, então a splash sabe de antemão onde o logo vai parar.
++ */
++export function loginLogoTop({
++  windowHeight,
++  insetTop,
++  insetBottom = 0,
++}: LoginLayoutInput): number {
++  const free = windowHeight - insetTop - insetBottom - sizes.loginStackHeight;
++  return Math.max(theme.spacing.section, Math.floor(free / 2));
++}
++
++/** Centro do logo do Login (245 × 39), contado do topo da janela. */
++export function loginLogoCenterY(input: LoginLayoutInput): number {
++  return input.insetTop + loginLogoTop(input) + sizes.logoLoginV2.height / 2;
++}
++
++/**
++ * Quanto o logo da splash, centrado na raiz de altura `rootHeight`, desce
++ * (ou sobe) até o centro do logo do Login (3.1).
++ */
++export function splashToLoginOffsetY({
++  rootHeight,
++  ...input
++}: LoginLayoutInput & { rootHeight: number }): number {
++  return loginLogoCenterY(input) - rootHeight / 2;
++}

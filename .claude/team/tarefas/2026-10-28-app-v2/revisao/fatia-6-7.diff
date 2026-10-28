@@ -1,0 +1,3193 @@
+f3350ca test(mobile): flows do Maestro com a faixa semanal e o swipe da agenda
+74320e1 feat(mobile): agenda com faixa semanal, pager de dias, timetable e linha de agora
+ mobile/.maestro/02-login-sucesso.yaml              |   2 +-
+ mobile/.maestro/04-aulas-navegar-dias.yaml         |  53 ++-
+ mobile/.maestro/07-trocar-aluno.yaml               |   2 +-
+ mobile/.maestro/README.md                          |   4 +-
+ mobile/.maestro/scripts/testids.js                 |   7 +-
+ mobile/src/components/AgendaSkeleton.tsx           |  83 ++--
+ mobile/src/components/LessonItem.tsx               |  76 ----
+ .../components/__tests__/AgendaSkeleton.test.tsx   |  14 +-
+ .../src/components/__tests__/LessonItem.test.tsx   |  60 ---
+ mobile/src/constants/strings.ts                    |  52 ++-
+ mobile/src/features/lessons/LessonsScreen.tsx      | 286 +++++++++----
+ .../lessons/__tests__/LessonsScreen.test.tsx       |  86 ++--
+ .../lessons/__tests__/useAgendaViewModel.test.tsx  |  95 ++---
+ .../features/lessons/components/AgendaEnter.tsx    |  65 +++
+ mobile/src/features/lessons/components/DayPage.tsx | 168 ++++++++
+ .../src/features/lessons/components/NowBanner.tsx  | 134 ++++++
+ .../src/features/lessons/components/Timetable.tsx  | 468 +++++++++++++++++++++
+ .../src/features/lessons/components/WeekStrip.tsx  | 296 +++++++++++++
+ mobile/src/features/lessons/timetable.ts           | 148 +++++++
+ mobile/src/features/lessons/useAgendaViewModel.ts  | 307 ++++++++++++--
+ mobile/src/features/lessons/useMinuteClock.ts      | 110 +++++
+ mobile/src/utils/dates.ts                          |  53 +++
+ 22 files changed, 2123 insertions(+), 446 deletions(-)
+diff --git a/mobile/.maestro/02-login-sucesso.yaml b/mobile/.maestro/02-login-sucesso.yaml
+index ec994f1..ec22880 100644
+--- a/mobile/.maestro/02-login-sucesso.yaml
++++ b/mobile/.maestro/02-login-sucesso.yaml
+@@ -25,13 +25,13 @@ tags:
+     text: '(?i)aluno (rafael|joana),.*'
+ - assertVisible:
+     id: agenda-title
+     text: 'Agenda'
+ - extendedWaitUntil:
+     visible:
+-      id: agenda-day-dropdown
++      id: agenda-week-strip
+     timeout: 10000
+ - assertVisible:
+     id: tab-agenda
+ - assertVisible:
+     id: tab-boletim
+ - assertVisible:
+diff --git a/mobile/.maestro/04-aulas-navegar-dias.yaml b/mobile/.maestro/04-aulas-navegar-dias.yaml
+index 3ac9b17..f37c084 100644
+--- a/mobile/.maestro/04-aulas-navegar-dias.yaml
++++ b/mobile/.maestro/04-aulas-navegar-dias.yaml
+@@ -1,8 +1,9 @@
+-# Agenda do Rafael (semana de 16 a 22/03/2025): troca de dia pelo dropdown e
+-# confere as aulas; domingo mostra o estado vazio. Não depende do dia de hoje.
++# Agenda do Rafael (semana de 16 a 22/03/2025): troca de dia pela faixa
++# semanal e por swipe no pager (N2); domingo mostra o estado vazio. Não
++# depende do dia de hoje: o dia é escolhido tocando no chip.
+ appId: br.com.fiap.school
+ name: 04 - Agenda navega entre os dias
+ tags:
+   - agenda
+ ---
+ - runFlow: subflows/launch-clean.yaml
+@@ -10,62 +11,58 @@ tags:
+     file: subflows/login.yaml
+     env:
+       CPF: '96929456004'
+       PASSWORD: '123456'
+ - extendedWaitUntil:
+     visible:
+-      id: agenda-day-dropdown
++      id: agenda-week-strip
+     timeout: 10000
+ - runFlow:
+     file: subflows/select-student.yaml
+     env:
+       RM: '12567'
+ - tapOn:
+     id: tab-agenda
+ - extendedWaitUntil:
+     visible:
+-      id: agenda-day-dropdown
++      id: agenda-week-strip
+     timeout: 10000
+ - assertVisible:
+     text: '(?i)aluno rafael,.*'
++- assertVisible:
++    id: agenda-month-label
++    text: 'Março 2025'
+ 
+-# Segunda, 17/03: começa com Matemática I às 07:15.
+-- tapOn:
+-    id: agenda-day-dropdown
++# Segunda, 17/03 pelo chip: começa com Matemática I às 07:15.
+ - tapOn:
+-    id: agenda-day-dropdown-option-2025-03-17
++    id: agenda-day-2025-03-17
+ - extendedWaitUntil:
+     visible:
+-      id: agenda-day-dropdown
+-      text: '.*17 de março, segunda-feira'
++      id: agenda-page-2025-03-17-lesson-0
++      text: '.*07:15.*Matemática I.*'
+     timeout: 5000
+-- assertVisible:
+-    id: agenda-lesson-0
+-    text: '.*07:15.*Matemática I'
+ 
+-# Terça, 18/03: começa com Produção e Interpretação de Textos.
+-- tapOn:
+-    id: agenda-day-dropdown
+-- tapOn:
+-    id: agenda-day-dropdown-option-2025-03-18
++# Swipe para a esquerda: terça, 18/03, começa com Produção e Interpretação de Textos.
++- swipe:
++    from:
++      id: agenda-pager
++    direction: LEFT
+ - extendedWaitUntil:
+     visible:
+-      id: agenda-day-dropdown
+-      text: '.*18 de março, terça-feira'
++      id: agenda-page-2025-03-18-lesson-0
++      text: '.*07:15.*Produção e Interpretação de Textos.*'
+     timeout: 5000
+ - assertVisible:
+-    id: agenda-lesson-0
+-    text: '.*07:15.*Produção e Interpretação de Textos'
++    id: agenda-day-2025-03-18
++    selected: true
+ 
+-# Domingo, 16/03: sem aulas.
+-- tapOn:
+-    id: agenda-day-dropdown
++# Domingo, 16/03 pelo chip: sem aulas.
+ - tapOn:
+-    id: agenda-day-dropdown-option-2025-03-16
++    id: agenda-day-2025-03-16
+ - extendedWaitUntil:
+     visible:
+-      id: agenda-empty
++      id: agenda-page-2025-03-16-empty
+     timeout: 5000
+ - assertVisible:
+     text: 'Sem aulas neste dia'
+ - assertNotVisible:
+-    id: agenda-lesson-list
++    id: agenda-page-2025-03-16-timetable
+diff --git a/mobile/.maestro/07-trocar-aluno.yaml b/mobile/.maestro/07-trocar-aluno.yaml
+index db3bd48..c86c1bc 100644
+--- a/mobile/.maestro/07-trocar-aluno.yaml
++++ b/mobile/.maestro/07-trocar-aluno.yaml
+@@ -57,7 +57,7 @@ tags:
+       text: '.*2EM - 2025'
+     timeout: 10000
+ - assertVisible:
+     id: header-student-chip
+     text: '(?i)aluno joana,.*'
+ - assertNotVisible:
+-    id: agenda-day-dropdown
++    id: agenda-week-strip
+diff --git a/mobile/.maestro/README.md b/mobile/.maestro/README.md
+index 3e1c0c0..7bfffd9 100644
+--- a/mobile/.maestro/README.md
++++ b/mobile/.maestro/README.md
+@@ -9,13 +9,13 @@ seed da API.
+ 
+ | Flow                              | Caso de uso                                                    |
+ | --------------------------------- | -------------------------------------------------------------- |
+ | `01-login-invalido.yaml`          | senha errada → mensagem de erro, continua no Login             |
+ | `02-login-sucesso.yaml`           | login → Agenda com o header compacto e a tab bar com 3 abas    |
+ | `03-sessao-persistida.yaml`       | login → `stopApp` → `launchApp` → Agenda sem login             |
+-| `04-aulas-navegar-dias.yaml`      | dropdown de dias: segunda, terça e domingo (vazio)             |
++| `04-aulas-navegar-dias.yaml`      | faixa semanal e swipe: segunda, terça e domingo (vazio)        |
+ | `05-boletim-2025.yaml`            | "7EF - 2025", 1º trimestre com nota e faltas, 2º trimestre `-` |
+ | `06-boletim-anos-anteriores.yaml` | troca para "6EF - 2024"                                        |
+ | `07-trocar-aluno.yaml`            | chip do header → Perfil, troca e volta ao Boletim atualizado   |
+ | `08-um-aluno-sem-botao.yaml`      | 1 aluno: chip com a aluna; no Perfil, atual e sem dica         |
+ | `09-sem-aluno.yaml`               | sem aluno: estado vazio, sem abas; Sair volta ao Login         |
+ | `10-logout.yaml`                  | Perfil → Sair → confirmar → Login; reabrir continua no Login   |
+@@ -24,13 +24,13 @@ seed da API.
+ sair). Eles só rodam chamados pelos flows (`config.yaml` pega só a raiz).
+ 
+ Contas usadas (seed): Gustavo `96929456004` / `123456` (Rafael e Joana),
+ Adelaide `50879567007` / `987654` (Bianca) e Carlos `31415926590` / `111111`
+ (sem aluno). Os flows escolhem o aluno pela aba Perfil quando o dado
+ importa, então não dependem de qual aluno o `/me` traz primeiro, nem do dia de
+-hoje (o dia da Agenda é escolhido no dropdown).
++hoje (o dia da Agenda é escolhido na faixa semanal).
+ 
+ ## Pré-requisitos
+ 
+ - [Maestro CLI](https://docs.maestro.dev/getting-started/installing-maestro)
+   (o CI usa a 2.11.0):
+   `curl -fsSL "https://get.maestro.mobile.dev" | MAESTRO_VERSION=2.11.0 bash`.
+diff --git a/mobile/.maestro/scripts/testids.js b/mobile/.maestro/scripts/testids.js
+index 1ab1038..5853193 100644
+--- a/mobile/.maestro/scripts/testids.js
++++ b/mobile/.maestro/scripts/testids.js
+@@ -78,13 +78,18 @@ const elementName = name =>
+   name.type === 'JSXMemberExpression'
+     ? `${elementName(name.object)}.${name.property.name}`
+     : name.name;
+ 
+ const isComponentFunction = node =>
+   node?.type === 'ArrowFunctionExpression' ||
+-  node?.type === 'FunctionExpression';
++  node?.type === 'FunctionExpression' ||
++  // `memo(function X(...) {...})`: o componente é a variável.
++  (node?.type === 'CallExpression' &&
++    node.callee.type === 'Identifier' &&
++    node.callee.name === 'memo' &&
++    isComponentFunction(node.arguments[0]));
+ 
+ /** Usos de testID por componente e os valores literais de cada prop `*TestID`. */
+ function collectUsages(sources) {
+   const usages = new Map();
+   const named = new Map();
+   const addNamed = (name, value) =>
+diff --git a/mobile/src/components/AgendaSkeleton.tsx b/mobile/src/components/AgendaSkeleton.tsx
+index bf8f519..96380e0 100644
+--- a/mobile/src/components/AgendaSkeleton.tsx
++++ b/mobile/src/components/AgendaSkeleton.tsx
+@@ -1,65 +1,66 @@
+-import Animated, { FadeOut, ReduceMotion } from 'react-native-reanimated';
+-
+ import { strings } from '../constants/strings';
+-import { useSkeletonPulse } from '../hooks/useSkeletonPulse';
+ import { Box, useTheme } from '../theme';
+-import { Skeleton } from './Skeleton';
++import { Skeleton, SkeletonGroup } from './Skeleton';
++
++const DAYS = 7;
+ 
+ /**
+- * Carregamento da Agenda (01-design.md, 2.13): o dropdown e 4 aulas no
+- * formato do `LessonItem`. Para o leitor é um só "Carregando agenda".
++ * Carregamento da Agenda (01-design.md da v2, 2.16): a faixa com 7 chips, o
++ * banner e 4 blocos de aula a partir de 1 hora da grade, com um shimmer só.
++ * Para o leitor é um só "Carregando agenda…".
+  */
+ export function AgendaSkeleton({ testID }: { testID: string }) {
+-  const { motion, sizes, textVariants } = useTheme();
+-  const pulse = useSkeletonPulse();
+-  const rows = Array.from({ length: sizes.skeletonLessonRows }, (_, i) => i);
++  const { sizes, textVariants } = useTheme();
++  const { weekChip, timetable, skeleton, banner, pill } = sizes;
+ 
+   return (
+-    <Animated.View
++    <Box
+       testID={testID}
+       accessible
+       accessibilityRole="progressbar"
+       accessibilityLabel={strings.agenda.loadingAccessibilityLabel}
+-      exiting={FadeOut.duration(motion.fast).reduceMotion(ReduceMotion.System)}
++      paddingHorizontal="m"
+     >
+-      {/* O pulso fica num filho: a saída (layout animation) também mexe na opacidade. */}
+-      <Animated.View style={pulse}>
++      <SkeletonGroup>
+         <Box
+           testID={`${testID}-blocks`}
+           importantForAccessibility="no-hide-descendants"
+         >
+-          <Skeleton
+-            testID={`${testID}-dropdown`}
+-            marginHorizontal="l"
+-            height={sizes.dropdown}
+-          />
+-          <Box paddingHorizontal="xxxl" marginTop="l" gap="m">
+-            {rows.map(row => (
+-              <Box
++          <Box height={pill.xs} justifyContent="center">
++            <Skeleton
++              radius="s"
++              width="35%"
++              height={textVariants.subtitle.lineHeight}
++            />
++          </Box>
++          <Box
++            testID={`${testID}-days`}
++            flexDirection="row"
++            gap="xs"
++            marginTop="s"
++          >
++            {Array.from({ length: DAYS }, (_, day) => (
++              <Skeleton
++                key={day}
++                radius="l"
++                flex={1}
++                height={weekChip.height}
++              />
++            ))}
++          </Box>
++          <Skeleton radius="m" height={banner} marginTop="m" />
++          <Box marginTop="m" style={{ paddingLeft: timetable.gutter }} gap="xs">
++            {skeleton.blockHeights.map((height, row) => (
++              <Skeleton
+                 key={row}
+                 testID={`${testID}-row-${row}`}
+-                flexDirection="row"
+-              >
+-                <Box
+-                  width={sizes.bulletSlot}
+-                  height={textVariants.captionPlain.lineHeight}
+-                  justifyContent="center"
+-                >
+-                  <Skeleton
+-                    radius="round"
+-                    width={sizes.bullet}
+-                    height={sizes.bullet}
+-                  />
+-                </Box>
+-                <Box gap="s">
+-                  <Skeleton style={sizes.skeletonLessonTime} />
+-                  <Skeleton style={sizes.skeletonLessonSubject} />
+-                </Box>
+-              </Box>
++                radius="s"
++                height={height}
++              />
+             ))}
+           </Box>
+         </Box>
+-      </Animated.View>
+-    </Animated.View>
++      </SkeletonGroup>
++    </Box>
+   );
+ }
+diff --git a/mobile/src/components/LessonItem.tsx b/mobile/src/components/LessonItem.tsx
+deleted file mode 100644
+index c4a1cb0..0000000
+--- a/mobile/src/components/LessonItem.tsx
++++ /dev/null
+@@ -1,76 +0,0 @@
+-import Animated from 'react-native-reanimated';
+-
+-import { strings } from '../constants/strings';
+-import { Box, enterDown, Text, useTheme } from '../theme';
+-
+-type LessonItemProps = {
+-  startTime: string;
+-  endTime: string;
+-  subject: string;
+-  /** Posição na lista: escalona a entrada (até `motion.maxStaggered`). */
+-  index: number;
+-  /** Atraso antes do escalonamento (a 1ª entrada da tela espera o header, 4.3). */
+-  enterDelay?: number;
+-  testID: string;
+-};
+-
+-/**
+- * Aula da Agenda (01-design.md, 2.9): bolinha vazada, horário e disciplina.
+- * Para o leitor de tela é um elemento só ("Das 07:15 às 08:00, Matemática I").
+- */
+-export function LessonItem({
+-  startTime,
+-  endTime,
+-  subject,
+-  index,
+-  enterDelay = 0,
+-  testID,
+-}: LessonItemProps) {
+-  const { motion, sizes, textVariants } = useTheme();
+-  const step = Math.min(index, motion.maxStaggered - 1);
+-
+-  return (
+-    <Animated.View
+-      entering={enterDown(motion, enterDelay + step * motion.stagger)}
+-    >
+-      <Box
+-        testID={testID}
+-        flexDirection="row"
+-        accessible
+-        accessibilityLabel={strings.agenda.lessonAccessibilityLabel(
+-          startTime,
+-          endTime,
+-          subject,
+-        )}
+-      >
+-        <Box
+-          testID={`${testID}-bullet-slot`}
+-          width={sizes.bulletSlot}
+-          height={textVariants.captionPlain.lineHeight}
+-          justifyContent="center"
+-        >
+-          <Box
+-            testID={`${testID}-bullet`}
+-            width={sizes.bullet}
+-            height={sizes.bullet}
+-            borderRadius="round"
+-            borderWidth={1}
+-            borderColor="bulletBorder"
+-          />
+-        </Box>
+-        <Box flex={1} gap="s">
+-          <Text testID={`${testID}-time`} variant="captionPlain">
+-            {strings.agenda.lessonTime(startTime, endTime)}
+-          </Text>
+-          <Text
+-            testID={`${testID}-subject`}
+-            variant="lessonSubject"
+-            numberOfLines={2}
+-          >
+-            {subject}
+-          </Text>
+-        </Box>
+-      </Box>
+-    </Animated.View>
+-  );
+-}
+diff --git a/mobile/src/components/__tests__/AgendaSkeleton.test.tsx b/mobile/src/components/__tests__/AgendaSkeleton.test.tsx
+index 642d3d2..b2bceeb 100644
+--- a/mobile/src/components/__tests__/AgendaSkeleton.test.tsx
++++ b/mobile/src/components/__tests__/AgendaSkeleton.test.tsx
+@@ -1,39 +1,35 @@
+ import { screen } from '@testing-library/react-native';
+ 
+ import { renderWithTheme } from '../../test/renderWithTheme';
+-import { theme } from '../../theme';
+ import { AgendaSkeleton } from '../AgendaSkeleton';
+ 
+ describe('AgendaSkeleton', () => {
+   it('é um progressbar "Carregando agenda" com os blocos escondidos do leitor', async () => {
+     await renderWithTheme(<AgendaSkeleton testID="agenda-skeleton" />);
+ 
+     const skeleton = screen.getByTestId('agenda-skeleton');
+     expect(skeleton).toHaveProp('accessibilityRole', 'progressbar');
+-    expect(skeleton).toHaveAccessibleName('Carregando agenda');
++    expect(skeleton).toHaveAccessibleName('Carregando agenda…');
+     // Android: `no-hide-descendants` esconde a própria view; fica num wrapper
+     // interno, e o container continua anunciado.
+     expect(
+       screen.getByTestId('agenda-skeleton-blocks', {
+         includeHiddenElements: true,
+       }),
+     ).toHaveProp('importantForAccessibility', 'no-hide-descendants');
+   });
+ 
+-  it('um bloco do tamanho do dropdown e 4 linhas no formato da aula', async () => {
++  it('a faixa com 7 chips e 4 blocos de aula', async () => {
+     await renderWithTheme(<AgendaSkeleton testID="agenda-skeleton" />);
+ 
+     expect(
+-      screen.getByTestId('agenda-skeleton-dropdown', {
++      screen.getByTestId('agenda-skeleton-days', {
+         includeHiddenElements: true,
+-      }),
+-    ).toHaveStyle({
+-      height: theme.sizes.dropdown,
+-      backgroundColor: theme.colors.surfaceHigh,
+-    });
++      }).children,
++    ).toHaveLength(7);
+     expect(
+       screen.getAllByTestId(/^agenda-skeleton-row-\d$/, {
+         includeHiddenElements: true,
+       }),
+     ).toHaveLength(4);
+   });
+diff --git a/mobile/src/components/__tests__/LessonItem.test.tsx b/mobile/src/components/__tests__/LessonItem.test.tsx
+deleted file mode 100644
+index a87cf7b..0000000
+--- a/mobile/src/components/__tests__/LessonItem.test.tsx
++++ /dev/null
+@@ -1,60 +0,0 @@
+-import { screen } from '@testing-library/react-native';
+-
+-import { renderWithTheme } from '../../test/renderWithTheme';
+-import { theme } from '../../theme';
+-import { LessonItem } from '../LessonItem';
+-
+-describe('LessonItem', () => {
+-  const renderItem = () =>
+-    renderWithTheme(
+-      <LessonItem
+-        testID="agenda-lesson-0"
+-        index={0}
+-        startTime="07:15"
+-        endTime="08:00"
+-        subject="Matemática I"
+-      />,
+-    );
+-
+-  it('mostra o horário "início - fim" e a disciplina, com os testIDs derivados', async () => {
+-    await renderItem();
+-
+-    expect(screen.getByTestId('agenda-lesson-0-time')).toHaveTextContent(
+-      '07:15 - 08:00',
+-    );
+-    expect(screen.getByTestId('agenda-lesson-0-subject')).toHaveTextContent(
+-      'Matemática I',
+-    );
+-  });
+-
+-  it('é um elemento só para o leitor de tela: "Das 07:15 às 08:00, Matemática I"', async () => {
+-    await renderItem();
+-
+-    const item = screen.getByTestId('agenda-lesson-0');
+-    expect(item).toHaveProp('accessible', true);
+-    expect(item).toHaveAccessibleName('Das 07:15 às 08:00, Matemática I');
+-  });
+-
+-  it('bolinha vazada de 6 com borda bulletBorder, numa coluna de 16', async () => {
+-    await renderItem();
+-
+-    expect(screen.getByTestId('agenda-lesson-0-bullet')).toHaveStyle({
+-      width: theme.sizes.bullet,
+-      height: theme.sizes.bullet,
+-      borderWidth: 1,
+-      borderColor: theme.colors.bulletBorder,
+-    });
+-    expect(screen.getByTestId('agenda-lesson-0-bullet-slot')).toHaveStyle({
+-      width: theme.sizes.bulletSlot,
+-    });
+-  });
+-
+-  it('disciplina longa quebra em até 2 linhas', async () => {
+-    await renderItem();
+-
+-    expect(screen.getByTestId('agenda-lesson-0-subject')).toHaveProp(
+-      'numberOfLines',
+-      2,
+-    );
+-  });
+-});
+diff --git a/mobile/src/constants/strings.ts b/mobile/src/constants/strings.ts
+index 0ac8bed..c52f061 100644
+--- a/mobile/src/constants/strings.ts
++++ b/mobile/src/constants/strings.ts
+@@ -44,20 +44,62 @@ export const strings = {
+     boletimAccessibilityLabel: 'Boletim',
+     perfil: 'Perfil',
+     perfilAccessibilityLabel: 'Perfil',
+   },
+   agenda: {
+     title: 'Agenda',
+-    dayAccessibilityPrefix: 'Dia',
+-    dayHint: 'Toque para escolher outro dia',
+-    /** `07:15 - 08:00`. */
+-    lessonTime: (start: string, end: string) => `${start} - ${end}`,
++    today: 'Hoje',
++    todayHint: 'Volta para o dia de hoje',
++    /** `{n} aulas` / `1 aula`. */
++    lessonCount: (count: number) => (count === 1 ? '1 aula' : `${count} aulas`),
++    /** `Segunda-feira, 17 de março, 6 aulas` (+ `, hoje`). */
++    dayAccessibilityLabel: (
++      weekday: string,
++      day: number,
++      month: string,
++      count: number,
++      isToday: boolean,
++    ) =>
++      `${weekday}, ${day} de ${month}, ${
++        count === 0 ? 'sem aulas' : count === 1 ? '1 aula' : `${count} aulas`
++      }${isToday ? ', hoje' : ''}`,
++    /** Anúncio da troca de dia pelo swipe (6.4). */
++    dayChangedAnnouncement: (
++      weekday: string,
++      day: number,
++      month: string,
++      count: number,
++    ) =>
++      `${weekday}, ${day} de ${month}. ${
++        count === 0 ? 'Sem aulas' : count === 1 ? '1 aula' : `${count} aulas`
++      }.`,
++    /** `07:15 – 08:00 · 45 min`. */
++    lessonTime: (start: string, end: string, minutes: number) =>
++      `${start} – ${end} · ${minutes} min`,
+     lessonAccessibilityLabel: (start: string, end: string, subject: string) =>
+       `Das ${start} às ${end}, ${subject}`,
++    lessonNowSuffix: ', agora',
++    lessonPastSuffix: ', encerrada',
++    nowBadge: 'Agora',
++    banner: {
++      now: (subject: string) => `Agora: ${subject}`,
++      nowDetail: (end: string) => ` · até ${end}`,
++      break: 'Intervalo',
++      breakDetail: (start: string) => ` · próxima aula às ${start}`,
++      before: (start: string) => `Próxima aula às ${start}`,
++      after: 'Aulas encerradas',
++      summaryDetail: (start: string, end: string) =>
++        ` · das ${start} às ${end}`,
++    },
++    /** `Intervalo · 30 min`. */
++    break: (minutes: number) => `Intervalo · ${minutes} min`,
+     empty: 'Sem aulas neste dia',
+-    loadingAccessibilityLabel: 'Carregando agenda',
++    emptyWeekend: 'Aproveite o fim de semana.',
++    emptyWeekday: 'Nenhuma aula marcada para este dia.',
++    weekEmpty: 'Nenhuma aula nesta semana',
++    loadingAccessibilityLabel: 'Carregando agenda…',
+     error: { title: 'Não foi possível carregar a agenda.' },
+   },
+   boletim: {
+     title: 'Boletim',
+     /** `7EF - 2025`. */
+     yearLabel: (className: string, year: number) => `${className} - ${year}`,
+diff --git a/mobile/src/features/lessons/LessonsScreen.tsx b/mobile/src/features/lessons/LessonsScreen.tsx
+index eeed468..cd938bb 100644
+--- a/mobile/src/features/lessons/LessonsScreen.tsx
++++ b/mobile/src/features/lessons/LessonsScreen.tsx
+@@ -1,107 +1,221 @@
+-import { useIsFocused } from '@react-navigation/native';
+-import Animated, { FadeOut, ReduceMotion } from 'react-native-reanimated';
++import { useIsFocused, useNavigation } from '@react-navigation/native';
++import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
++import {
++  AccessibilityInfo,
++  useWindowDimensions,
++  type FlatList,
++  type LayoutChangeEvent,
++  type NativeScrollEvent,
++  type NativeSyntheticEvent,
++} from 'react-native';
++import Animated, {
++  useAnimatedScrollHandler,
++  useReducedMotion,
++  useSharedValue,
++} from 'react-native-reanimated';
+ 
+ import { AgendaSkeleton } from '../../components/AgendaSkeleton';
+-import { Dropdown } from '../../components/Dropdown';
++import { CompactHeader } from '../../components/CompactHeader';
+ import { EmptyState } from '../../components/EmptyState';
+-import { CalendarOffIcon } from '../../components/icons/CalendarOffIcon';
+ import { ErrorState } from '../../components/ErrorState';
+-import { LessonItem } from '../../components/LessonItem';
++import { CalendarOffIcon } from '../../components/icons/CalendarOffIcon';
+ import { Screen } from '../../components/Screen';
+ import { strings } from '../../constants/strings';
+-import { Box, enterDown, useTheme } from '../../theme';
+-import { TabScreenLayout } from '../header/TabScreenLayout';
+-import { useAgendaViewModel } from './useAgendaViewModel';
++import { useFloatingTabBarInset } from '../../hooks/useFloatingTabBarInset';
++import { Box, useTheme } from '../../theme';
++import { useHeaderViewModel } from '../header/useHeaderViewModel';
++import { AgendaEnter } from './components/AgendaEnter';
++import { DayPage } from './components/DayPage';
++import type { TimetableClock } from './components/Timetable';
++import { WeekStrip } from './components/WeekStrip';
++import { hourHeight } from './timetable';
++import { useAgendaViewModel, type AgendaPage } from './useAgendaViewModel';
++
++/** Um evento de rolagem por quadro: o indicador da faixa segue o dedo. */
++const SCROLL_THROTTLE = 16;
+ 
+ /**
+- * Agenda (M4, 01-design.md 3.3 e 4.5): header compacto (v2, 2.6), dropdown
+- * dos dias e as aulas do dia, o estado vazio, o skeleton ou o erro. As
+- * aulas são no máximo algumas por dia e rolam na `ScrollView` do layout das
+- * abas, por isso um `map`, e não uma `FlatList` aninhada.
++ * Agenda (01-design.md da v2, 3.3, V4/V5): header compacto, a faixa
++ * semanal e um pager horizontal com uma página por dia (swipe nativo, sem
++ * gesture-handler). A posição do pager vai para um shared value na UI
++ * thread, lido pelo indicador da faixa. Tocar num chip escolhe o dia antes
++ * de rolar o pager, então o estado já fica certo durante a rolagem.
+  */
+ export function LessonsScreen() {
+   const vm = useAgendaViewModel();
++  const header = useHeaderViewModel(useNavigation());
+   // As abas ficam montadas: só a visível anuncia o erro (3.8).
+   const isFocused = useIsFocused();
+-  const { motion, spacing } = useTheme();
++  const { breakpoints, motion, sizes, spacing } = useTheme();
++  const reducedMotion = useReducedMotion();
++  const bottomInset = useFloatingTabBarInset();
++  const window = useWindowDimensions();
++  const [width, setWidth] = useState(
++    Math.min(window.width, sizes.contentMaxWidth),
++  );
++  const hourPx = hourHeight(window.height, window.fontScale, sizes.timetable);
++  const listRef = useRef<FlatList<AgendaPage>>(null);
++  const progress = useSharedValue(Math.max(vm.selectedIndex, 0));
++
++  const { days, selectedIndex, onSelectDay, now, clockMinutes } = vm;
++
++  // Pager novo (outro aluno) ou largura nova: o indicador volta ao dia.
++  useEffect(() => {
++    progress.set(Math.max(selectedIndex, 0));
++    // Só quando o pager remonta ou mede de novo.
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++  }, [vm.studentKey, width]);
++
++  const onScroll = useAnimatedScrollHandler({
++    onScroll: event => {
++      if (width > 0) progress.set(event.contentOffset.x / width);
++    },
++  });
++
++  const scrollToIndex = useCallback(
++    (index: number) =>
++      listRef.current?.scrollToIndex({ index, animated: !reducedMotion }),
++    [reducedMotion],
++  );
++
++  const onSelectChip = useCallback(
++    (index: number) => {
++      const day = days[index];
++      if (!day) return;
++      onSelectDay(day.date);
++      scrollToIndex(index);
++    },
++    [days, onSelectDay, scrollToIndex],
++  );
++
++  const onPressToday = () => {
++    vm.onSelectToday();
++    scrollToIndex(vm.todayIndex);
++  };
++
++  const onMomentumScrollEnd = async (
++    event: NativeSyntheticEvent<NativeScrollEvent>,
++  ) => {
++    if (width <= 0) return;
++    const index = Math.round(event.nativeEvent.contentOffset.x / width);
++    const day = days[index];
++    if (!day || index === selectedIndex) return;
++    onSelectDay(day.date);
++    if (await AccessibilityInfo.isScreenReaderEnabled()) {
++      AccessibilityInfo.announceForAccessibility(day.announcement);
++    }
++  };
++
++  const onPagerLayout = (event: LayoutChangeEvent) => {
++    const measured = event.nativeEvent.layout.width;
++    if (measured > 0 && measured !== width) setWidth(measured);
++  };
++
++  const clock = useMemo<TimetableClock>(
++    () => ({ minutes: clockMinutes, now }),
++    [clockMinutes, now],
++  );
++
++  // A 1ª entrada espera o header (4.3/4.4).
++  const enterDelay = 3 * motion.stagger;
++
++  const renderItem = ({ item, index }: { item: AgendaPage; index: number }) => (
++    <DayPage
++      testID={`agenda-page-${item.date}`}
++      page={item}
++      width={width}
++      hourPx={hourPx}
++      clock={item.isToday ? clock : undefined}
++      visible={index === selectedIndex}
++      refreshing={vm.refreshing}
++      onRefresh={vm.onRefresh}
++      bottomInset={bottomInset}
++      enterDelay={enterDelay}
++    />
++  );
+ 
+   return (
+     <Screen testID="agenda-screen">
+-      <TabScreenLayout
++      <CompactHeader
+         title={strings.agenda.title}
+         titleTestID="agenda-title"
+-        scrollTestID="agenda-scroll"
+-      >
+-        <Box marginTop="sm" paddingBottom="l">
+-          {vm.status === 'loading' ? (
+-            <AgendaSkeleton testID="agenda-skeleton" />
+-          ) : null}
+-          {vm.status === 'error' ? (
+-            <ErrorState
+-              testID="agenda-error"
+-              title={strings.agenda.error.title}
+-              description={strings.common.error.description}
+-              onRetry={vm.onRetry}
+-              retrying={vm.retrying}
+-              shakeKey={vm.shakeKey}
+-              announce={isFocused}
+-            />
+-          ) : null}
+-          {vm.status === 'ready' ? (
+-            <>
+-              {vm.dayOptions.length > 0 ? (
+-                <Animated.View entering={enterDown(motion, 3 * motion.stagger)}>
+-                  <Dropdown
+-                    testID="agenda-day-dropdown"
+-                    label={vm.selectedDayLabel}
+-                    options={vm.dayOptions}
+-                    selectedKey={vm.selectedDate}
+-                    onSelect={vm.onSelectDay}
+-                    accessibilityLabelPrefix={
+-                      strings.agenda.dayAccessibilityPrefix
+-                    }
+-                    accessibilityHint={strings.agenda.dayHint}
+-                    marginHorizontal="l"
+-                  />
+-                </Animated.View>
+-              ) : null}
+-              <Animated.View
+-                key={vm.contentKey}
+-                exiting={FadeOut.duration(motion.exitFast)
+-                  .easing(motion.easeIn)
+-                  .reduceMotion(ReduceMotion.System)}
+-                style={{ marginTop: spacing.l }}
+-              >
+-                {vm.isEmpty ? (
+-                  <EmptyState
+-                    testID="agenda-empty"
+-                    icon={CalendarOffIcon}
+-                    title={strings.agenda.empty}
+-                  />
+-                ) : (
+-                  <Box
+-                    testID="agenda-lesson-list"
+-                    paddingHorizontal="xxxl"
+-                    gap="m"
+-                  >
+-                    {vm.lessons.map((lesson, index) => (
+-                      <LessonItem
+-                        key={lesson.key}
+-                        testID={`agenda-lesson-${index}`}
+-                        index={index}
+-                        enterDelay={vm.contentEnterDelay}
+-                        startTime={lesson.startTime}
+-                        endTime={lesson.endTime}
+-                        subject={lesson.subject}
+-                      />
+-                    ))}
+-                  </Box>
+-                )}
+-              </Animated.View>
+-            </>
+-          ) : null}
+-        </Box>
+-      </TabScreenLayout>
++        guardianFirstName={header.guardianFirstName}
++        student={header.student}
++        onPressStudent={header.onPressStudent}
++      />
++      <Box flex={1} marginTop="sm">
++        {vm.status === 'loading' ? (
++          <AgendaSkeleton testID="agenda-skeleton" />
++        ) : null}
++        {vm.status === 'error' ? (
++          <ErrorState
++            testID="agenda-error"
++            title={strings.agenda.error.title}
++            description={strings.common.error.description}
++            onRetry={vm.onRetry}
++            retrying={vm.retrying}
++            shakeKey={vm.shakeKey}
++            announce={isFocused}
++          />
++        ) : null}
++        {vm.isWeekEmpty ? (
++          <EmptyState
++            testID="agenda-week-empty"
++            icon={CalendarOffIcon}
++            title={strings.agenda.weekEmpty}
++          />
++        ) : null}
++        {vm.status === 'ready' && !vm.isWeekEmpty ? (
++          <>
++            <AgendaEnter
++              key={`strip-${vm.studentKey}`}
++              delay={motion.stagger}
++              style={{
++                paddingHorizontal:
++                  window.width < breakpoints.phone ? spacing.s : spacing.m,
++                marginBottom: spacing.xs,
++              }}
++            >
++              <WeekStrip
++                testID="agenda-week-strip"
++                days={days}
++                selectedIndex={selectedIndex}
++                progress={progress}
++                onSelect={onSelectChip}
++                monthLabel={vm.monthLabel}
++                showTodayButton={vm.showTodayButton}
++                onPressToday={onPressToday}
++              />
++            </AgendaEnter>
++            <Box flex={1} onLayout={onPagerLayout}>
++              <Animated.FlatList
++                key={`pager-${vm.studentKey}-${width}`}
++                ref={listRef}
++                testID="agenda-pager"
++                data={vm.pages}
++                keyExtractor={page => page.date}
++                renderItem={renderItem}
++                extraData={`${selectedIndex}:${vm.refreshing}:${hourPx}`}
++                horizontal
++                pagingEnabled
++                decelerationRate="fast"
++                showsHorizontalScrollIndicator={false}
++                initialScrollIndex={Math.max(selectedIndex, 0)}
++                getItemLayout={(_, index) => ({
++                  length: width,
++                  offset: width * index,
++                  index,
++                })}
++                windowSize={3}
++                initialNumToRender={1}
++                onScroll={onScroll}
++                scrollEventThrottle={SCROLL_THROTTLE}
++                onMomentumScrollEnd={onMomentumScrollEnd}
++              />
++            </Box>
++          </>
++        ) : null}
++      </Box>
+     </Screen>
+   );
+ }
+diff --git a/mobile/src/features/lessons/__tests__/LessonsScreen.test.tsx b/mobile/src/features/lessons/__tests__/LessonsScreen.test.tsx
+index bb4cb61..4f4eb54 100644
+--- a/mobile/src/features/lessons/__tests__/LessonsScreen.test.tsx
++++ b/mobile/src/features/lessons/__tests__/LessonsScreen.test.tsx
+@@ -43,44 +43,52 @@ describe('LessonsScreen', () => {
+     useSessionStore.setState({ status: 'signedIn', selectedStudentId: 's1' });
+     queryClient.clear();
+     queryClient.setQueryData(queryKeys.me(), meResponse);
+     mockMeasureInWindow({ x: 24, y: 300, width: 366, height: 45 });
+   });
+ 
+-  afterEach(() => jest.restoreAllMocks());
++  afterEach(() => {
++    jest.useRealTimers();
++    jest.restoreAllMocks();
++  });
++
++  /** "Hoje" numa segunda (D35: a Agenda abre em 17/03, com o domingo ao lado). */
++  const onMonday = () =>
++    jest.useFakeTimers({
++      now: new Date(2026, 9, 26, 6, 0),
++      advanceTimers: true,
++    });
+ 
+   const renderScreen = () =>
+     render(
+       <QueryWrapper>
+         <ThemeProvider theme={theme}>
+           <LessonsScreen />
+         </ThemeProvider>
+       </QueryWrapper>,
+     );
+ 
+   const chooseDay = async (date: string) => {
+-    await fireEvent.press(await screen.findByTestId('agenda-day-dropdown'));
+-    await fireEvent.press(
+-      screen.getByTestId(`agenda-day-dropdown-option-${date}`),
+-    );
++    await fireEvent.press(await screen.findByTestId(`agenda-day-${date}`));
+   };
+ 
+   it('o fim da rolagem fica acima da tab bar flutuante (N1)', async () => {
++    onMonday();
+     await renderScreen();
+ 
+     const { floatingTabBar } = theme.sizes;
+     // Sem home indicator: barra (64) + `m` da borda + `m` de folga.
+     const inset = floatingTabBar.height + 2 * theme.spacing.m;
+     expect(
+-      screen.getByTestId('agenda-scroll').props.contentContainerStyle,
++      (await screen.findByTestId('agenda-page-2025-03-17')).props
++        .contentContainerStyle,
+     ).toEqual(
+       expect.arrayContaining([
+         expect.objectContaining({ paddingBottom: inset }),
+       ]),
+     );
+-    await screen.findByTestId('agenda-day-dropdown');
+   });
+ 
+   it('header compacto com o título Agenda e o chip do aluno; skeleton enquanto a agenda carrega', async () => {
+     const gate = deferred();
+     server.use(
+       http.get(`${API_URL}/students/:id/agenda`, async () => {
+@@ -98,88 +106,84 @@ describe('LessonsScreen', () => {
+     );
+     expect(screen.getByTestId('header-greeting')).toHaveTextContent(
+       'Olá, Gustavo',
+     );
+     expect(screen.getByTestId('header-student-chip')).toBeOnTheScreen();
+     expect(screen.getByTestId('agenda-skeleton')).toBeOnTheScreen();
+-    expect(screen.queryByTestId('agenda-day-dropdown')).toBeNull();
++    expect(screen.queryByTestId('agenda-week-strip')).toBeNull();
+ 
+     gate.release();
+-    expect(await screen.findByTestId('agenda-day-dropdown')).toBeOnTheScreen();
++    expect(await screen.findByTestId('agenda-week-strip')).toBeOnTheScreen();
+     expect(screen.queryByTestId('agenda-skeleton')).toBeNull();
+   });
+ 
+-  it('segunda: lista as aulas com horário e disciplina, na ordem', async () => {
++  it('segunda: a grade mostra as aulas com horário e disciplina, na ordem', async () => {
++    onMonday();
+     await renderScreen();
+ 
+     await chooseDay('2025-03-17');
+ 
+-    expect(screen.getByTestId('agenda-day-dropdown-label')).toHaveTextContent(
+-      '17 de março, segunda-feira',
+-    );
+-    expect(screen.getByTestId('agenda-lesson-list')).toBeOnTheScreen();
+-    expect(screen.getByTestId('agenda-lesson-0-time')).toHaveTextContent(
+-      '07:15 - 08:00',
+-    );
+-    expect(screen.getByTestId('agenda-lesson-0-subject')).toHaveTextContent(
+-      'Matemática I',
+-    );
+-    expect(screen.getByTestId('agenda-lesson-1-subject')).toHaveTextContent(
+-      'Língua Inglesa',
+-    );
+-    expect(screen.queryByTestId('agenda-lesson-2')).toBeNull();
+-    expect(screen.queryByTestId('agenda-empty')).toBeNull();
++    expect(screen.getByTestId('agenda-day-2025-03-17')).toBeSelected();
++    expect(
++      screen.getByTestId('agenda-page-2025-03-17-timetable'),
++    ).toBeOnTheScreen();
++    expect(
++      screen.getByTestId('agenda-page-2025-03-17-lesson-0-time'),
++    ).toHaveTextContent('07:15 – 08:00 · 45 min');
++    expect(
++      screen.getByTestId('agenda-page-2025-03-17-lesson-0-subject'),
++    ).toHaveTextContent('Matemática I');
++    expect(
++      screen.getByTestId('agenda-page-2025-03-17-lesson-1-subject'),
++    ).toHaveTextContent('Língua Inglesa');
++    expect(screen.queryByTestId('agenda-page-2025-03-17-lesson-2')).toBeNull();
+   });
+ 
+-  it('domingo: ícone e "Sem aulas neste dia", sem lista', async () => {
++  it('domingo: ícone e "Sem aulas neste dia", sem grade', async () => {
++    onMonday();
+     await renderScreen();
+ 
+     await chooseDay('2025-03-16');
+ 
+-    expect(screen.getByTestId('agenda-empty')).toHaveTextContent(
+-      'Sem aulas neste dia',
+-    );
+     expect(
+-      screen.getByTestId('agenda-empty-icon', {
+-        includeHiddenElements: true,
+-      }),
+-    ).toBeOnTheScreen();
+-    expect(screen.queryByTestId('agenda-lesson-list')).toBeNull();
++      screen.getByTestId('agenda-page-2025-03-16-empty'),
++    ).toHaveTextContent(/Sem aulas neste dia/);
++    expect(screen.queryByTestId('agenda-page-2025-03-16-timetable')).toBeNull();
+   });
+ 
+-  it('API fora do ar: erro sem dropdown; TENTAR DE NOVO traz a agenda', async () => {
++  it('API fora do ar: erro sem faixa; TENTAR DE NOVO traz a agenda', async () => {
+     server.use(
+       http.get(`${API_URL}/students/:id/agenda`, () => HttpResponse.error()),
+     );
+     await renderScreen();
+ 
+     expect(await screen.findByTestId('agenda-error')).toHaveTextContent(
+       /Não foi possível carregar a agenda\./,
+     );
+-    expect(screen.queryByTestId('agenda-day-dropdown')).toBeNull();
++    expect(screen.queryByTestId('agenda-week-strip')).toBeNull();
+ 
+     server.use(
+       http.get(`${API_URL}/students/:id/agenda`, () =>
+         HttpResponse.json(agendaResponse),
+       ),
+     );
+     await fireEvent.press(screen.getByTestId('agenda-error-retry'));
+ 
+-    expect(await screen.findByTestId('agenda-day-dropdown')).toBeOnTheScreen();
++    expect(await screen.findByTestId('agenda-week-strip')).toBeOnTheScreen();
+     expect(screen.queryByTestId('agenda-error')).toBeNull();
+   });
+-  it('agenda sem dias: "Sem aulas neste dia", sem dropdown vazio', async () => {
++  it('agenda sem dias: "Nenhuma aula nesta semana", sem faixa vazia', async () => {
+     server.use(
+       http.get(`${API_URL}/students/:id/agenda`, () => HttpResponse.json([])),
+     );
+     await renderScreen();
+ 
+-    expect(await screen.findByTestId('agenda-empty')).toHaveTextContent(
+-      'Sem aulas neste dia',
++    expect(await screen.findByTestId('agenda-week-empty')).toHaveTextContent(
++      'Nenhuma aula nesta semana',
+     );
+-    expect(screen.queryByTestId('agenda-day-dropdown')).toBeNull();
++    expect(screen.queryByTestId('agenda-week-strip')).toBeNull();
+   });
+ 
+   describe('anúncio do erro só com a aba em foco (3.8)', () => {
+     const announce = AccessibilityInfo.announceForAccessibility as jest.Mock;
+     const focused = useIsFocused as jest.Mock;
+ 
+diff --git a/mobile/src/features/lessons/__tests__/useAgendaViewModel.test.tsx b/mobile/src/features/lessons/__tests__/useAgendaViewModel.test.tsx
+index a62a8f6..6d1232b 100644
+--- a/mobile/src/features/lessons/__tests__/useAgendaViewModel.test.tsx
++++ b/mobile/src/features/lessons/__tests__/useAgendaViewModel.test.tsx
+@@ -4,13 +4,12 @@ import { http, HttpResponse } from 'msw';
+ import { queryClient, queryKeys } from '../../../app/queryClient';
+ import { createSecureStorage } from '../../../services/storage/secureStorage';
+ import { useSessionStore } from '../../../stores/session.store';
+ import { agendaResponse, API_URL, meResponse } from '../../../test/fixtures';
+ import { server } from '../../../test/msw/server';
+ import { QueryWrapper } from '../../../test/queryWrapper';
+-import { motion } from '../../../theme';
+ import { useAgendaViewModel } from '../useAgendaViewModel';
+ 
+ // 25/10/2026 é domingo; 27/10/2026, terça.
+ const at = (day: number) => () => new Date(2026, 9, day, 10, 0);
+ const TUESDAY = at(27);
+ 
+@@ -50,12 +49,16 @@ describe('useAgendaViewModel', () => {
+       http.get(`${API_URL}/students/:id/agenda`, ({ params }) =>
+         HttpResponse.json(agendaById[String(params.id)]),
+       ),
+     );
+   });
+ 
++  type Vm = ReturnType<typeof useAgendaViewModel>;
++  const lessonsOf = (vm: Vm) => vm.pages[vm.selectedIndex]?.lessons ?? [];
++  const subjects = (vm: Vm) => lessonsOf(vm).map(lesson => lesson.subject);
++
+   const renderAgenda = (now = TUESDAY) =>
+     renderHook(() => useAgendaViewModel({ now }), { wrapper: QueryWrapper });
+ 
+   const renderReady = async (now = TUESDAY) => {
+     const rendered = await renderAgenda(now);
+     await waitFor(() => expect(rendered.result.current.status).toBe('ready'));
+@@ -83,31 +86,51 @@ describe('useAgendaViewModel', () => {
+       const { result } = await renderReady(at(day));
+ 
+       expect(result.current.selectedDate).toBe(expected);
+     },
+   );
+ 
+-  it('lista os 7 dias da agenda como "17 de março, segunda-feira"', async () => {
++  it('lista os 7 dias da agenda na faixa, com o mês e a marca de aula', async () => {
+     const { result } = await renderReady();
+ 
+-    expect(result.current.dayOptions).toEqual([
+-      { key: '2025-03-16', label: '16 de março, domingo' },
+-      { key: '2025-03-17', label: '17 de março, segunda-feira' },
+-      { key: '2025-03-18', label: '18 de março, terça-feira' },
+-      { key: '2025-03-19', label: '19 de março, quarta-feira' },
+-      { key: '2025-03-20', label: '20 de março, quinta-feira' },
+-      { key: '2025-03-21', label: '21 de março, sexta-feira' },
+-      { key: '2025-03-22', label: '22 de março, sábado' },
++    expect(result.current.monthLabel).toBe('Março 2025');
++    expect(result.current.days.map(day => day.date)).toEqual([
++      '2025-03-16',
++      '2025-03-17',
++      '2025-03-18',
++      '2025-03-19',
++      '2025-03-20',
++      '2025-03-21',
++      '2025-03-22',
+     ]);
+-    expect(result.current.selectedDayLabel).toBe('18 de março, terça-feira');
++    expect(result.current.days[1]).toMatchObject({
++      weekdayShort: 'seg',
++      dayNumber: 17,
++      hasLessons: true,
++      isToday: false,
++      accessibilityLabel: 'Segunda-feira, 17 de março, 2 aulas',
++    });
++    expect(result.current.days[0].hasLessons).toBe(false);
++    expect(result.current.days[2].accessibilityLabel).toBe(
++      'Terça-feira, 18 de março, 1 aula, hoje',
++    );
++    expect(result.current.selectedIndex).toBe(2);
++    expect(result.current.todayIndex).toBe(2);
+   });
+ 
+   it('mostra as aulas do dia selecionado, na ordem da API', async () => {
+     const { result } = await renderReady(at(26));
+ 
+-    expect(result.current.lessons).toEqual([
++    expect(
++      lessonsOf(result.current).map(({ key, startTime, endTime, subject }) => ({
++        key,
++        startTime,
++        endTime,
++        subject,
++      })),
++    ).toEqual([
+       {
+         key: '2025-03-17-0',
+         startTime: '07:15',
+         endTime: '08:00',
+         subject: 'Matemática I',
+       },
+@@ -115,47 +138,35 @@ describe('useAgendaViewModel', () => {
+         key: '2025-03-17-1',
+         startTime: '08:15',
+         endTime: '09:00',
+         subject: 'Língua Inglesa',
+       },
+     ]);
+-    expect(result.current.isEmpty).toBe(false);
+   });
+ 
+   it('trocar de dia mostra as aulas do novo dia', async () => {
+     const { result } = await renderReady();
+ 
+     await act(() => result.current.onSelectDay('2025-03-17'));
+ 
+     expect(result.current.selectedDate).toBe('2025-03-17');
+-    expect(result.current.selectedDayLabel).toBe('17 de março, segunda-feira');
+-    expect(result.current.lessons.map(lesson => lesson.subject)).toEqual([
++    expect(result.current.showTodayButton).toBe(true);
++    expect(subjects(result.current)).toEqual([
+       'Matemática I',
+       'Língua Inglesa',
+     ]);
+   });
+ 
+   it('domingo (lessons: []) fica vazio', async () => {
+     const { result } = await renderReady();
+ 
+     await act(() => result.current.onSelectDay('2025-03-16'));
+ 
+-    expect(result.current.lessons).toEqual([]);
+-    expect(result.current.isEmpty).toBe(true);
+-  });
+-
+-  it('contentKey muda com o dia e com o aluno (a lista entra de novo)', async () => {
+-    const { result } = await renderReady();
+-    expect(result.current.contentKey).toBe('s1:2025-03-18');
+-
+-    await act(() => result.current.onSelectDay('2025-03-17'));
+-    expect(result.current.contentKey).toBe('s1:2025-03-17');
+-
+-    await act(() => useSessionStore.getState().selectStudent('s2'));
+-    await waitFor(() =>
+-      expect(result.current.contentKey).toBe('s2:2025-03-18'),
++    expect(lessonsOf(result.current)).toEqual([]);
++    expect(result.current.pages[0].emptyDescription).toBe(
++      'Aproveite o fim de semana.',
+     );
+   });
+ 
+   it('dia que não está na agenda é ignorado', async () => {
+     const { result } = await renderReady();
+ 
+@@ -166,34 +177,32 @@ describe('useAgendaViewModel', () => {
+ 
+   it('trocar de aluno volta ao dia inicial, com a agenda do novo aluno', async () => {
+     const { result } = await renderReady();
+     await act(() => result.current.onSelectDay('2025-03-17'));
+ 
+     await act(() => useSessionStore.getState().selectStudent('s2'));
+-    await waitFor(() =>
+-      expect(result.current.lessons[0]?.subject).toBe('Geografia'),
+-    );
++    await waitFor(() => expect(subjects(result.current)[0]).toBe('Geografia'));
+     expect(result.current.selectedDate).toBe('2025-03-18');
+ 
+     await act(() => useSessionStore.getState().selectStudent('s1'));
+     await waitFor(() =>
+-      expect(result.current.lessons[0]?.subject).toBe(
++      expect(subjects(result.current)[0]).toBe(
+         'Produção e Interpretação de Textos',
+       ),
+     );
+     expect(result.current.selectedDate).toBe('2025-03-18');
+   });
+ 
+   it('API fora do ar: erro, sem dias e sem aulas', async () => {
+     serverDown();
+ 
+     const { result } = await renderAgenda();
+ 
+     await waitFor(() => expect(result.current.status).toBe('error'));
+-    expect(result.current.dayOptions).toEqual([]);
+-    expect(result.current.lessons).toEqual([]);
++    expect(result.current.days).toEqual([]);
++    expect(result.current.pages).toEqual([]);
+     expect(result.current.retrying).toBe(false);
+     expect(result.current.shakeKey).toBe(0);
+   });
+ 
+   it('TENTAR DE NOVO busca de novo e mostra a agenda quando a API volta', async () => {
+     serverDown();
+@@ -240,27 +249,15 @@ describe('useAgendaViewModel', () => {
+     server.use(
+       http.get(`${API_URL}/students/:id/agenda`, () => HttpResponse.json([])),
+     );
+ 
+     const { result } = await renderReady();
+ 
+-    expect(result.current.dayOptions).toEqual([]);
++    expect(result.current.days).toEqual([]);
+     expect(result.current.selectedDate).toBeNull();
+-    expect(result.current.isEmpty).toBe(true);
+-  });
+-
+-  it('a 1ª lista espera a entrada do header (4 × stagger); as seguintes, não', async () => {
+-    const { result } = await renderReady();
+-    expect(result.current.contentEnterDelay).toBe(4 * motion.stagger);
+-
+-    await act(() => result.current.onSelectDay('2025-03-17'));
+-    expect(result.current.contentEnterDelay).toBe(0);
+-
+-    // Voltar ao dia da 1ª exibição não repete o atraso.
+-    await act(() => result.current.onSelectDay('2025-03-18'));
+-    expect(result.current.contentEnterDelay).toBe(0);
++    expect(result.current.isWeekEmpty).toBe(true);
+   });
+ 
+   it('trocar de aluno durante o TENTAR DE NOVO não leva o spinner nem o shake ao outro aluno', async () => {
+     let releaseRafael = () => {};
+     const rafaelRetry = new Promise<void>(resolve => {
+       releaseRafael = resolve;
+diff --git a/mobile/src/features/lessons/components/AgendaEnter.tsx b/mobile/src/features/lessons/components/AgendaEnter.tsx
+new file mode 100644
+index 0000000..9df8aa0
+--- /dev/null
++++ b/mobile/src/features/lessons/components/AgendaEnter.tsx
+@@ -0,0 +1,65 @@
++import { useEffect, type ReactNode } from 'react';
++import type { StyleProp, ViewStyle } from 'react-native';
++import Animated, {
++  useAnimatedStyle,
++  useReducedMotion,
++  useSharedValue,
++  withDelay,
++  withTiming,
++} from 'react-native-reanimated';
++
++import { useTheme } from '../../../theme';
++
++type AgendaEnterProps = {
++  children: ReactNode;
++  /** Atraso da entrada (cascata), em ms. */
++  delay?: number;
++  /** Deslocamento inicial em y; 0 = só fade. */
++  offset?: number;
++  style?: StyleProp<ViewStyle>;
++  testID?: string;
++};
++
++/**
++ * Entrada da Agenda (01-design.md da v2, 4.4) por valor animado, sem
++ * animação de layout: o que monta depois que os dados chegam (faixa,
++ * banner, blocos) não pode usar `entering`, porque no Android a entrada às
++ * vezes não termina e a view fica com opacidade 0 (mesmo conserto do
++ * `EnterDown` da v1). Com reduzir movimento, só o fade curto (`fast`):
++ * opacidade não é movimento.
++ */
++export function AgendaEnter({
++  children,
++  delay = 0,
++  offset,
++  style,
++  testID,
++}: AgendaEnterProps) {
++  const { motion } = useTheme();
++  const reducedMotion = useReducedMotion();
++  const progress = useSharedValue(0);
++  const distance = reducedMotion ? 0 : offset ?? motion.enterOffsetSmall;
++
++  useEffect(() => {
++    progress.set(
++      withDelay(
++        reducedMotion ? 0 : delay,
++        withTiming(1, {
++          duration: reducedMotion ? motion.fast : motion.base,
++          easing: motion.easeOut,
++        }),
++      ),
++    );
++  }, [delay, motion, progress, reducedMotion]);
++
++  const animatedStyle = useAnimatedStyle(() => ({
++    opacity: progress.get(),
++    transform: [{ translateY: (1 - progress.get()) * distance }],
++  }));
++
++  return (
++    <Animated.View testID={testID} style={[style, animatedStyle]}>
++      {children}
++    </Animated.View>
++  );
++}
+diff --git a/mobile/src/features/lessons/components/DayPage.tsx b/mobile/src/features/lessons/components/DayPage.tsx
+new file mode 100644
+index 0000000..4db219f
+--- /dev/null
++++ b/mobile/src/features/lessons/components/DayPage.tsx
+@@ -0,0 +1,168 @@
++import { memo, useEffect, useRef, useState, type ComponentRef } from 'react';
++import {
++  RefreshControl,
++  ScrollView,
++  StyleSheet,
++  type LayoutChangeEvent,
++} from 'react-native';
++import { useReducedMotion } from 'react-native-reanimated';
++
++import { EmptyState } from '../../../components/EmptyState';
++import { CalendarOffIcon } from '../../../components/icons/CalendarOffIcon';
++import { strings } from '../../../constants/strings';
++import { Box, useTheme } from '../../../theme';
++import { autoScrollTarget, minutesOfDay } from '../timetable';
++import type { AgendaPage } from '../useAgendaViewModel';
++import { AgendaEnter } from './AgendaEnter';
++import { NowBanner } from './NowBanner';
++import { Timetable, type TimetableClock } from './Timetable';
++
++type DayPageProps = {
++  page: AgendaPage;
++  width: number;
++  hourPx: number;
++  /** Só na página de hoje. */
++  clock?: TimetableClock;
++  /** Página visível: o banner de hoje anuncia a troca de fase. */
++  visible: boolean;
++  refreshing: boolean;
++  onRefresh: () => void;
++  bottomInset: number;
++  enterDelay: number;
++  /** `agenda-page-<data>`: a rolagem; os filhos derivam dele. */
++  testID: string;
++};
++
++/**
++ * Uma página do pager (01-design.md da v2, 2.9): rolagem vertical com o
++ * banner e a grade, ou o estado vazio do dia. Na página de hoje, rola uma
++ * vez até a linha de agora quando ela começa fora da área visível.
++ */
++export const DayPage = memo(function DayPageView({
++  page,
++  width,
++  hourPx,
++  clock,
++  visible,
++  refreshing,
++  onRefresh,
++  bottomInset,
++  enterDelay,
++  testID,
++}: DayPageProps) {
++  const { colors, motion, sizes, spacing } = useTheme();
++  const reducedMotion = useReducedMotion();
++  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
++  const [viewportHeight, setViewportHeight] = useState(0);
++  const [timetableY, setTimetableY] = useState<number | null>(null);
++  const scrolled = useRef(false);
++
++  useEffect(() => {
++    if (!clock || !page.range || scrolled.current) return;
++    if (viewportHeight <= 0 || timetableY === null) return;
++    const minute = minutesOfDay(clock.now());
++    const lineY = timetableY + ((minute - page.range.start) * hourPx) / 60;
++    const inside = minute >= page.range.start && minute <= page.range.end;
++    const target = inside
++      ? autoScrollTarget(
++          lineY,
++          viewportHeight - bottomInset,
++          sizes.timetable.autoScrollAnchor,
++        )
++      : null;
++    if (target === null) {
++      scrolled.current = true;
++      return;
++    }
++    // Depois da entrada dos blocos (4.4); uma vez por montagem.
++    const wait = reducedMotion
++      ? 0
++      : enterDelay + motion.maxStaggered * motion.stagger + motion.base;
++    const timer = setTimeout(() => {
++      scrolled.current = true;
++      scrollRef.current?.scrollTo({ y: target, animated: !reducedMotion });
++    }, wait);
++    return () => clearTimeout(timer);
++  }, [
++    clock,
++    page.range,
++    viewportHeight,
++    timetableY,
++    hourPx,
++    bottomInset,
++    reducedMotion,
++    enterDelay,
++    motion,
++    sizes.timetable.autoScrollAnchor,
++  ]);
++
++  const empty = page.lessons.length === 0;
++
++  return (
++    <ScrollView
++      ref={scrollRef}
++      testID={testID}
++      style={{ width }}
++      contentContainerStyle={[
++        styles.content,
++        {
++          paddingHorizontal: spacing.m,
++          paddingTop: spacing.m,
++          paddingBottom: bottomInset,
++        },
++      ]}
++      scrollIndicatorInsets={{ bottom: bottomInset }}
++      showsVerticalScrollIndicator={false}
++      onLayout={(event: LayoutChangeEvent) =>
++        setViewportHeight(event.nativeEvent.layout.height)
++      }
++      refreshControl={
++        <RefreshControl
++          refreshing={refreshing}
++          onRefresh={onRefresh}
++          tintColor={colors.primary}
++          colors={[colors.primary]}
++        />
++      }
++    >
++      {empty ? (
++        <EmptyState
++          testID={`${testID}-empty`}
++          icon={CalendarOffIcon}
++          title={strings.agenda.empty}
++          description={page.emptyDescription}
++        />
++      ) : (
++        <>
++          {page.banner ? (
++            <AgendaEnter delay={enterDelay}>
++              <NowBanner
++                testID={`${testID}-banner`}
++                banner={page.banner}
++                announce={page.isToday && visible}
++              />
++            </AgendaEnter>
++          ) : null}
++          <Box
++            marginTop="m"
++            onLayout={(event: LayoutChangeEvent) =>
++              setTimetableY(event.nativeEvent.layout.y)
++            }
++          >
++            <Timetable
++              testID={testID}
++              page={page}
++              hourPx={hourPx}
++              clock={clock}
++              enterDelay={enterDelay + motion.stagger}
++            />
++          </Box>
++        </>
++      )}
++    </ScrollView>
++  );
++});
++
++const styles = StyleSheet.create({
++  content: { flexGrow: 1 },
++});
+diff --git a/mobile/src/features/lessons/components/NowBanner.tsx b/mobile/src/features/lessons/components/NowBanner.tsx
+new file mode 100644
+index 0000000..894c661
+--- /dev/null
++++ b/mobile/src/features/lessons/components/NowBanner.tsx
+@@ -0,0 +1,134 @@
++import { useEffect, useRef } from 'react';
++import { AccessibilityInfo, StyleSheet } from 'react-native';
++import Animated, {
++  cancelAnimation,
++  Easing,
++  useAnimatedStyle,
++  useReducedMotion,
++  useSharedValue,
++  withRepeat,
++  withTiming,
++} from 'react-native-reanimated';
++
++import { CheckIcon } from '../../../components/icons/CheckIcon';
++import { ClockIcon } from '../../../components/icons/ClockIcon';
++import { Box, Card, Text, useTheme } from '../../../theme';
++import type { AgendaBanner } from '../useAgendaViewModel';
++import { AgendaEnter } from './AgendaEnter';
++
++const MARKER = 8;
++const ICON = 16;
++
++/** Ponto teal com o anel pulsando (aula em andamento); parado com reduzir movimento. */
++function PulsingDot() {
++  const { colors, motion } = useTheme();
++  const reducedMotion = useReducedMotion();
++  const pulse = useSharedValue(0);
++
++  useEffect(() => {
++    if (reducedMotion) return;
++    pulse.set(
++      withRepeat(
++        withTiming(1, {
++          duration: motion.nowPulse.duration,
++          easing: Easing.out(Easing.quad),
++        }),
++        -1,
++      ),
++    );
++    return () => cancelAnimation(pulse);
++  }, [pulse, reducedMotion, motion.nowPulse.duration]);
++
++  const ring = useAnimatedStyle(() => ({
++    opacity: reducedMotion ? 0 : 0.6 * (1 - pulse.get()),
++    transform: [{ scale: 1 + pulse.get() * (motion.nowPulse.scaleTo - 1) }],
++  }));
++
++  const dot = { backgroundColor: colors.primary, borderRadius: MARKER / 2 };
++  return (
++    <Box width={MARKER} height={MARKER}>
++      <Animated.View style={[StyleSheet.absoluteFill, dot, ring]} />
++      <Box style={[StyleSheet.absoluteFill, dot]} />
++    </Box>
++  );
++}
++
++function Marker({ kind }: { kind: AgendaBanner['kind'] }) {
++  const { colors } = useTheme();
++  switch (kind) {
++    case 'now':
++      return <PulsingDot />;
++    case 'break':
++      return (
++        <Box
++          width={MARKER}
++          height={MARKER}
++          borderRadius="pill"
++          backgroundColor="warning"
++        />
++      );
++    case 'before':
++      return <ClockIcon color={colors.textSecondary} size={ICON} />;
++    case 'after':
++      return <CheckIcon color={colors.textSecondary} size={ICON} />;
++    default:
++      return null;
++  }
++}
++
++/**
++ * Linha de status do dia acima da grade (01-design.md da v2, 2.8): na
++ * página de hoje, a fase do relógio ("Agora: Ciências · até 10:45",
++ * "Aulas encerradas"...); nos outros dias, o resumo. O texto só muda quando
++ * a fase muda, num crossfade; o leitor de tela é avisado (só hoje e com a
++ * página visível).
++ */
++export function NowBanner({
++  banner,
++  announce,
++  testID,
++}: {
++  banner: AgendaBanner;
++  /** Página de hoje visível: anuncia a troca de fase. */
++  announce: boolean;
++  testID: string;
++}) {
++  const { sizes } = useTheme();
++  const message = `${banner.text}${banner.detail}`;
++  const previous = useRef(message);
++
++  useEffect(() => {
++    if (previous.current === message) return;
++    previous.current = message;
++    if (announce) AccessibilityInfo.announceForAccessibility(message);
++  }, [message, announce]);
++
++  return (
++    <Card
++      testID={testID}
++      variant="banner"
++      minHeight={sizes.banner}
++      justifyContent="center"
++      accessible
++      accessibilityLabel={message}
++      accessibilityLiveRegion="polite"
++    >
++      <AgendaEnter key={message} offset={0}>
++        <Box flexDirection="row" alignItems="center" gap="s">
++          <Marker kind={banner.kind} />
++          <Text
++            testID={`${testID}-text`}
++            variant="bodyStrong"
++            flexShrink={1}
++            numberOfLines={2}
++          >
++            {banner.text}
++            <Text variant="body" color="textSecondary">
++              {banner.detail}
++            </Text>
++          </Text>
++        </Box>
++      </AgendaEnter>
++    </Card>
++  );
++}
+diff --git a/mobile/src/features/lessons/components/Timetable.tsx b/mobile/src/features/lessons/components/Timetable.tsx
+new file mode 100644
+index 0000000..99f0c6c
+--- /dev/null
++++ b/mobile/src/features/lessons/components/Timetable.tsx
+@@ -0,0 +1,468 @@
++import { memo, useEffect, useRef, useState } from 'react';
++import { StyleSheet } from 'react-native';
++import Animated, {
++  useAnimatedStyle,
++  useReducedMotion,
++  useSharedValue,
++  withDelay,
++  withSpring,
++  withTiming,
++  type SharedValue,
++} from 'react-native-reanimated';
++
++import { strings } from '../../../constants/strings';
++import { Box, Card, Text, useTheme } from '../../../theme';
++import { formatMinutes, hourMarks } from '../timetable';
++import type { AgendaLesson, AgendaPage } from '../useAgendaViewModel';
++import { useMinuteTicker } from '../useMinuteClock';
++import { AgendaEnter } from './AgendaEnter';
++
++/** Rótulo de hora: metade da linha do `time`, para centralizar na linha. */
++const HOUR_LABEL_SHIFT = 7;
++/** Rótulos de hora a menos disso da linha de agora somem (ficam sob a marca). */
++const LABEL_CLEARANCE = 14;
++/** Bloco mais baixo que isso mostra só a disciplina. */
++const MIN_BLOCK_WITH_TIME = 40;
++/** Vão mais baixo que isso não mostra "Intervalo". */
++const MIN_BREAK_LABEL = 20;
++/** Respiro entre aulas coladas. */
++const BLOCK_GAP = 2;
++const NOW_BORDER = 1.5;
++
++export type TimetableClock = {
++  minutes: SharedValue<number>;
++  now: () => Date;
++};
++
++type TimetableProps = {
++  page: AgendaPage;
++  /** Pontos por hora (2.10): compacto em telas baixas, cresce com a fonte. */
++  hourPx: number;
++  /** Só na página de hoje: a linha de agora. */
++  clock?: TimetableClock;
++  /** Atraso base das entradas (cascata depois do banner). */
++  enterDelay: number;
++  /** Prefixo da página (`agenda-page-<data>`): `-timetable`, `-lesson-<i>`, `-now-line`. */
++  testID: string;
++};
++
++function HourLabel({
++  minute,
++  top,
++  clock,
++  start,
++  pxPerMinute,
++}: {
++  minute: number;
++  top: number;
++  clock?: TimetableClock;
++  start: number;
++  pxPerMinute: number;
++}) {
++  const { motion, sizes } = useTheme();
++  const minutes = clock?.minutes;
++  const style = useAnimatedStyle(() => {
++    if (!minutes) return { opacity: 1 };
++    const lineY = (minutes.get() - start) * pxPerMinute;
++    const near = Math.abs(lineY - top) < LABEL_CLEARANCE;
++    return {
++      opacity: withTiming(near ? 0 : 1, { duration: motion.fast }),
++    };
++  });
++  return (
++    <Animated.View
++      style={[
++        styles.hourLabel,
++        { top: top - HOUR_LABEL_SHIFT, width: sizes.timetable.gutter },
++        style,
++      ]}
++    >
++      <Text variant="time" textAlign="right" paddingRight="s">
++        {formatMinutes(minute)}
++      </Text>
++    </Animated.View>
++  );
++}
++
++function LessonBlock({
++  lesson,
++  top,
++  height,
++  index,
++  enterDelay,
++  testID,
++}: {
++  lesson: AgendaLesson;
++  top: number;
++  height: number;
++  index: number;
++  enterDelay: number;
++  testID: string;
++}) {
++  const { motion, opacities, shadows, sizes, borderRadii, colors } = useTheme();
++  const reducedMotion = useReducedMotion();
++  const isNow = lesson.state === 'now';
++  const isPast = lesson.state === 'past';
++  const dim = useSharedValue(isPast ? opacities.past : 1);
++  const glow = useSharedValue(isNow ? 1 : 0);
++  const firstState = useRef(lesson.state);
++
++  useEffect(() => {
++    // Na montagem já nasce no estado; só a mudança de fase anima.
++    if (firstState.current === lesson.state) return;
++    firstState.current = lesson.state;
++    const target = isPast ? opacities.past : 1;
++    dim.set(
++      reducedMotion ? target : withTiming(target, { duration: motion.slow }),
++    );
++    glow.set(withTiming(isNow ? 1 : 0, { duration: motion.base }));
++  }, [
++    lesson.state,
++    isNow,
++    isPast,
++    dim,
++    glow,
++    motion,
++    opacities,
++    reducedMotion,
++  ]);
++
++  const dimStyle = useAnimatedStyle(() => ({ opacity: dim.get() }));
++  const glowStyle = useAnimatedStyle(() => ({ opacity: glow.get() }));
++  const compact = height < MIN_BLOCK_WITH_TIME;
++  const delay =
++    enterDelay + Math.min(index, motion.maxStaggered) * motion.stagger;
++
++  return (
++    <AgendaEnter
++      delay={delay}
++      style={[styles.block, { top, height, left: sizes.timetable.gutter }]}
++    >
++      <Animated.View style={[styles.fill, dimStyle]}>
++        <Card
++          testID={testID}
++          variant="lesson"
++          flex={1}
++          paddingVertical={compact ? 'none' : { compact: 'xs', phone: 's' }}
++          justifyContent={compact ? 'center' : 'flex-start'}
++          accessible
++          accessibilityRole="text"
++          accessibilityLabel={lesson.accessibilityLabel}
++        >
++          <Box flexDirection="row" alignItems="flex-start" gap="s">
++            <Text
++              testID={`${testID}-subject`}
++              variant="subtitle"
++              numberOfLines={1}
++              flex={1}
++            >
++              {lesson.subject}
++            </Text>
++            {isNow ? <NowBadge testID={`${testID}-now-badge`} /> : null}
++          </Box>
++          {compact ? null : (
++            <Text
++              testID={`${testID}-time`}
++              variant="caption"
++              marginTop="xxs"
++              numberOfLines={1}
++              style={styles.tabular}
++            >
++              {lesson.timeLabel}
++            </Text>
++          )}
++        </Card>
++        <Animated.View
++          pointerEvents="none"
++          style={[
++            StyleSheet.absoluteFill,
++            {
++              borderRadius: borderRadii.s,
++              borderWidth: NOW_BORDER,
++              borderColor: colors.primary,
++              boxShadow: [shadows.glowPrimary],
++            },
++            glowStyle,
++          ]}
++        />
++      </Animated.View>
++    </AgendaEnter>
++  );
++}
++
++/** Selo "Agora": cresce de `popFrom` com a mola `pop` (fade com reduzir movimento). */
++function NowBadge({ testID }: { testID: string }) {
++  const { motion, sizes } = useTheme();
++  const reducedMotion = useReducedMotion();
++  const progress = useSharedValue(0);
++  useEffect(() => {
++    progress.set(
++      reducedMotion
++        ? withTiming(1, { duration: motion.fast })
++        : withSpring(1, motion.spring.pop),
++    );
++  }, [progress, reducedMotion, motion]);
++  const style = useAnimatedStyle(() => ({
++    opacity: Math.min(progress.get(), 1),
++    transform: [
++      {
++        scale: reducedMotion
++          ? 1
++          : motion.popFrom + (1 - motion.popFrom) * progress.get(),
++      },
++    ],
++  }));
++  return (
++    <Animated.View style={style}>
++      <Box
++        testID={testID}
++        height={sizes.timetable.nowLabel}
++        paddingHorizontal="s"
++        borderRadius="pill"
++        backgroundColor="primary"
++        justifyContent="center"
++      >
++        <Text
++          variant="overline"
++          color="textOnPrimary"
++          maxFontSizeMultiplier={sizes.fixedHeightFontScale}
++        >
++          {strings.agenda.nowBadge}
++        </Text>
++      </Box>
++    </Animated.View>
++  );
++}
++
++/** Marca `HH:MM` da linha: o único pedaço que re-renderiza a cada minuto. */
++function NowTimeLabel({ now }: { now: () => Date }) {
++  const { sizes } = useTheme();
++  const read = () => {
++    const date = now();
++    return formatMinutes(date.getHours() * 60 + date.getMinutes());
++  };
++  const [label, setLabel] = useState(read);
++  useMinuteTicker(now, () => setLabel(read()));
++  return (
++    <Text
++      variant="time"
++      color="textOnPrimary"
++      maxFontSizeMultiplier={sizes.fixedHeightFontScale}
++    >
++      {label}
++    </Text>
++  );
++}
++
++/**
++ * Linha de agora (2.10): ponto com anel, linha teal com brilho e a marca da
++ * hora na calha. Anda com `translateY` lido do relógio (UI thread) e some
++ * fora da faixa da grade (aí o banner dá o texto).
++ */
++function NowLine({
++  clock,
++  start,
++  end,
++  pxPerMinute,
++  enterDelay,
++  testID,
++}: {
++  clock: TimetableClock;
++  start: number;
++  end: number;
++  pxPerMinute: number;
++  enterDelay: number;
++  testID: string;
++}) {
++  const { colors, motion, shadows, sizes } = useTheme();
++  const reducedMotion = useReducedMotion();
++  const { gutter, nowDot, nowLine, nowLabel } = sizes.timetable;
++  const reveal = useSharedValue(0);
++  const { minutes } = clock;
++
++  useEffect(() => {
++    // Depois dos blocos (4.4).
++    const after = enterDelay + motion.maxStaggered * motion.stagger;
++    reveal.set(
++      reducedMotion
++        ? withTiming(1, { duration: motion.fast })
++        : withDelay(
++            after,
++            withTiming(1, { duration: motion.slow, easing: motion.emphasized }),
++          ),
++    );
++  }, [reveal, reducedMotion, motion, enterDelay]);
++
++  const lineStyle = useAnimatedStyle(() => {
++    const m = minutes.get();
++    const inside = m >= start && m <= end;
++    return {
++      opacity: inside ? reveal.get() : 0,
++      transform: [
++        {
++          translateY: (Math.min(Math.max(m, start), end) - start) * pxPerMinute,
++        },
++      ],
++    };
++  });
++  const barStyle = useAnimatedStyle(() => ({
++    transform: [{ scaleX: reducedMotion ? 1 : reveal.get() }],
++  }));
++
++  return (
++    <Animated.View
++      testID={testID}
++      pointerEvents="none"
++      style={[
++        styles.nowLine,
++        { height: nowLabel, top: -nowLabel / 2 },
++        lineStyle,
++      ]}
++    >
++      <Box
++        position="absolute"
++        left={0}
++        height={nowLabel}
++        justifyContent="center"
++      >
++        <Box
++          height={nowLabel}
++          paddingHorizontal="xs"
++          borderRadius="pill"
++          backgroundColor="primary"
++          justifyContent="center"
++        >
++          <NowTimeLabel now={clock.now} />
++        </Box>
++      </Box>
++      <Animated.View
++        style={[
++          styles.nowBar,
++          {
++            left: gutter,
++            height: nowLine,
++            top: (nowLabel - nowLine) / 2,
++            backgroundColor: colors.primary,
++            boxShadow: [shadows.glowPrimarySoft],
++          },
++          barStyle,
++        ]}
++      />
++      <Box
++        position="absolute"
++        left={gutter - nowDot / 2}
++        top={(nowLabel - nowDot) / 2}
++        width={nowDot}
++        height={nowDot}
++        borderRadius="pill"
++        backgroundColor="primary"
++      />
++    </Animated.View>
++  );
++}
++
++/**
++ * Grade por hora do dia (01-design.md da v2, 2.10, V5): blocos proporcionais
++ * à duração, linhas de hora, intervalos marcados e, hoje, a linha de agora
++ * e os estados das aulas (agora, passadas). Linhas, horas, intervalo e a
++ * linha de agora ficam escondidos do leitor; ele lê só os blocos, em ordem.
++ */
++export const Timetable = memo(function TimetableView({
++  page,
++  hourPx,
++  clock,
++  enterDelay,
++  testID,
++}: TimetableProps) {
++  const { sizes } = useTheme();
++  const { range } = page;
++  if (!range) return null;
++  const pxPerMinute = hourPx / 60;
++  const height = (range.end - range.start) * pxPerMinute;
++  const y = (minute: number) => (minute - range.start) * pxPerMinute;
++  const { gutter } = sizes.timetable;
++
++  return (
++    <Box testID={`${testID}-timetable`} height={height}>
++      <Box
++        style={StyleSheet.absoluteFill}
++        importantForAccessibility="no-hide-descendants"
++        accessibilityElementsHidden
++      >
++        {hourMarks(range).map(minute => (
++          <Box
++            key={minute}
++            position="absolute"
++            left={gutter}
++            right={0}
++            top={y(minute)}
++            height={StyleSheet.hairlineWidth}
++            backgroundColor="borderSubtle"
++          />
++        ))}
++        {hourMarks(range).map(minute => (
++          <HourLabel
++            key={minute}
++            minute={minute}
++            top={y(minute)}
++            clock={clock}
++            start={range.start}
++            pxPerMinute={pxPerMinute}
++          />
++        ))}
++        {page.breaks.map(gap => {
++          const gapHeight = (gap.endMinutes - gap.startMinutes) * pxPerMinute;
++          if (gapHeight < MIN_BREAK_LABEL) return null;
++          return (
++            <Box
++              key={gap.startMinutes}
++              position="absolute"
++              left={gutter}
++              right={0}
++              top={y(gap.startMinutes)}
++              height={gapHeight}
++              alignItems="center"
++              justifyContent="center"
++            >
++              <Text variant="caption" color="textTertiary">
++                {strings.agenda.break(gap.minutes)}
++              </Text>
++            </Box>
++          );
++        })}
++      </Box>
++      {page.lessons.map((lesson, index) => (
++        <LessonBlock
++          key={lesson.key}
++          lesson={lesson}
++          index={index}
++          top={y(lesson.startMinutes) + BLOCK_GAP / 2}
++          height={
++            (lesson.endMinutes - lesson.startMinutes) * pxPerMinute - BLOCK_GAP
++          }
++          enterDelay={enterDelay}
++          testID={`${testID}-lesson-${index}`}
++        />
++      ))}
++      {clock ? (
++        <NowLine
++          clock={clock}
++          start={range.start}
++          end={range.end}
++          pxPerMinute={pxPerMinute}
++          enterDelay={enterDelay}
++          testID={`${testID}-now-line`}
++        />
++      ) : null}
++    </Box>
++  );
++});
++
++const styles = StyleSheet.create({
++  fill: { flex: 1 },
++  block: { position: 'absolute', right: 0 },
++  hourLabel: { position: 'absolute', left: 0 },
++  nowLine: { position: 'absolute', left: 0, right: 0, zIndex: 2 },
++  nowBar: { position: 'absolute', right: 0, transformOrigin: 'left' },
++  tabular: { fontVariant: ['tabular-nums'] },
++});
+diff --git a/mobile/src/features/lessons/components/WeekStrip.tsx b/mobile/src/features/lessons/components/WeekStrip.tsx
+new file mode 100644
+index 0000000..04de795
+--- /dev/null
++++ b/mobile/src/features/lessons/components/WeekStrip.tsx
+@@ -0,0 +1,296 @@
++import { useState } from 'react';
++import {
++  Pressable,
++  StyleSheet,
++  type LayoutChangeEvent,
++  type StyleProp,
++  type ViewStyle,
++} from 'react-native';
++import Animated, {
++  useAnimatedStyle,
++  useReducedMotion,
++  useSharedValue,
++  withSpring,
++  type SharedValue,
++} from 'react-native-reanimated';
++
++import { PillButton } from '../../../components/PillButton';
++import { strings } from '../../../constants/strings';
++import {
++  proximityOpacity,
++  useActiveLayerStyle,
++  useSlidingIndicator,
++  type SlidingIndicator,
++} from '../../../hooks/useSlidingIndicator';
++import { Box, Text, useTheme } from '../../../theme';
++import type { AgendaDayItem } from '../useAgendaViewModel';
++import { AgendaEnter } from './AgendaEnter';
++
++type WeekStripProps = {
++  days: AgendaDayItem[];
++  selectedIndex: number;
++  /** Posição do pager em páginas (UI thread): o indicador segue o dedo. */
++  progress: SharedValue<number>;
++  onSelect: (index: number) => void;
++  monthLabel: string;
++  showTodayButton: boolean;
++  onPressToday: () => void;
++  testID: string;
++};
++
++/** Nenhum chip pressionado. */
++const NONE = -1;
++
++function usePressScale(pressed: SharedValue<number>, index: number) {
++  const { motion } = useTheme();
++  const reducedMotion = useReducedMotion();
++  return useAnimatedStyle(() => {
++    const target =
++      !reducedMotion && pressed.get() === index ? motion.pressScaleSmall : 1;
++    return { transform: [{ scale: withSpring(target, motion.press) }] };
++  });
++}
++
++/** Fundo do chip (abaixo do indicador): hoje tem a borda teal. */
++function ChipBackground({
++  day,
++  index,
++  pressed,
++  style,
++}: {
++  day: AgendaDayItem;
++  index: number;
++  pressed: SharedValue<number>;
++  style: StyleProp<ViewStyle>;
++}) {
++  const scale = usePressScale(pressed, index);
++  return (
++    <Animated.View style={[styles.chip, style, scale]}>
++      <Box
++        flex={1}
++        borderRadius="l"
++        borderWidth={1}
++        backgroundColor="surfaceRaised"
++        borderColor={day.isToday ? 'primary' : 'borderSubtle'}
++      />
++    </Animated.View>
++  );
++}
++
++/** Dia da semana, número e ponto "tem aula" numa das duas camadas de cor. */
++function ChipContent({
++  day,
++  onPrimary,
++}: {
++  day: AgendaDayItem;
++  onPrimary: boolean;
++}) {
++  const { sizes } = useTheme();
++  const { dot } = sizes.weekChip;
++  return (
++    <Box alignItems="center" gap="xs">
++      <Text
++        variant="overline"
++        color={onPrimary ? 'textOnPrimary' : day.isToday ? 'primary' : 'text'}
++        maxFontSizeMultiplier={sizes.fixedHeightFontScale}
++      >
++        {day.weekdayShort}
++      </Text>
++      <Text
++        variant="dayNumber"
++        color={onPrimary ? 'textOnPrimary' : 'text'}
++        maxFontSizeMultiplier={sizes.fixedHeightFontScale}
++      >
++        {day.dayNumber}
++      </Text>
++      <Box width={dot} height={dot}>
++        {day.hasLessons ? (
++          <Box
++            width={dot}
++            height={dot}
++            borderRadius="pill"
++            backgroundColor={onPrimary ? 'textOnPrimary' : 'primary'}
++          />
++        ) : null}
++      </Box>
++    </Box>
++  );
++}
++
++function DayChip({
++  day,
++  index,
++  selected,
++  indicator,
++  pressed,
++  onSelect,
++  testID,
++}: {
++  day: AgendaDayItem;
++  index: number;
++  selected: boolean;
++  indicator: SlidingIndicator;
++  pressed: SharedValue<number>;
++  onSelect: (index: number) => void;
++  testID: string;
++}) {
++  const scale = usePressScale(pressed, index);
++  const activeLayer = useActiveLayerStyle(indicator, index);
++  const { position, itemWidth, gap } = indicator;
++  const normalLayer = useAnimatedStyle(() => ({
++    opacity: 1 - proximityOpacity(position.get(), index, itemWidth, gap),
++  }));
++
++  return (
++    <Pressable
++      testID={testID}
++      accessibilityRole="tab"
++      accessibilityLabel={day.accessibilityLabel}
++      accessibilityState={{ selected }}
++      onPress={() => onSelect(index)}
++      onPressIn={() => pressed.set(index)}
++      onPressOut={() => pressed.set(NONE)}
++      style={styles.chip}
++    >
++      <Animated.View style={[styles.fill, scale]}>
++        <Animated.View style={[styles.layer, normalLayer]}>
++          <ChipContent day={day} onPrimary={false} />
++        </Animated.View>
++        <Animated.View style={[styles.layer, activeLayer]}>
++          <ChipContent day={day} onPrimary />
++        </Animated.View>
++      </Animated.View>
++    </Pressable>
++  );
++}
++
++/**
++ * Faixa semanal da Agenda (01-design.md da v2, 2.7, V4): o mês, o botão
++ * "Hoje" e os 7 dias como chips com a marca de "tem aula". O indicador teal
++ * lê a posição do pager (`progress`), então acompanha o dedo durante o
++ * swipe, sem mola própria; a cor de cada chip vem da distância até ele.
++ */
++export function WeekStrip({
++  days,
++  selectedIndex,
++  progress,
++  onSelect,
++  monthLabel,
++  showTodayButton,
++  onPressToday,
++  testID,
++}: WeekStripProps) {
++  const { borderRadii, colors, shadows, sizes } = useTheme();
++  const { gap, height } = sizes.weekChip;
++  const [chipWidth, setChipWidth] = useState(0);
++  const pressed = useSharedValue(NONE);
++  const indicator = useSlidingIndicator({
++    count: days.length,
++    itemWidth: chipWidth,
++    gap,
++    progress,
++  });
++
++  const onRowLayout = (event: LayoutChangeEvent) => {
++    const count = Math.max(days.length, 1);
++    setChipWidth((event.nativeEvent.layout.width - gap * (count - 1)) / count);
++  };
++
++  return (
++    <Box testID={testID}>
++      <Box
++        flexDirection="row"
++        alignItems="center"
++        justifyContent="space-between"
++        minHeight={sizes.pill.xs}
++      >
++        <Text
++          testID="agenda-month-label"
++          variant="subtitle"
++          accessibilityRole="header"
++        >
++          {monthLabel}
++        </Text>
++        {showTodayButton ? (
++          <AgendaEnter offset={0}>
++            <PillButton
++              testID="agenda-today-button"
++              label={strings.agenda.today}
++              accessibilityHint={strings.agenda.todayHint}
++              variant="ghost"
++              size="xs"
++              onPress={onPressToday}
++            />
++          </AgendaEnter>
++        ) : null}
++      </Box>
++      <Box marginTop="s" height={height}>
++        <Box
++          style={StyleSheet.absoluteFill}
++          flexDirection="row"
++          gap="xs"
++          pointerEvents="none"
++        >
++          {days.map((day, index) => (
++            <ChipBackground
++              key={day.date}
++              day={day}
++              index={index}
++              pressed={pressed}
++              style={{ height }}
++            />
++          ))}
++        </Box>
++        <Animated.View
++          testID={`${testID}-indicator`}
++          pointerEvents="none"
++          style={[
++            styles.indicator,
++            chipWidth > 0 ? null : styles.hidden,
++            {
++              width: chipWidth,
++              height,
++              borderRadius: borderRadii.l,
++              backgroundColor: colors.primary,
++              boxShadow: [shadows.glowPrimarySoft],
++            },
++            indicator.indicatorStyle,
++          ]}
++        />
++        <Box
++          testID={`${testID}-days`}
++          accessibilityRole="tablist"
++          flexDirection="row"
++          gap="xs"
++          height={height}
++          onLayout={onRowLayout}
++        >
++          {days.map((day, index) => (
++            <DayChip
++              key={day.date}
++              day={day}
++              index={index}
++              selected={index === selectedIndex}
++              indicator={indicator}
++              pressed={pressed}
++              onSelect={onSelect}
++              testID={`agenda-day-${day.date}`}
++            />
++          ))}
++        </Box>
++      </Box>
++    </Box>
++  );
++}
++
++const styles = StyleSheet.create({
++  chip: { flex: 1 },
++  fill: { flex: 1 },
++  layer: {
++    ...StyleSheet.absoluteFill,
++    alignItems: 'center',
++    justifyContent: 'center',
++  },
++  indicator: { position: 'absolute', top: 0, left: 0 },
++  hidden: { opacity: 0 },
++});
+diff --git a/mobile/src/features/lessons/timetable.ts b/mobile/src/features/lessons/timetable.ts
+new file mode 100644
+index 0000000..a4e8a98
+--- /dev/null
++++ b/mobile/src/features/lessons/timetable.ts
+@@ -0,0 +1,148 @@
++/*
++ * Cálculos da grade da Agenda (01-design.md da v2, 2.10): minutos do dia,
++ * faixa de horas, intervalos, fase do relógio e a rolagem até agora. Puros,
++ * sem tema nem React: a View só converte minutos em pontos.
++ */
++
++const MINUTES_PER_HOUR = 60;
++const TIME = /^(\d{2}):(\d{2})$/;
++
++/** `"07:15"` → 435 (minutos desde a meia-noite). */
++export function timeToMinutes(time: string): number {
++  const match = TIME.exec(time);
++  if (!match) throw new Error(`Horário inválido: ${time}`);
++  return Number(match[1]) * MINUTES_PER_HOUR + Number(match[2]);
++}
++
++/** 435 → `"07:15"`. */
++export function formatMinutes(minutes: number): string {
++  'worklet';
++  const whole = Math.max(Math.floor(minutes), 0);
++  const hours = Math.floor(whole / MINUTES_PER_HOUR) % 24;
++  const rest = whole % MINUTES_PER_HOUR;
++  return `${hours < 10 ? '0' : ''}${hours}:${rest < 10 ? '0' : ''}${rest}`;
++}
++
++/** Minutos do dia na hora local de `date`. */
++export function minutesOfDay(date: Date): number {
++  return date.getHours() * MINUTES_PER_HOUR + date.getMinutes();
++}
++
++export type MinuteSpan = { startMinutes: number; endMinutes: number };
++
++export type TimetableRange = { start: number; end: number };
++
++/**
++ * Faixa da grade: da hora cheia antes da 1ª aula à hora cheia depois da
++ * última (07:15–12:15 → 07:00–13:00). Sem aulas, `null`.
++ */
++export function timetableRange(
++  lessons: readonly MinuteSpan[],
++): TimetableRange | null {
++  if (lessons.length === 0) return null;
++  const first = Math.min(...lessons.map(lesson => lesson.startMinutes));
++  const last = Math.max(...lessons.map(lesson => lesson.endMinutes));
++  const start = Math.floor(first / MINUTES_PER_HOUR) * MINUTES_PER_HOUR;
++  const end = Math.max(
++    Math.ceil(last / MINUTES_PER_HOUR) * MINUTES_PER_HOUR,
++    start + MINUTES_PER_HOUR,
++  );
++  return { start, end };
++}
++
++/** Horas cheias da faixa, inclusive as pontas (07:00, 08:00 … 13:00). */
++export function hourMarks(range: TimetableRange): number[] {
++  const marks: number[] = [];
++  for (let m = range.start; m <= range.end; m += MINUTES_PER_HOUR) {
++    marks.push(m);
++  }
++  return marks;
++}
++
++export type LessonBreak = MinuteSpan & { minutes: number };
++
++/** Vãos de pelo menos `minGap` minutos entre aulas seguidas. */
++export function lessonBreaks(
++  lessons: readonly MinuteSpan[],
++  minGap: number,
++): LessonBreak[] {
++  const breaks: LessonBreak[] = [];
++  for (let i = 1; i < lessons.length; i += 1) {
++    const startMinutes = lessons[i - 1].endMinutes;
++    const endMinutes = lessons[i].startMinutes;
++    const minutes = endMinutes - startMinutes;
++    if (minutes >= minGap) breaks.push({ startMinutes, endMinutes, minutes });
++  }
++  return breaks;
++}
++
++/**
++ * Fase do dia em relação às aulas (2.10): antes da 1ª, numa aula (`index` =
++ * a aula), no intervalo (`index` = a próxima aula) ou depois da última.
++ */
++export type ClockPhase =
++  | { kind: 'before'; index: 0 }
++  | { kind: 'lesson'; index: number }
++  | { kind: 'break'; index: number }
++  | { kind: 'after'; index: number }
++  | { kind: 'none'; index: -1 };
++
++export function clockPhase(
++  lessons: readonly MinuteSpan[],
++  minutes: number,
++): ClockPhase {
++  if (lessons.length === 0) return { kind: 'none', index: -1 };
++  if (minutes < lessons[0].startMinutes) return { kind: 'before', index: 0 };
++  for (let i = 0; i < lessons.length; i += 1) {
++    const lesson = lessons[i];
++    if (minutes >= lesson.startMinutes && minutes < lesson.endMinutes) {
++      return { kind: 'lesson', index: i };
++    }
++    const next = lessons[i + 1];
++    if (next && minutes >= lesson.endMinutes && minutes < next.startMinutes) {
++      return { kind: 'break', index: i + 1 };
++    }
++  }
++  return { kind: 'after', index: lessons.length };
++}
++
++export function samePhase(a: ClockPhase, b: ClockPhase): boolean {
++  return a.kind === b.kind && a.index === b.index;
++}
++
++export type LessonState = 'upcoming' | 'now' | 'past';
++
++/** Estado da aula `index` na fase atual (só na página de hoje). */
++export function lessonState(index: number, phase: ClockPhase): LessonState {
++  if (phase.kind === 'none' || phase.kind === 'before') return 'upcoming';
++  if (phase.kind === 'lesson' && index === phase.index) return 'now';
++  return index < phase.index ? 'past' : 'upcoming';
++}
++
++/**
++ * Altura de uma hora na grade (2.10): compacta em telas baixas e crescendo
++ * com a fonte do sistema até o teto, para a duração continuar proporcional.
++ */
++export function hourHeight(
++  windowHeight: number,
++  fontScale: number,
++  tokens: { hour: number; hourCompact: number; maxFontScale: number },
++  compactBelow = 700,
++): number {
++  const base = windowHeight < compactBelow ? tokens.hourCompact : tokens.hour;
++  return base * Math.min(Math.max(fontScale, 1), tokens.maxFontScale);
++}
++
++/**
++ * Rolagem automática até agora (2.10): só quando a linha (y no conteúdo)
++ * está fora da área visível; ela fica a `anchor` da altura visível.
++ */
++export function autoScrollTarget(
++  lineY: number,
++  viewportHeight: number,
++  anchor: number,
++): number | null {
++  if (viewportHeight <= 0) return null;
++  if (lineY >= 0 && lineY <= viewportHeight) return null;
++  return Math.max(lineY - viewportHeight * anchor, 0);
++}
+diff --git a/mobile/src/features/lessons/useAgendaViewModel.ts b/mobile/src/features/lessons/useAgendaViewModel.ts
+index c80f744..ed6e657 100644
+--- a/mobile/src/features/lessons/useAgendaViewModel.ts
++++ b/mobile/src/features/lessons/useAgendaViewModel.ts
+@@ -1,52 +1,199 @@
+-import { useState } from 'react';
++import { useMemo, useState } from 'react';
+ 
+-import { motion } from '../../theme';
+-import { formatDayLabel } from '../../utils/dates';
++import { strings } from '../../constants/strings';
++import { sizes } from '../../theme';
++import {
++  dayParts,
++  monthYearLabel,
++  weekdayOf,
++  weekdayShort,
++} from '../../utils/dates';
+ import { useSessionStudent } from '../students/useSessionStudent';
+ import { initialAgendaDate } from './agendaDays';
+ import { useAgendaQuery } from './api/useAgendaQuery';
+ import type { Agenda } from './schemas';
++import {
++  lessonBreaks,
++  lessonState,
++  timeToMinutes,
++  timetableRange,
++  type ClockPhase,
++  type LessonBreak,
++  type LessonState,
++  type TimetableRange,
++} from './timetable';
++import { useMinuteClock } from './useMinuteClock';
+ 
+-export type AgendaDayOption = { key: string; label: string };
++export type AgendaDayItem = {
++  date: string;
++  weekdayShort: string;
++  dayNumber: number;
++  hasLessons: boolean;
++  lessonCount: number;
++  isToday: boolean;
++  accessibilityLabel: string;
++  /** Lido pelo leitor de tela quando o dia muda pelo swipe (6.4). */
++  announcement: string;
++};
+ 
+ export type AgendaLesson = {
+   key: string;
++  subject: string;
+   startTime: string;
+   endTime: string;
+-  subject: string;
++  startMinutes: number;
++  endMinutes: number;
++  /** `07:15 – 08:00 · 45 min`. */
++  timeLabel: string;
++  accessibilityLabel: string;
++  state: LessonState;
++};
++
++export type AgendaBanner = {
++  /** Marcador à esquerda: ponto pulsando, ponto âmbar, relógio, check ou nada. */
++  kind: 'now' | 'break' | 'before' | 'after' | 'summary';
++  text: string;
++  detail: string;
++};
++
++export type AgendaPage = {
++  date: string;
++  isToday: boolean;
++  lessons: AgendaLesson[];
++  range: TimetableRange | null;
++  breaks: LessonBreak[];
++  banner: AgendaBanner | null;
++  /** Descrição do estado vazio (fim de semana ou dia útil). */
++  emptyDescription: string;
+ };
+ 
+ type AgendaViewModelOptions = {
+-  /** Data de "hoje" (D35). Injetável para os testes; no app, a do aparelho. */
++  /** Data e hora de "agora" (D35 e linha de agora). Injetável para testes. */
+   now?: () => Date;
+ };
+ 
+ const deviceNow = () => new Date();
+ const NO_DAYS: Agenda = [];
++const NO_LESSONS: AgendaLesson[] = [];
++
++function lessonsOf(day: Agenda[number]): AgendaLesson[] {
++  return day.lessons.map((lesson, index) => {
++    const startMinutes = timeToMinutes(lesson.startTime);
++    const endMinutes = timeToMinutes(lesson.endTime);
++    return {
++      key: `${day.date}-${index}`,
++      subject: lesson.subject,
++      startTime: lesson.startTime,
++      endTime: lesson.endTime,
++      startMinutes,
++      endMinutes,
++      timeLabel: strings.agenda.lessonTime(
++        lesson.startTime,
++        lesson.endTime,
++        endMinutes - startMinutes,
++      ),
++      accessibilityLabel: strings.agenda.lessonAccessibilityLabel(
++        lesson.startTime,
++        lesson.endTime,
++        lesson.subject,
++      ),
++      state: 'upcoming',
++    };
++  });
++}
++
++function summaryBanner(lessons: AgendaLesson[]): AgendaBanner | null {
++  if (lessons.length === 0) return null;
++  return {
++    kind: 'summary',
++    text: strings.agenda.lessonCount(lessons.length),
++    detail: strings.agenda.banner.summaryDetail(
++      lessons[0].startTime,
++      lessons[lessons.length - 1].endTime,
++    ),
++  };
++}
++
++/** Banner da página de hoje na fase do relógio (2.8). */
++function todayBanner(
++  lessons: AgendaLesson[],
++  phase: ClockPhase,
++): AgendaBanner | null {
++  const { banner } = strings.agenda;
++  switch (phase.kind) {
++    case 'lesson': {
++      const lesson = lessons[phase.index];
++      return {
++        kind: 'now',
++        text: banner.now(lesson.subject),
++        detail: banner.nowDetail(lesson.endTime),
++      };
++    }
++    case 'break':
++      return {
++        kind: 'break',
++        text: banner.break,
++        detail: banner.breakDetail(lessons[phase.index].startTime),
++      };
++    case 'before':
++      return {
++        kind: 'before',
++        text: banner.before(lessons[0].startTime),
++        detail: '',
++      };
++    case 'after':
++      return { kind: 'after', text: banner.after, detail: '' };
++    default:
++      return null;
++  }
++}
++
++function withStates(lessons: AgendaLesson[], phase: ClockPhase) {
++  return lessons.map((lesson, index) => {
++    const state = lessonState(index, phase);
++    const suffix =
++      state === 'now'
++        ? strings.agenda.lessonNowSuffix
++        : state === 'past'
++        ? strings.agenda.lessonPastSuffix
++        : '';
++    return {
++      ...lesson,
++      state,
++      accessibilityLabel: `${strings.agenda.lessonAccessibilityLabel(
++        lesson.startTime,
++        lesson.endTime,
++        lesson.subject,
++      )}${suffix}`,
++    };
++  });
++}
+ 
+ /**
+- * Agenda (M4, D35): os dias da semana do aluno em uso, o dia escolhido e as
+- * aulas dele. Abre no dia com o mesmo dia da semana de hoje; trocar de aluno
+- * volta a esse dia inicial, já com a agenda do novo aluno.
++ * Agenda (M4, D35, V4/V5): a faixa com os 7 dias, uma página por dia com a
++ * grade das aulas e, no dia de hoje, o relógio da linha de agora. Abre no
++ * dia com o mesmo dia da semana de hoje; trocar de aluno volta a esse dia,
++ * já com a agenda do novo aluno.
+  */
+ export function useAgendaViewModel({
+   now = deviceNow,
+ }: AgendaViewModelOptions = {}) {
+   const { student } = useSessionStudent();
+   const studentId = student?.id ?? null;
+   const query = useAgendaQuery(studentId);
+-  const days = query.data ?? NO_DAYS;
++  const agenda = query.data ?? NO_DAYS;
+ 
+   // Escolha do usuário e estado do TENTAR DE NOVO, válidos só para o aluno
+   // em que aconteceram.
+   const [chosenDate, setChosenDate] = useState<string | null>(null);
+   const [failedRetries, setFailedRetries] = useState(0);
+   // O refetch de uma query sem dados volta o status para `pending`; durante o
+   // TENTAR DE NOVO a tela fica no erro, com o spinner no botão (3.8).
+   const [retrying, setRetrying] = useState(false);
++  const [refreshing, setRefreshing] = useState(false);
+   const [stateFor, setStateFor] = useState(studentId);
+   if (stateFor !== studentId) {
+     setStateFor(studentId);
+     setChosenDate(null);
+     setRetrying(false);
+     setFailedRetries(0);
+@@ -56,67 +203,135 @@ export function useAgendaViewModel({
+     ? 'ready'
+     : query.isError || retrying
+     ? 'error'
+     : 'loading';
+   if (status !== 'error' && failedRetries !== 0) setFailedRetries(0);
+ 
+-  const dates = days.map(day => day.date);
+-  const selectedDay =
+-    days.find(day => day.date === chosenDate) ??
+-    days.find(day => day.date === initialAgendaDate(dates, now()));
+-  const selectedDate = selectedDay?.date ?? null;
++  // "Hoje" (D35): o dia da semana fixa com o mesmo dia da semana de hoje.
++  const todayDate = initialAgendaDate(
++    agenda.map(day => day.date),
++    now(),
++  );
+ 
+-  const lessons: AgendaLesson[] = (selectedDay?.lessons ?? []).map(
+-    (lesson, index) => ({
+-      key: `${selectedDay?.date}-${index}`,
+-      startTime: lesson.startTime,
+-      endTime: lesson.endTime,
+-      subject: lesson.subject,
+-    }),
++  const base = useMemo(() => {
++    const dates = agenda.map(day => day.date);
++    const days: AgendaDayItem[] = agenda.map(day => {
++      const { weekday, day: dayNumber, month } = dayParts(day.date);
++      const count = day.lessons.length;
++      const isToday = day.date === todayDate;
++      return {
++        date: day.date,
++        weekdayShort: weekdayShort(day.date),
++        dayNumber,
++        hasLessons: count > 0,
++        lessonCount: count,
++        isToday,
++        accessibilityLabel: strings.agenda.dayAccessibilityLabel(
++          weekday,
++          dayNumber,
++          month,
++          count,
++          isToday,
++        ),
++        announcement: strings.agenda.dayChangedAnnouncement(
++          weekday,
++          dayNumber,
++          month,
++          count,
++        ),
++      };
++    });
++    const pages: AgendaPage[] = agenda.map(day => {
++      const lessons = lessonsOf(day);
++      const weekday = weekdayOf(day.date);
++      return {
++        date: day.date,
++        isToday: day.date === todayDate,
++        lessons,
++        range: timetableRange(lessons),
++        breaks: lessonBreaks(lessons, sizes.timetable.minGap),
++        banner: summaryBanner(lessons),
++        emptyDescription:
++          weekday === 0 || weekday === 6
++            ? strings.agenda.emptyWeekend
++            : strings.agenda.emptyWeekday,
++      };
++    });
++    return { dates, days, pages, monthLabel: monthYearLabel(dates) };
++  }, [agenda, todayDate]);
++
++  const todayIndex = todayDate ? base.dates.indexOf(todayDate) : -1;
++  const todayLessons = base.pages[todayIndex]?.lessons ?? NO_LESSONS;
++
++  // Só a página de hoje depende do relógio; as outras mantêm a identidade
++  // (o pager memoiza as páginas).
++  const clock = useMinuteClock({
++    lessons: todayLessons,
++    now,
++    enabled: status === 'ready' && todayLessons.length > 0,
++  });
++  const { phase } = clock;
++  const pages = useMemo(
++    () =>
++      base.pages.map((page, index) =>
++        index === todayIndex && page.lessons.length > 0
++          ? {
++              ...page,
++              lessons: withStates(page.lessons, phase),
++              banner: todayBanner(page.lessons, phase),
++            }
++          : page,
++      ),
++    [base.pages, todayIndex, phase],
+   );
+ 
+-  // A 1ª lista espera a entrada do header (4.3); depois da 1ª troca, nenhuma.
+-  const contentKey = `${studentId}:${selectedDate}`;
+-  const [firstContentKey, setFirstContentKey] = useState<string | null>(null);
+-  const [firstContentLeft, setFirstContentLeft] = useState(false);
+-  if (status === 'ready' && firstContentKey === null) {
+-    setFirstContentKey(contentKey);
+-  } else if (
+-    firstContentKey !== null &&
+-    !firstContentLeft &&
+-    contentKey !== firstContentKey
+-  ) {
+-    setFirstContentLeft(true);
+-  }
+-  const isFirstContent =
+-    !firstContentLeft &&
+-    (firstContentKey === null || contentKey === firstContentKey);
++  const chosenIndex = chosenDate ? base.dates.indexOf(chosenDate) : -1;
++  const selectedIndex = chosenIndex >= 0 ? chosenIndex : todayIndex;
++  const selectedDate = base.dates[selectedIndex] ?? null;
+ 
+   const onSelectDay = (date: string) => {
+-    if (dates.includes(date)) setChosenDate(date);
++    if (base.dates.includes(date)) setChosenDate(date);
++  };
++
++  const onSelectToday = () => {
++    if (todayDate) setChosenDate(todayDate);
+   };
+ 
+   const onRetry = async () => {
+     if (retrying) return;
+     setRetrying(true);
+     const result = await query.refetch();
+     setRetrying(false);
+     if (result.isError) setFailedRetries(count => count + 1);
+   };
+ 
++  const onRefresh = async () => {
++    setRefreshing(true);
++    await query.refetch();
++    setRefreshing(false);
++  };
++
+   return {
+     status,
+-    dayOptions: dates.map(date => ({ key: date, label: formatDayLabel(date) })),
++    /** Remonta o pager (no dia de hoje) quando o aluno muda. */
++    studentKey: studentId ?? '',
++    days: base.days,
++    pages,
++    monthLabel: base.monthLabel,
++    selectedIndex,
+     selectedDate,
+-    selectedDayLabel: selectedDate ? formatDayLabel(selectedDate) : '',
+-    /** Muda com o dia e com o aluno: a View usa como `key` da lista. */
+-    contentKey,
+-    contentEnterDelay: isFirstContent ? 4 * motion.stagger : 0,
+-    lessons,
+-    isEmpty: lessons.length === 0,
++    todayIndex,
++    showTodayButton: todayIndex >= 0 && selectedIndex !== todayIndex,
++    isWeekEmpty: status === 'ready' && base.days.length === 0,
++    /** Relógio da linha de agora (página de hoje). */
++    clockMinutes: clock.minutes,
++    now,
+     onSelectDay,
++    onSelectToday,
++    refreshing,
++    onRefresh,
+     onRetry,
+     retrying,
+     /** Muda a cada TENTAR DE NOVO que falha: dispara o shake do ErrorState. */
+     shakeKey: failedRetries,
+   };
+ }
+diff --git a/mobile/src/features/lessons/useMinuteClock.ts b/mobile/src/features/lessons/useMinuteClock.ts
+new file mode 100644
+index 0000000..04fe3ce
+--- /dev/null
++++ b/mobile/src/features/lessons/useMinuteClock.ts
+@@ -0,0 +1,110 @@
++import { useEffect, useRef, useState } from 'react';
++import { AppState } from 'react-native';
++import {
++  useReducedMotion,
++  useSharedValue,
++  withTiming,
++  type SharedValue,
++} from 'react-native-reanimated';
++
++import {
++  clockPhase,
++  minutesOfDay,
++  samePhase,
++  type ClockPhase,
++  type MinuteSpan,
++} from './timetable';
++import { motion } from '../../theme';
++
++const MS_PER_MINUTE = 60_000;
++
++/** Milissegundos até a próxima virada de minuto. */
++function msToNextMinute(date: Date): number {
++  return MS_PER_MINUTE - (date.getSeconds() * 1000 + date.getMilliseconds());
++}
++
++/**
++ * Chama `onTick` em cada virada de minuto (um `setTimeout` até a próxima e
++ * depois um `setInterval` de `motion.nowTick`) e na volta do background.
++ */
++export function useMinuteTicker(
++  now: () => Date,
++  onTick: () => void,
++  enabled = true,
++) {
++  const tick = useRef(onTick);
++  tick.current = onTick;
++
++  useEffect(() => {
++    if (!enabled) return;
++    let interval: ReturnType<typeof setInterval> | undefined;
++    const timeout = setTimeout(() => {
++      tick.current();
++      interval = setInterval(() => tick.current(), motion.nowTick);
++    }, msToNextMinute(now()));
++    const subscription = AppState.addEventListener('change', state => {
++      if (state === 'active') tick.current();
++    });
++    return () => {
++      clearTimeout(timeout);
++      if (interval) clearInterval(interval);
++      subscription.remove();
++    };
++  }, [enabled, now]);
++}
++
++export type MinuteClock = {
++  /** Minutos do dia, animados a cada virada (UI thread). */
++  minutes: SharedValue<number>;
++  phase: ClockPhase;
++};
++
++/**
++ * Relógio da linha de agora (01-design.md da v2, 2.10): escreve os minutos
++ * num shared value e só faz `setState` quando a fase do dia muda (antes,
++ * aula, intervalo, depois). Assim a lista não re-renderiza a cada minuto.
++ * `now` é injetável (testes e roteiros de demonstração).
++ */
++export function useMinuteClock({
++  lessons,
++  now,
++  enabled = true,
++}: {
++  lessons: readonly MinuteSpan[];
++  now: () => Date;
++  enabled?: boolean;
++}): MinuteClock {
++  const reducedMotion = useReducedMotion();
++  const minutes = useSharedValue(minutesOfDay(now()));
++  const [phase, setPhase] = useState(() =>
++    clockPhase(lessons, minutesOfDay(now())),
++  );
++
++  // Aulas novas (outro aluno, refetch): a fase é recalculada na hora.
++  const [phaseFor, setPhaseFor] = useState(lessons);
++  if (phaseFor !== lessons) {
++    setPhaseFor(lessons);
++    const next = clockPhase(lessons, minutesOfDay(now()));
++    if (!samePhase(next, phase)) setPhase(next);
++  }
++
++  useMinuteTicker(
++    now,
++    () => {
++      const current = minutesOfDay(now());
++      minutes.set(
++        reducedMotion
++          ? current
++          : withTiming(current, {
++              duration: motion.slow,
++              easing: motion.standard,
++            }),
++      );
++      const next = clockPhase(lessons, current);
++      setPhase(previous => (samePhase(previous, next) ? previous : next));
++    },
++    enabled,
++  );
++
++  return { minutes, phase };
++}
+diff --git a/mobile/src/utils/dates.ts b/mobile/src/utils/dates.ts
+index 73f460b..116e8b1 100644
+--- a/mobile/src/utils/dates.ts
++++ b/mobile/src/utils/dates.ts
+@@ -64,6 +64,59 @@ export function weekdayName(weekday: number): string {
+ export function formatDayLabel(isoDate: string): string {
+   const date = parseLocalDate(isoDate);
+   return `${date.getDate()} de ${MONTHS[date.getMonth()]}, ${weekdayName(
+     date.getDay(),
+   )}`;
+ }
++
++const WEEKDAYS_SHORT = [
++  'dom',
++  'seg',
++  'ter',
++  'qua',
++  'qui',
++  'sex',
++  'sáb',
++] as const;
++
++const capitalize = (text: string) =>
++  text.charAt(0).toUpperCase() + text.slice(1);
++
++/** `"2025-03-17"` → `"seg"` (a variante `overline` põe em maiúsculas). */
++export function weekdayShort(isoDate: string): string {
++  return WEEKDAYS_SHORT[weekdayOf(isoDate)] ?? '';
++}
++
++/** Nome do mês (0 = janeiro) em pt-BR, minúsculo. */
++export function monthName(month: number): string {
++  return MONTHS[month] ?? '';
++}
++
++/** `"2025-03-17"` → `{ weekday: "Segunda-feira", day: 17, month: "março" }`. */
++export function dayParts(isoDate: string) {
++  const date = parseLocalDate(isoDate);
++  return {
++    weekday: capitalize(weekdayName(date.getDay())),
++    day: date.getDate(),
++    month: monthName(date.getMonth()),
++  };
++}
++
++/**
++ * Cabeçalho da semana: `"Março 2025"`; se cruzar meses, `"Março – Abril
++ * 2025"`; se cruzar anos, `"Dezembro 2025 – Janeiro 2026"`.
++ */
++export function monthYearLabel(isoDates: readonly string[]): string {
++  if (isoDates.length === 0) return '';
++  const first = parseLocalDate(isoDates[0]);
++  const last = parseLocalDate(isoDates[isoDates.length - 1]);
++  const label = (date: Date) => capitalize(monthName(date.getMonth()));
++  if (first.getFullYear() !== last.getFullYear()) {
++    return `${label(first)} ${first.getFullYear()} – ${label(
++      last,
++    )} ${last.getFullYear()}`;
++  }
++  if (first.getMonth() !== last.getMonth()) {
++    return `${label(first)} – ${label(last)} ${last.getFullYear()}`;
++  }
++  return `${label(first)} ${first.getFullYear()}`;
++}

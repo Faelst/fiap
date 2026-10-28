@@ -1,0 +1,3244 @@
+9a4e784 docs: seção v2 (UI moderna) no README com as telas da v2
+ad2a5ac refactor(mobile): remove a ilustração no-classroom da v1, sem uso na v2
+dfce487 refactor(mobile): remove o legado v1 que ficou sem uso
+0b36c2d feat(mobile): pull-to-refresh no Boletim e indicador teal nas três abas
+ebc3a3b feat(mobile): entrada do header uma vez por montagem das abas
+9b1ed9c fix(mobile): banner de agora anunciado uma vez só no Android
+b17ac61 fix(mobile): entradas por valor animado em tudo o que monta depois da tela
+ README.md                                          |  19 ++
+ docs/media/v2-agenda.png                           | Bin 0 -> 74754 bytes
+ docs/media/v2-boletim.png                          | Bin 0 -> 65270 bytes
+ docs/media/v2-login.png                            | Bin 0 -> 62127 bytes
+ docs/media/v2-perfil.png                           | Bin 0 -> 63258 bytes
+ mobile/assets/no-classroom.png                     | Bin 68192 -> 0 bytes
+ mobile/src/components/CompactHeader.tsx            |  36 ++-
+ mobile/src/components/Dropdown.tsx                 | 277 -----------------
+ mobile/src/components/EmptyState.tsx               |  77 ++---
+ mobile/src/components/EnterDown.tsx                |  55 ----
+ mobile/src/components/Entrance.tsx                 |  40 ++-
+ mobile/src/components/PrimaryButton.tsx            | 105 -------
+ mobile/src/components/SecondaryButton.tsx          |  68 ----
+ mobile/src/components/StudentChip.tsx              |  21 +-
+ mobile/src/components/TextField.tsx                |  10 +-
+ mobile/src/components/__tests__/Dropdown.test.tsx  | 343 ---------------------
+ .../src/components/__tests__/EmptyState.test.tsx   |  45 +--
+ .../components/__tests__/PrimaryButton.test.tsx    |  78 -----
+ .../src/components/__tests__/StudentChip.test.tsx  |  21 +-
+ mobile/src/components/__tests__/TextField.test.tsx |   5 +-
+ mobile/src/components/icons/CloseIcon.tsx          |  15 -
+ mobile/src/constants/strings.ts                    |   2 -
+ .../features/auth/components/LoginErrorBanner.tsx  |   8 +-
+ .../components/__tests__/LoginErrorBanner.test.tsx |   6 +-
+ mobile/src/features/lessons/LessonsScreen.tsx      |   7 +-
+ .../features/lessons/components/AgendaEnter.tsx    |  65 ----
+ mobile/src/features/lessons/components/DayPage.tsx |   7 +-
+ .../src/features/lessons/components/NowBanner.tsx  |  16 +-
+ .../src/features/lessons/components/Timetable.tsx  |   7 +-
+ .../src/features/lessons/components/WeekStrip.tsx  |   6 +-
+ mobile/src/features/lessons/useAgendaViewModel.ts  |   7 +-
+ mobile/src/features/profile/ProfileScreen.tsx      |  54 +---
+ .../features/profile/__tests__/StudentRow.test.tsx |  42 +--
+ .../src/features/profile/components/LogoutRow.tsx  |  30 +-
+ .../src/features/profile/components/StudentRow.tsx |  59 +---
+ .../src/features/report-card/ReportCardScreen.tsx  |  12 +-
+ .../features/report-card/useReportCardViewModel.ts |  17 +
+ mobile/src/features/splash/SplashScreen.tsx        |   2 +-
+ mobile/src/hooks/useSkeletonPulse.ts               |  41 ---
+ mobile/src/navigation/AppTabs.tsx                  |  77 ++---
+ mobile/src/test/measureInWindow.ts                 |   2 +-
+ mobile/src/theme/__tests__/Card.test.tsx           |   7 -
+ mobile/src/theme/__tests__/Text.test.tsx           |   8 -
+ mobile/src/theme/motion.ts                         |   8 -
+ mobile/src/theme/sizes.ts                          |  24 --
+ mobile/src/theme/theme.ts                          | 173 +----------
+ 46 files changed, 309 insertions(+), 1593 deletions(-)
+diff --git a/README.md b/README.md
+index dd7b362..f9870ba 100644
+--- a/README.md
++++ b/README.md
+@@ -44,10 +44,11 @@ Entre com o Gustavo: CPF `969.294.560-04`, senha `123456` (outras contas em
+ ## Sumário
+ 
+ - [Início rápido](#início-rápido)
+ - [Visão geral](#visão-geral)
+ - [Demonstração](#demonstração)
++- [v2 (UI moderna)](#v2-ui-moderna)
+ - [Stack e dependências](#stack-e-dependências)
+ - [Pré-requisitos](#pré-requisitos)
+ - [Como rodar a API](#como-rodar-a-api)
+ - [Como rodar o app](#como-rodar-o-app)
+ - [Credenciais de teste](#credenciais-de-teste)
+@@ -122,10 +123,28 @@ originais estão em
+ | Troca de aluno | Sem aluno e erro |
+ |---|---|
+ | ![Troca de aluno a partir do boletim](docs/media/trocar-aluno.gif) | ![Responsável sem aluno e boletim com a API fora do ar](docs/media/estados.gif) |
+ | TROCAR PERFIL a partir do Boletim e da Agenda | Responsável sem aluno; boletim com a API parada e "Tentar de novo" |
+ 
++## v2 (UI moderna)
++
++A branch `release/v2` traz uma evolução da interface sobre a mesma API: tab
++bar flutuante com a aba **Perfil** (dados do responsável, troca de aluno e
++sair), header compacto com o chip do aluno, **Login** novo, **Agenda** em
++timetable (faixa semanal, pager de dias e linha de "agora") e **Boletim** por
++faixas de nota (resumo do trimestre, barras e legenda), com pull-to-refresh
++nas três abas.
++
++**A entrega oficial do teste continua sendo a v1** (branch `main`), fiel ao
++Figma. A v2 foi feita por decisão de prazo **sem testes novos**, sem QA e sem
++revisão de segurança dedicados: os testes da v1 foram só ajustados, e a
++suíte, o lint, o `tsc` e a checagem dos flows do Maestro seguem verdes.
++
++| Login | Agenda | Boletim | Perfil |
++|---|---|---|---|
++| ![Login da v2](docs/media/v2-login.png) | ![Agenda da v2 em timetable](docs/media/v2-agenda.png) | ![Boletim da v2 por faixas](docs/media/v2-boletim.png) | ![Perfil da v2 depois da troca de aluno](docs/media/v2-perfil.png) |
++
+ ## Stack e dependências
+ 
+ ### App (`mobile/`)
+ 
+ O app é **React Native CLI** (projeto bare, com as pastas `ios/` e `android/`
+diff --git a/mobile/src/components/CompactHeader.tsx b/mobile/src/components/CompactHeader.tsx
+index 8402cda..b9a38ca 100644
+--- a/mobile/src/components/CompactHeader.tsx
++++ b/mobile/src/components/CompactHeader.tsx
+@@ -1,5 +1,13 @@
++import {
++  createContext,
++  useContext,
++  useEffect,
++  useRef,
++  useState,
++  type ReactNode,
++} from 'react';
+ import { Image, StyleSheet } from 'react-native';
+ import Animated, {
+   FadeIn,
+   ReduceMotion,
+   useAnimatedStyle,
+@@ -27,10 +35,28 @@ type CompactHeaderProps = {
+   showChip?: boolean;
+ };
+ 
+ type Motion = Theme['motion'];
+ 
++/** Se o header já fez a entrada nesta montagem das abas (4.3). */
++const HeaderEntranceContext = createContext<{ current: boolean } | null>(null);
++
++/**
++ * Envolve as abas (`AppTabs`): a entrada do header roda uma vez por
++ * montagem delas (login ou splash). A 1ª visita a Boletim e Perfil monta o
++ * header deles já parado. Fora do provider (BootError, NoStudent), entra
++ * sempre.
++ */
++export function HeaderEntranceProvider({ children }: { children: ReactNode }) {
++  const played = useRef(false);
++  return (
++    <HeaderEntranceContext.Provider value={played}>
++      {children}
++    </HeaderEntranceContext.Provider>
++  );
++}
++
+ /**
+  * Entrada do header (4.3): a linha do logo em fade e, um `stagger` depois,
+  * saudação e título descendo. Com reduzir movimento, só o fade curto, sem
+  * atraso (opacidade não é movimento).
+  */
+@@ -60,11 +86,19 @@ export function CompactHeader({
+   onPressStudent,
+   scrollY,
+   showChip = true,
+ }: CompactHeaderProps) {
+   const { colors, motion, sizes, spacing } = useTheme();
+-  const enter = entrances(motion, useReducedMotion());
++  const reducedMotion = useReducedMotion();
++  const played = useContext(HeaderEntranceContext);
++  const [animate] = useState(() => !played?.current);
++  useEffect(() => {
++    if (played) played.current = true;
++  }, [played]);
++  const enter = animate
++    ? entrances(motion, reducedMotion)
++    : { bar: undefined, titles: undefined };
+   const fadeDistance = spacing.m;
+ 
+   const dividerStyle = useAnimatedStyle(() => {
+     const y = scrollY ? scrollY.get() : 0;
+     return { opacity: Math.min(Math.max(y / fadeDistance, 0), 1) };
+diff --git a/mobile/src/components/Dropdown.tsx b/mobile/src/components/Dropdown.tsx
+deleted file mode 100644
+index 5cebc11..0000000
+--- a/mobile/src/components/Dropdown.tsx
++++ /dev/null
+@@ -1,277 +0,0 @@
+-import { useEffect, useRef, useState, type ComponentRef } from 'react';
+-import {
+-  AccessibilityInfo,
+-  Modal,
+-  Platform,
+-  Pressable,
+-  ScrollView,
+-  StyleSheet,
+-  useWindowDimensions,
+-  View,
+-} from 'react-native';
+-import Animated, {
+-  useAnimatedStyle,
+-  useReducedMotion,
+-  useSharedValue,
+-  withTiming,
+-} from 'react-native-reanimated';
+-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+-import { scheduleOnRN } from 'react-native-worklets';
+-
+-import { strings } from '../constants/strings';
+-import { Box, Card, Text, useTheme, type Theme } from '../theme';
+-import { ChevronDownIcon } from './icons/ChevronDownIcon';
+-
+-export type DropdownOption = { key: string; label: string };
+-
+-type DropdownProps = {
+-  /** Texto do gatilho (a opção atual). */
+-  label: string;
+-  options: readonly DropdownOption[];
+-  selectedKey: string | null;
+-  onSelect: (key: string) => void;
+-  /** Gatilho; os filhos são `-label`, `-options`, `-scroll`, `-option-<key>`, `-backdrop`, `-modal`. */
+-  testID: string;
+-  /** "Dia" ou "Turma e ano": o leitor lê "Dia: 17 de março, segunda-feira". */
+-  accessibilityLabelPrefix: string;
+-  accessibilityHint: string;
+-  /** `l` na Agenda e `m` no Boletim, como no Figma. */
+-  marginHorizontal: keyof Theme['spacing'];
+-};
+-
+-type Anchor = { x: number; y: number; width: number; height: number };
+-
+-/**
+- * Dropdown da Agenda e do Boletim (01-design.md, 2.5 e 4.5). A lista abre num
+- * `Modal` transparente, por cima do conteúdo, na posição do gatilho medida
+- * por `measureInWindow` (sem briga de `zIndex` dentro da `ScrollView`). Abre
+- * abaixo do gatilho ou, sem espaço, acima, sempre dentro da área segura: o que
+- * não couber rola (tela baixa, fonte grande). Tocar fora ou o voltar do Android
+- * fecham sem mudar nada. A opção atual não tem marca visual (Figma), só o
+- * estado `selected` para o leitor de tela.
+- */
+-export function Dropdown({
+-  label,
+-  options,
+-  selectedKey,
+-  onSelect,
+-  testID,
+-  accessibilityLabelPrefix,
+-  accessibilityHint,
+-  marginHorizontal,
+-}: DropdownProps) {
+-  const { colors, motion, sizes, spacing } = useTheme();
+-  const window = useWindowDimensions();
+-  const insets = useSafeAreaInsets();
+-  const reducedMotion = useReducedMotion();
+-  const triggerRef = useRef<ComponentRef<typeof View>>(null);
+-  // Com âncora, o Modal está montado; `expanded` é o estado que o usuário vê.
+-  const [anchor, setAnchor] = useState<Anchor | null>(null);
+-  const [expanded, setExpanded] = useState(false);
+-  // O foco volta ao gatilho só depois que o Modal sai (6.4): antes disso o
+-  // gatilho está encoberto pelo modal e o leitor de tela não o alcança.
+-  const focusPending = useRef(false);
+-  const listProgress = useSharedValue(0);
+-  const chevronProgress = useSharedValue(0);
+-
+-  const timing = (duration: number, easing: typeof motion.easeOut) => ({
+-    duration: reducedMotion ? 0 : duration,
+-    easing,
+-  });
+-
+-  const open = () => {
+-    triggerRef.current?.measureInWindow((x, y, width, height) => {
+-      setAnchor({ x, y, width, height });
+-      setExpanded(true);
+-      listProgress.set(withTiming(1, timing(motion.fast, motion.easeOut)));
+-      chevronProgress.set(withTiming(1, timing(motion.base, motion.easeOut)));
+-    });
+-  };
+-
+-  const focusTrigger = () => {
+-    if (!focusPending.current) return;
+-    focusPending.current = false;
+-    if (triggerRef.current) {
+-      AccessibilityInfo.sendAccessibilityEvent(triggerRef.current, 'focus');
+-    }
+-  };
+-
+-  const unmountList = () => {
+-    focusPending.current = true;
+-    setAnchor(null);
+-  };
+-
+-  // iOS: o `onDismiss` do Modal avisa quando ele saiu. Android: o efeito roda
+-  // depois do commit que tirou o Modal.
+-  useEffect(() => {
+-    if (anchor === null && Platform.OS !== 'ios') focusTrigger();
+-  });
+-
+-  const close = () => {
+-    setExpanded(false);
+-    chevronProgress.set(withTiming(0, timing(motion.base, motion.easeOut)));
+-    listProgress.set(
+-      withTiming(0, timing(motion.exitFast, motion.easeIn), finished => {
+-        'worklet';
+-        // Fechada de novo no meio da saída (2º toque no fundo): a 1ª animação
+-        // é interrompida e só a última desmonta a lista.
+-        if (finished) scheduleOnRN(unmountList);
+-      }),
+-    );
+-  };
+-
+-  const choose = (key: string) => {
+-    if (!expanded) return;
+-    onSelect(key);
+-    close();
+-  };
+-
+-  const listStyle = useAnimatedStyle(() => ({
+-    opacity: listProgress.get(),
+-    transform: [
+-      {
+-        translateY: (1 - listProgress.get()) * -motion.enterOffsetSmall,
+-      },
+-    ],
+-  }));
+-
+-  const chevronStyle = useAnimatedStyle(() => ({
+-    transform: [
+-      { rotate: `${chevronProgress.get() * motion.chevronOpenDeg}deg` },
+-    ],
+-  }));
+-
+-  const listPosition = anchor
+-    ? placeList(anchor, window.height, insets, {
+-        gap: spacing.s,
+-        estimatedHeight: options.length * sizes.touchTarget + 2 * spacing.xs,
+-      })
+-    : null;
+-
+-  return (
+-    <>
+-      <Pressable
+-        ref={triggerRef}
+-        testID={testID}
+-        accessibilityRole="button"
+-        accessibilityLabel={`${accessibilityLabelPrefix}: ${label}`}
+-        accessibilityHint={accessibilityHint}
+-        accessibilityState={{ expanded }}
+-        onPress={expanded ? close : open}
+-        style={({ pressed }) => ({
+-          marginHorizontal: spacing[marginHorizontal],
+-          opacity: pressed ? motion.pressedOpacity : 1,
+-        })}
+-      >
+-        <Card variant="dropdown" gap="m">
+-          <Box flex={1}>
+-            <Text
+-              testID={`${testID}-label`}
+-              variant="body"
+-              numberOfLines={1}
+-              maxFontSizeMultiplier={sizes.fixedHeightFontScale}
+-            >
+-              {label}
+-            </Text>
+-          </Box>
+-          <Animated.View style={chevronStyle}>
+-            <ChevronDownIcon color={colors.primary} size={sizes.chevron} />
+-          </Animated.View>
+-        </Card>
+-      </Pressable>
+-      <Modal
+-        testID={`${testID}-modal`}
+-        visible={anchor !== null}
+-        transparent
+-        animationType="none"
+-        statusBarTranslucent
+-        navigationBarTranslucent
+-        onRequestClose={close}
+-        onDismiss={focusTrigger}
+-      >
+-        <Box style={StyleSheet.absoluteFill} accessibilityViewIsModal>
+-          <Pressable
+-            testID={`${testID}-backdrop`}
+-            style={StyleSheet.absoluteFill}
+-            accessibilityRole="button"
+-            accessibilityLabel={strings.common.closeListAccessibilityLabel}
+-            onPress={close}
+-          />
+-          {listPosition ? (
+-            <Animated.View
+-              testID={`${testID}-options`}
+-              // Sumindo: nenhuma opção recebe um 2º toque.
+-              pointerEvents={expanded ? 'auto' : 'none'}
+-              style={[styles.list, listPosition, listStyle]}
+-            >
+-              <Card variant="options" flexShrink={1}>
+-                <ScrollView
+-                  testID={`${testID}-scroll`}
+-                  style={{
+-                    maxHeight: listPosition.maxHeight - 2 * spacing.xs,
+-                  }}
+-                  bounces={false}
+-                >
+-                  {options.map(option => (
+-                    <Pressable
+-                      key={option.key}
+-                      testID={`${testID}-option-${option.key}`}
+-                      accessibilityRole="button"
+-                      accessibilityState={{
+-                        selected: option.key === selectedKey,
+-                      }}
+-                      onPress={() => choose(option.key)}
+-                      style={({ pressed }) => ({
+-                        minHeight: sizes.touchTarget,
+-                        paddingHorizontal: spacing.m,
+-                        justifyContent: 'center',
+-                        opacity: pressed ? motion.pressedOpacity : 1,
+-                      })}
+-                    >
+-                      <Text
+-                        variant="body"
+-                        numberOfLines={1}
+-                        maxFontSizeMultiplier={sizes.fixedHeightFontScale}
+-                      >
+-                        {option.label}
+-                      </Text>
+-                    </Pressable>
+-                  ))}
+-                </ScrollView>
+-              </Card>
+-            </Animated.View>
+-          ) : null}
+-        </Box>
+-      </Modal>
+-    </>
+-  );
+-}
+-
+-/**
+- * Lista `gap` abaixo do gatilho, com a mesma largura e o mesmo x, limitada à
+- * área segura. Abre abaixo se couber ali; senão, no lado com mais espaço. O
+- * `maxHeight` é o espaço desse lado: o que passar dele rola.
+- */
+-function placeList(
+-  anchor: Anchor,
+-  windowHeight: number,
+-  insets: { top: number; bottom: number },
+-  { gap, estimatedHeight }: { gap: number; estimatedHeight: number },
+-) {
+-  const top = anchor.y + anchor.height + gap;
+-  const spaceBelow = windowHeight - insets.bottom - top;
+-  const spaceAbove = anchor.y - gap - insets.top;
+-  const opensBelow = spaceBelow >= estimatedHeight || spaceBelow >= spaceAbove;
+-  const horizontal = { left: anchor.x, width: anchor.width };
+-  return opensBelow
+-    ? { ...horizontal, top, maxHeight: spaceBelow }
+-    : {
+-        ...horizontal,
+-        bottom: windowHeight - anchor.y + gap,
+-        maxHeight: spaceAbove,
+-      };
+-}
+-
+-const styles = StyleSheet.create({
+-  list: { position: 'absolute' },
+-});
+diff --git a/mobile/src/components/EmptyState.tsx b/mobile/src/components/EmptyState.tsx
+index 7f89a0d..0f6fbb5 100644
+--- a/mobile/src/components/EmptyState.tsx
++++ b/mobile/src/components/EmptyState.tsx
+@@ -1,16 +1,9 @@
+ import type { ComponentType, ReactNode } from 'react';
+-import Animated, {
+-  FadeIn,
+-  ReduceMotion,
+-  useReducedMotion,
+-  withSpring,
+-  withTiming,
+-  type LayoutAnimation,
+-} from 'react-native-reanimated';
+ 
+-import { Box, enterDown, Text, useTheme, type Theme } from '../theme';
++import { Box, Text, useTheme } from '../theme';
++import { Entrance } from './Entrance';
+ import type { IconProps } from './icons/StrokeIcon';
+ 
+ type EmptyStateProps = {
+   /** Ícone de traço (`components/icons`), desenhado no círculo. */
+   icon: ComponentType<IconProps>;
+@@ -22,48 +15,12 @@ type EmptyStateProps = {
+   tone?: 'neutral' | 'danger';
+   /** Filhos: `X-icon` (o círculo). */
+   testID: string;
+ };
+ 
+-type Motion = Theme['motion'];
+-
+-/**
+- * Entradas (01-design.md da v2, 4.7): o ícone aparece em `base` e cresce de
+- * `popFrom` para 1 com a mola `gentle`; o resto vem em cascata depois dele.
+- * Com reduzir movimento, tudo só aparece em fade: opacidade não é
+- * movimento, então o sistema não pode pular (`ReduceMotion.Never`).
+- */
+-function entrances(motion: Motion, reduced: boolean) {
+-  if (reduced) {
+-    const fade = (delay: number) =>
+-      FadeIn.duration(motion.base)
+-        .delay(delay)
+-        .reduceMotion(ReduceMotion.Never);
+-    return {
+-      icon: fade(0),
+-      item: (index: number) => fade(index * motion.stagger),
+-    };
+-  }
+-  const { base, easeOut, popFrom, spring } = motion;
+-  const icon = (): LayoutAnimation => {
+-    'worklet';
+-    return {
+-      initialValues: { opacity: 0, transform: [{ scale: popFrom }] },
+-      animations: {
+-        opacity: withTiming(1, { duration: base, easing: easeOut }),
+-        transform: [{ scale: withSpring(1, spring.gentle) }],
+-      },
+-    };
+-  };
+-  return {
+-    icon,
+-    item: (index: number) => enterDown(motion, index * motion.stagger),
+-  };
+-}
+-
+ /**
+- * Estado vazio da v2 (01-design.md da v2, 2.16, DV9): ícone em SVG num
++ * Estado vazio da v2 (01-design.md da v2, 2.16 e 4.7, DV9): ícone em SVG num
+  * círculo (nítido em qualquer densidade, no lugar da ilustração PNG),
+  * título, descrição e uma ação opcional, centralizados.
+  */
+ export function EmptyState({
+   icon: Icon,
+@@ -72,20 +29,19 @@ export function EmptyState({
+   action,
+   tone = 'neutral',
+   testID,
+ }: EmptyStateProps) {
+   const { colors, motion, sizes, spacing } = useTheme();
+-  const reducedMotion = useReducedMotion();
+-  const enter = entrances(motion, reducedMotion);
++  const step = (index: number) => index * motion.stagger;
+   const danger = tone === 'danger';
+   // Título é o item 1 da cascata; descrição e ação vêm depois, sem buraco.
+   const descriptionIndex = 2;
+   const actionIndex = description ? 3 : 2;
+ 
+   return (
+     <Box testID={testID} alignItems="center" paddingVertical="xxxl">
+-      <Animated.View entering={enter.icon}>
++      <Entrance scaleFrom={motion.popFrom} spring={motion.spring.gentle}>
+         <Box
+           testID={`${testID}-icon`}
+           accessible={false}
+           importantForAccessibility="no-hide-descendants"
+           width={sizes.emptyIcon.circle}
+@@ -98,40 +54,43 @@ export function EmptyState({
+           <Icon
+             color={danger ? colors.danger : colors.textSecondary}
+             size={sizes.emptyIcon.glyph}
+           />
+         </Box>
+-      </Animated.View>
+-      <Animated.View
+-        entering={enter.item(1)}
++      </Entrance>
++      <Entrance
++        delay={step(1)}
++        offsetY={motion.enterOffsetSmall}
+         style={{ marginTop: spacing.m, paddingHorizontal: spacing.l }}
+       >
+         <Text variant="title" textAlign="center">
+           {title}
+         </Text>
+-      </Animated.View>
++      </Entrance>
+       {description ? (
+-        <Animated.View
+-          entering={enter.item(descriptionIndex)}
++        <Entrance
++          delay={step(descriptionIndex)}
++          offsetY={motion.enterOffsetSmall}
+           style={{ marginTop: spacing.s, paddingHorizontal: spacing.l }}
+         >
+           <Text
+             testID={`${testID}-description`}
+             variant="body"
+             color="textSecondary"
+             textAlign="center"
+           >
+             {description}
+           </Text>
+-        </Animated.View>
++        </Entrance>
+       ) : null}
+       {action ? (
+-        <Animated.View
+-          entering={enter.item(actionIndex)}
++        <Entrance
++          delay={step(actionIndex)}
++          offsetY={motion.enterOffsetSmall}
+           style={{ marginTop: spacing.l }}
+         >
+           {action}
+-        </Animated.View>
++        </Entrance>
+       ) : null}
+     </Box>
+   );
+ }
+diff --git a/mobile/src/components/EnterDown.tsx b/mobile/src/components/EnterDown.tsx
+deleted file mode 100644
+index 5e5268d..0000000
+--- a/mobile/src/components/EnterDown.tsx
++++ /dev/null
+@@ -1,55 +0,0 @@
+-import { useEffect, type ReactNode } from 'react';
+-import Animated, {
+-  useAnimatedStyle,
+-  useReducedMotion,
+-  useSharedValue,
+-  withDelay,
+-  withTiming,
+-} from 'react-native-reanimated';
+-
+-import { useTheme } from '../theme';
+-
+-type EnterDownProps = {
+-  children: ReactNode;
+-  /** Atraso da entrada (stagger), em ms. */
+-  delay?: number;
+-  testID?: string;
+-};
+-
+-/**
+- * Fade de 8 pt de baixo para cima (`base`, `easeOut`) por valor animado, sem
+- * animação de layout. Para o que aparece depois que a tela já montou (erro do
+- * campo, banner do login): no Android, a entrada de layout do reanimated às
+- * vezes não termina e a view fica montada com opacidade 0 (bug visto na v1,
+- * run 40720432602 do Maestro). Com reduzir movimento já monta visível.
+- */
+-export function EnterDown({ children, delay = 0, testID }: EnterDownProps) {
+-  const { motion } = useTheme();
+-  const reducedMotion = useReducedMotion();
+-  const progress = useSharedValue(reducedMotion ? 1 : 0);
+-  const offset = motion.enterOffsetSmall;
+-
+-  useEffect(() => {
+-    if (reducedMotion) {
+-      progress.set(1);
+-      return;
+-    }
+-    progress.set(
+-      withDelay(
+-        delay,
+-        withTiming(1, { duration: motion.base, easing: motion.easeOut }),
+-      ),
+-    );
+-  }, [delay, motion, progress, reducedMotion]);
+-
+-  const style = useAnimatedStyle(() => ({
+-    opacity: progress.get(),
+-    transform: [{ translateY: (1 - progress.get()) * offset }],
+-  }));
+-
+-  return (
+-    <Animated.View testID={testID} style={style}>
+-      {children}
+-    </Animated.View>
+-  );
+-}
+diff --git a/mobile/src/components/Entrance.tsx b/mobile/src/components/Entrance.tsx
+index 492e01b..f474007 100644
+--- a/mobile/src/components/Entrance.tsx
++++ b/mobile/src/components/Entrance.tsx
+@@ -3,13 +3,15 @@ import type { StyleProp, ViewStyle } from 'react-native';
+ import Animated, {
+   useAnimatedStyle,
+   useReducedMotion,
+   useSharedValue,
+   withDelay,
++  withSpring,
+   withTiming,
+   type EasingFunction,
+   type EasingFunctionFactory,
++  type WithSpringConfig,
+ } from 'react-native-reanimated';
+ 
+ import { useTheme } from '../theme';
+ 
+ type EntranceProps = {
+@@ -19,37 +21,49 @@ type EntranceProps = {
+   /** De onde vem: `x` > 0 entra da direita, `y` > 0 sobe de baixo. */
+   offsetX?: number;
+   offsetY?: number;
+   duration?: number;
+   easing?: EasingFunction | EasingFunctionFactory;
++  /** Escala inicial (o "pop" do ícone e do selo); vai a 1 com `spring`. */
++  scaleFrom?: number;
++  spring?: WithSpringConfig;
++  /** `false`: monta já visível (ex.: o 1º render de um crossfade). */
++  enabled?: boolean;
+   style?: StyleProp<ViewStyle>;
+   testID?: string;
+ };
+ 
+ /**
+- * Entrada com fade e deslocamento por valor animado, sem animação de layout
+- * (`entering`). É para o que monta depois que os dados chegam: no Android do
+- * reanimated 4.7.1 a entrada de layout dessas views às vezes não terminava e
+- * a view ficava montada com opacidade 0 (Maestro da v1, commit 41cef33).
+- * Com reduzir movimento não há deslocamento, só um fade `fast` (opacidade
+- * não é movimento, 1.10 regra 4).
++ * A entrada do app (fade + deslocamento + escala opcional) por valor
++ * animado, sem animação de layout (`entering`). É para tudo o que monta
++ * depois da tela (dados que chegam, erro de campo, troca de aluno, estados
++ * vazio e de erro): no Android do reanimated 4.7.1 a entrada de layout
++ * dessas views às vezes não terminava e a view ficava montada com
++ * opacidade 0 (Maestro da v1, commit 41cef33). Com reduzir movimento não há
++ * deslocamento nem escala, só um fade `fast` sem atraso (opacidade não é
++ * movimento, 1.10 regra 4).
+  */
+ export function Entrance({
+   children,
+   delay = 0,
+   offsetX = 0,
+   offsetY = 0,
+   duration,
+   easing,
++  scaleFrom,
++  spring,
++  enabled = true,
+   style,
+   testID,
+ }: EntranceProps) {
+   const { motion } = useTheme();
+   const reducedMotion = useReducedMotion();
+-  const progress = useSharedValue(0);
++  const progress = useSharedValue(enabled ? 0 : 1);
++  const scale = useSharedValue(enabled && scaleFrom != null ? scaleFrom : 1);
+ 
+   useEffect(() => {
++    if (progress.get() === 1) return;
+     progress.set(
+       reducedMotion
+         ? withTiming(1, { duration: motion.fast })
+         : withDelay(
+             delay,
+@@ -57,19 +71,29 @@ export function Entrance({
+               duration: duration ?? motion.base,
+               easing: easing ?? motion.easeOut,
+             }),
+           ),
+     );
+-  }, [delay, duration, easing, motion, progress, reducedMotion]);
++    if (scaleFrom != null && !reducedMotion) {
++      scale.set(
++        withDelay(delay, withSpring(1, spring ?? motion.spring.gentle)),
++      );
++    } else {
++      scale.set(1);
++    }
++    // Entrada só na montagem: quem quer repetir troca a `key`.
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++  }, []);
+ 
+   const animatedStyle = useAnimatedStyle(() => {
+     const rest = reducedMotion ? 0 : 1 - progress.get();
+     return {
+       opacity: progress.get(),
+       transform: [
+         { translateX: rest * offsetX },
+         { translateY: rest * offsetY },
++        { scale: scale.get() },
+       ],
+     };
+   });
+ 
+   return (
+diff --git a/mobile/src/components/PrimaryButton.tsx b/mobile/src/components/PrimaryButton.tsx
+deleted file mode 100644
+index 83a01fb..0000000
+--- a/mobile/src/components/PrimaryButton.tsx
++++ /dev/null
+@@ -1,105 +0,0 @@
+-import { ActivityIndicator, Pressable } from 'react-native';
+-import Animated, {
+-  FadeIn,
+-  FadeOut,
+-  ReduceMotion,
+-  useAnimatedStyle,
+-  useSharedValue,
+-  withSpring,
+-  withTiming,
+-} from 'react-native-reanimated';
+-
+-import { ButtonContainer, Text, useTheme } from '../theme';
+-
+-const AnimatedText = Animated.createAnimatedComponent(Text);
+-
+-type PrimaryButtonProps = {
+-  label: string;
+-  onPress: () => void;
+-  disabled?: boolean;
+-  loading?: boolean;
+-  testID: string;
+-  /** testID do spinner (ex.: `login-submit-loading`). */
+-  loadingTestID?: string;
+-  accessibilityLabel: string;
+-  /** Rótulo lido enquanto carrega (ex.: "Entrando"). */
+-  loadingAccessibilityLabel?: string;
+-  /** `insets.bottom`: a área segura de baixo fica na cor do botão. */
+-  bottomInset?: number;
+-};
+-
+-/**
+- * Botão principal, largura total e colado na base (01-design.md, 2.7).
+- * Desabilitado mantém o fundo `primary` e só o texto fica cinza; carregando
+- * troca o texto por um spinner e ignora toques.
+- */
+-export function PrimaryButton({
+-  label,
+-  onPress,
+-  disabled = false,
+-  loading = false,
+-  testID,
+-  loadingTestID,
+-  accessibilityLabel,
+-  loadingAccessibilityLabel,
+-  bottomInset = 0,
+-}: PrimaryButtonProps) {
+-  const { colors, motion, sizes } = useTheme();
+-  const scale = useSharedValue(1);
+-  const inactive = disabled || loading;
+-  const textColor = disabled ? colors.textDisabled : colors.textOnPrimary;
+-
+-  const contentStyle = useAnimatedStyle(() => ({
+-    transform: [{ scale: scale.get() }],
+-  }));
+-  const textStyle = useAnimatedStyle(() => ({
+-    color: withTiming(textColor, { duration: motion.fast }),
+-  }));
+-
+-  return (
+-    <Pressable
+-      testID={testID}
+-      accessibilityRole="button"
+-      accessibilityLabel={
+-        loading && loadingAccessibilityLabel
+-          ? loadingAccessibilityLabel
+-          : accessibilityLabel
+-      }
+-      accessibilityState={{ disabled: inactive, busy: loading }}
+-      disabled={inactive}
+-      onPress={onPress}
+-      onPressIn={() => scale.set(withSpring(motion.pressScale, motion.press))}
+-      onPressOut={() => scale.set(withSpring(1, motion.press))}
+-      style={{ backgroundColor: colors.primary, paddingBottom: bottomInset }}
+-    >
+-      <ButtonContainer variant="primaryV1">
+-        <Animated.View style={contentStyle}>
+-          {loading ? (
+-            <Animated.View
+-              entering={FadeIn.duration(motion.fast).reduceMotion(
+-                ReduceMotion.System,
+-              )}
+-            >
+-              <ActivityIndicator
+-                testID={loadingTestID}
+-                size="small"
+-                color={colors.textOnPrimary}
+-              />
+-            </Animated.View>
+-          ) : (
+-            <AnimatedText
+-              variant="button"
+-              maxFontSizeMultiplier={sizes.fixedHeightFontScale}
+-              style={textStyle}
+-              exiting={FadeOut.duration(motion.instant).reduceMotion(
+-                ReduceMotion.System,
+-              )}
+-            >
+-              {label}
+-            </AnimatedText>
+-          )}
+-        </Animated.View>
+-      </ButtonContainer>
+-    </Pressable>
+-  );
+-}
+diff --git a/mobile/src/components/SecondaryButton.tsx b/mobile/src/components/SecondaryButton.tsx
+deleted file mode 100644
+index c0ed62f..0000000
+--- a/mobile/src/components/SecondaryButton.tsx
++++ /dev/null
+@@ -1,68 +0,0 @@
+-import { ActivityIndicator, Pressable } from 'react-native';
+-
+-import { Box, ButtonContainer, Text, useTheme } from '../theme';
+-
+-type SecondaryButtonProps = {
+-  label: string;
+-  onPress: () => void;
+-  loading?: boolean;
+-  testID: string;
+-  accessibilityLabel: string;
+-};
+-
+-/**
+- * Botão com contorno teal (01-design.md, 2.8), usado no TENTAR DE NOVO.
+- * Carregando: spinner no lugar do texto, com a largura mantida (o texto fica
+- * invisível embaixo).
+- */
+-export function SecondaryButton({
+-  label,
+-  onPress,
+-  loading = false,
+-  testID,
+-  accessibilityLabel,
+-}: SecondaryButtonProps) {
+-  const { colors, motion, sizes } = useTheme();
+-
+-  return (
+-    <Pressable
+-      testID={testID}
+-      accessibilityRole="button"
+-      accessibilityLabel={accessibilityLabel}
+-      accessibilityState={{ busy: loading, disabled: loading }}
+-      disabled={loading}
+-      onPress={onPress}
+-      style={({ pressed }) => ({
+-        opacity: pressed ? motion.pressedOpacity : 1,
+-      })}
+-    >
+-      <ButtonContainer variant="secondaryV1">
+-        <Text
+-          variant="bodyBold"
+-          color="primary"
+-          maxFontSizeMultiplier={sizes.fixedHeightFontScale}
+-          opacity={loading ? 0 : 1}
+-        >
+-          {label}
+-        </Text>
+-        {loading ? (
+-          <Box
+-            position="absolute"
+-            top={0}
+-            bottom={0}
+-            left={0}
+-            right={0}
+-            alignItems="center"
+-            justifyContent="center"
+-          >
+-            <ActivityIndicator
+-              testID={`${testID}-loading`}
+-              size="small"
+-              color={colors.primary}
+-            />
+-          </Box>
+-        ) : null}
+-      </ButtonContainer>
+-    </Pressable>
+-  );
+-}
+diff --git a/mobile/src/components/StudentChip.tsx b/mobile/src/components/StudentChip.tsx
+index 21c0299..f17ba56 100644
+--- a/mobile/src/components/StudentChip.tsx
++++ b/mobile/src/components/StudentChip.tsx
+@@ -1,20 +1,18 @@
+ import { useState } from 'react';
+ import { Pressable, StyleSheet } from 'react-native';
+ import Animated, {
+-  FadeIn,
+-  FadeOut,
+-  ReduceMotion,
+   useAnimatedStyle,
+   useReducedMotion,
+   useSharedValue,
+   withSpring,
+ } from 'react-native-reanimated';
+ 
+ import { strings } from '../constants/strings';
+ import { Box, Text, useTheme } from '../theme';
+ import { Avatar } from './Avatar';
++import { Entrance } from './Entrance';
+ import { ChevronRightIcon } from './icons/ChevronRightIcon';
+ 
+ export type ChipStudent = {
+   id: string;
+   firstName: string;
+@@ -87,22 +85,17 @@ export function StudentChip({ student, onPress }: StudentChipProps) {
+           borderRadius="pill"
+           borderWidth={1}
+           borderColor="borderSubtle"
+           backgroundColor="surfaceRaised"
+         >
+-          {/* Opacidade não é movimento: o crossfade fica com reduzir movimento. */}
+-          <Animated.View
++          {/* Troca de aluno: o conteúdo novo entra em fade por valor animado
++              (sem layout animation, risco no Android); o antigo sai sem animação. */}
++          <Entrance
+             key={student.id}
+             testID="header-student-chip-content"
+-            entering={
+-              switched
+-                ? FadeIn.duration(motion.base).reduceMotion(ReduceMotion.Never)
+-                : undefined
+-            }
+-            exiting={FadeOut.duration(motion.fast).reduceMotion(
+-              ReduceMotion.Never,
+-            )}
++            enabled={switched}
++            duration={motion.base}
+             style={styles.shrink}
+           >
+             <Box flexDirection="row" alignItems="center" gap="s">
+               <Avatar
+                 testID="header-student-chip-avatar"
+@@ -136,11 +129,11 @@ export function StudentChip({ student, onPress }: StudentChipProps) {
+                 >
+                   {student.className}
+                 </Text>
+               </Box>
+             </Box>
+-          </Animated.View>
++          </Entrance>
+           <ChevronRightIcon
+             color={colors.textTertiary}
+             size={sizes.studentChip.chevron}
+           />
+         </Box>
+diff --git a/mobile/src/components/TextField.tsx b/mobile/src/components/TextField.tsx
+index 5ac78ea..046f241 100644
+--- a/mobile/src/components/TextField.tsx
++++ b/mobile/src/components/TextField.tsx
+@@ -20,11 +20,11 @@ import Animated, {
+ } from 'react-native-reanimated';
+ 
+ import { strings } from '../constants/strings';
+ import { Box, Text, useTheme, type Theme } from '../theme';
+ import { formatCpf } from '../utils/cpf';
+-import { EnterDown } from './EnterDown';
++import { Entrance } from './Entrance';
+ import { AlertIcon } from './icons/AlertIcon';
+ import { EyeIcon } from './icons/EyeIcon';
+ import { EyeOffIcon } from './icons/EyeOffIcon';
+ 
+ /** TextInput com as `textVariants` do tema. */
+@@ -305,11 +305,15 @@ export function TextField({
+           style={[layer, { borderColor: colors.danger }, errorLayerStyle]}
+         />
+       </Box>
+       {/* Valor animado, não layout animation: nasce depois da tela (2.5). */}
+       {error ? (
+-        <EnterDown key={error} testID={`${testID}-error-enter`}>
++        <Entrance
++          key={error}
++          testID={`${testID}-error-enter`}
++          offsetY={motion.enterOffsetSmall}
++        >
+           <Box flexDirection="row" alignItems="center" marginTop="xs">
+             <AlertIcon color={colors.danger} size={sizes.fieldErrorIcon} />
+             <Text
+               testID={`${testID}-error`}
+               variant="error"
+@@ -317,11 +321,11 @@ export function TextField({
+               flexShrink={1}
+             >
+               {error}
+             </Text>
+           </Box>
+-        </EnterDown>
++        </Entrance>
+       ) : null}
+     </Animated.View>
+   );
+ }
+ 
+diff --git a/mobile/src/components/__tests__/Dropdown.test.tsx b/mobile/src/components/__tests__/Dropdown.test.tsx
+deleted file mode 100644
+index 6aa08f1..0000000
+--- a/mobile/src/components/__tests__/Dropdown.test.tsx
++++ /dev/null
+@@ -1,343 +0,0 @@
+-import { act, fireEvent, screen, within } from '@testing-library/react-native';
+-import { AccessibilityInfo, Dimensions, Platform } from 'react-native';
+-import * as Reanimated from 'react-native-reanimated';
+-
+-import { mockMeasureInWindow } from '../../test/measureInWindow';
+-import { renderWithTheme } from '../../test/renderWithTheme';
+-import { theme } from '../../theme';
+-import { Dropdown } from '../Dropdown';
+-
+-const options = [
+-  { key: '2025-03-16', label: '16 de março, domingo' },
+-  { key: '2025-03-17', label: '17 de março, segunda-feira' },
+-  { key: '2025-03-18', label: '18 de março, terça-feira' },
+-];
+-
+-/** Posição do gatilho na janela (o `measureInWindow` do Jest não responde). */
+-const TRIGGER = { x: 24, y: 300, width: 366, height: 45 };
+-
+-const measureAt = (y: number) => mockMeasureInWindow({ ...TRIGGER, y });
+-
+-const NO_INSETS = { top: 0, bottom: 0, left: 0, right: 0 };
+-let mockInsets = NO_INSETS;
+-jest.mock('react-native-safe-area-context', () => ({
+-  ...jest.requireActual('react-native-safe-area-context/jest/mock').default,
+-  useSafeAreaInsets: () => mockInsets,
+-}));
+-
+-const WEEK = [
+-  '16 de março, domingo',
+-  '17 de março, segunda-feira',
+-  '18 de março, terça-feira',
+-  '19 de março, quarta-feira',
+-  '20 de março, quinta-feira',
+-  '21 de março, sexta-feira',
+-  '22 de março, sábado',
+-].map((label, i) => ({ key: `2025-03-${16 + i}`, label }));
+-
+-describe('Dropdown', () => {
+-  const onSelect = jest.fn();
+-
+-  beforeEach(() => {
+-    onSelect.mockClear();
+-    (AccessibilityInfo.sendAccessibilityEvent as jest.Mock).mockClear();
+-    measureAt(TRIGGER.y);
+-  });
+-
+-  afterEach(() => {
+-    jest.restoreAllMocks();
+-    mockInsets = NO_INSETS;
+-  });
+-
+-  const renderDropdown = () =>
+-    renderWithTheme(
+-      <Dropdown
+-        testID="agenda-day-dropdown"
+-        label="18 de março, terça-feira"
+-        options={options}
+-        selectedKey="2025-03-18"
+-        onSelect={onSelect}
+-        accessibilityLabelPrefix="Dia"
+-        accessibilityHint="Toque para escolher outro dia"
+-        marginHorizontal="l"
+-      />,
+-    );
+-
+-  const open = () => fireEvent.press(screen.getByTestId('agenda-day-dropdown'));
+-
+-  it('fechado: mostra o rótulo e anuncia o valor, recolhido', async () => {
+-    await renderDropdown();
+-
+-    const trigger = screen.getByTestId('agenda-day-dropdown');
+-    expect(screen.getByTestId('agenda-day-dropdown-label')).toHaveTextContent(
+-      '18 de março, terça-feira',
+-    );
+-    expect(trigger).toHaveAccessibleName('Dia: 18 de março, terça-feira');
+-    expect(trigger).toHaveProp('accessibilityRole', 'button');
+-    expect(trigger).toHaveProp(
+-      'accessibilityHint',
+-      'Toque para escolher outro dia',
+-    );
+-    expect(trigger).not.toBeExpanded();
+-    expect(
+-      screen.queryByTestId('agenda-day-dropdown-option-2025-03-16'),
+-    ).toBeNull();
+-  });
+-
+-  it('tocar no gatilho abre a lista, expandida, com a opção atual selecionada', async () => {
+-    await renderDropdown();
+-
+-    await open();
+-
+-    expect(screen.getByTestId('agenda-day-dropdown')).toBeExpanded();
+-    for (const option of options) {
+-      const row = screen.getByTestId(
+-        `agenda-day-dropdown-option-${option.key}`,
+-      );
+-      expect(row).toHaveTextContent(option.label);
+-      expect(row).toHaveProp('accessibilityRole', 'button');
+-    }
+-    expect(
+-      screen.getByTestId('agenda-day-dropdown-option-2025-03-18'),
+-    ).toBeSelected();
+-    expect(
+-      screen.getByTestId('agenda-day-dropdown-option-2025-03-16'),
+-    ).not.toBeSelected();
+-  });
+-
+-  it('a lista fica s abaixo do gatilho, com a mesma largura e o mesmo x', async () => {
+-    await renderDropdown();
+-
+-    await open();
+-
+-    expect(screen.getByTestId('agenda-day-dropdown-options')).toHaveStyle({
+-      position: 'absolute',
+-      left: TRIGGER.x,
+-      width: TRIGGER.width,
+-      top: TRIGGER.y + TRIGGER.height + theme.spacing.s,
+-    });
+-  });
+-
+-  it('sem espaço abaixo do gatilho, a lista abre acima', async () => {
+-    const windowHeight = Dimensions.get('window').height;
+-    const nearBottom = windowHeight - TRIGGER.height - theme.spacing.m;
+-    measureAt(nearBottom);
+-    await renderDropdown();
+-
+-    await open();
+-
+-    expect(screen.getByTestId('agenda-day-dropdown-options')).toHaveStyle({
+-      bottom: windowHeight - nearBottom + theme.spacing.s,
+-    });
+-  });
+-
+-  it('cada opção tem alvo de toque ≥ 44 na própria área de toque', async () => {
+-    await renderDropdown();
+-
+-    await open();
+-
+-    expect(
+-      screen.getByTestId('agenda-day-dropdown-option-2025-03-16'),
+-    ).toHaveStyle({ minHeight: theme.sizes.touchTarget });
+-  });
+-
+-  it('escolher uma opção chama onSelect e fecha', async () => {
+-    await renderDropdown();
+-    await open();
+-
+-    await fireEvent.press(
+-      screen.getByTestId('agenda-day-dropdown-option-2025-03-17'),
+-    );
+-
+-    expect(onSelect).toHaveBeenCalledWith('2025-03-17');
+-    expect(
+-      screen.queryByTestId('agenda-day-dropdown-option-2025-03-17'),
+-    ).toBeNull();
+-    expect(screen.getByTestId('agenda-day-dropdown')).not.toBeExpanded();
+-  });
+-
+-  it('tocar fora da lista fecha sem mudar nada', async () => {
+-    await renderDropdown();
+-    await open();
+-
+-    await fireEvent.press(screen.getByTestId('agenda-day-dropdown-backdrop'));
+-
+-    expect(onSelect).not.toHaveBeenCalled();
+-    expect(screen.queryByTestId('agenda-day-dropdown-options')).toBeNull();
+-  });
+-
+-  it('o voltar do Android fecha sem mudar nada', async () => {
+-    await renderDropdown();
+-    await open();
+-
+-    await fireEvent(
+-      screen.getByTestId('agenda-day-dropdown-modal'),
+-      'requestClose',
+-    );
+-
+-    expect(onSelect).not.toHaveBeenCalled();
+-    expect(screen.queryByTestId('agenda-day-dropdown-options')).toBeNull();
+-  });
+-
+-  it('com uma opção só, funciona igual', async () => {
+-    await renderWithTheme(
+-      <Dropdown
+-        testID="boletim-year-dropdown"
+-        label="1EF - 2025"
+-        options={[{ key: '2025', label: '1EF - 2025' }]}
+-        selectedKey="2025"
+-        onSelect={onSelect}
+-        accessibilityLabelPrefix="Turma e ano"
+-        accessibilityHint="Toque para ver outros anos"
+-        marginHorizontal="m"
+-      />,
+-    );
+-
+-    await fireEvent.press(screen.getByTestId('boletim-year-dropdown'));
+-    await fireEvent.press(
+-      screen.getByTestId('boletim-year-dropdown-option-2025'),
+-    );
+-
+-    expect(onSelect).toHaveBeenCalledWith('2025');
+-  });
+-
+-  describe('Android 360 × 640 com o gatilho em y ≈ 290 (achado da revisão)', () => {
+-    const original = Dimensions.get('window');
+-
+-    beforeEach(() => {
+-      // Antes do render: nada montado ainda.
+-      Dimensions.set({ window: { ...original, width: 360, height: 640 } });
+-      mockInsets = { top: 24, bottom: 16, left: 0, right: 0 };
+-      measureAt(290);
+-    });
+-
+-    afterEach(async () => {
+-      // A tela ainda está montada aqui (o cleanup vem depois).
+-      await act(() => Dimensions.set({ window: original }));
+-    });
+-
+-    it('as 7 opções ficam alcançáveis: lista dentro da área segura e rolável', async () => {
+-      await renderWithTheme(
+-        <Dropdown
+-          testID="agenda-day-dropdown"
+-          label="18 de março, terça-feira"
+-          options={WEEK}
+-          selectedKey="2025-03-18"
+-          onSelect={onSelect}
+-          accessibilityLabelPrefix="Dia"
+-          accessibilityHint="Toque para escolher outro dia"
+-          marginHorizontal="l"
+-        />,
+-      );
+-
+-      await open();
+-
+-      // 7 × 44 + 8 = 316 não cabe nem abaixo (281) nem acima (258): abre no
+-      // lado maior, limitada a ele, e rola.
+-      const list = screen.getByTestId('agenda-day-dropdown-options');
+-      const top = 290 + TRIGGER.height + theme.spacing.s;
+-      const maxHeight = 640 - 16 - top;
+-      expect(list).toHaveStyle({ top, maxHeight });
+-      expect(top).toBeGreaterThanOrEqual(24);
+-
+-      const scroll = screen.getByTestId('agenda-day-dropdown-scroll');
+-      for (const option of WEEK) {
+-        expect(
+-          within(scroll).getByTestId(
+-            `agenda-day-dropdown-option-${option.key}`,
+-          ),
+-        ).toBeOnTheScreen();
+-      }
+-    });
+-
+-    it('abrindo acima, o topo da lista não passa da área segura', async () => {
+-      measureAt(560);
+-      await renderWithTheme(
+-        <Dropdown
+-          testID="agenda-day-dropdown"
+-          label="18 de março, terça-feira"
+-          options={WEEK}
+-          selectedKey="2025-03-18"
+-          onSelect={onSelect}
+-          accessibilityLabelPrefix="Dia"
+-          accessibilityHint="Toque para escolher outro dia"
+-          marginHorizontal="l"
+-        />,
+-      );
+-
+-      await open();
+-
+-      expect(screen.getByTestId('agenda-day-dropdown-options')).toHaveStyle({
+-        bottom: 640 - 560 + theme.spacing.s,
+-        maxHeight: 560 - theme.spacing.s - 24,
+-      });
+-    });
+-  });
+-
+-  it('texto da opção com o teto de fonte grande, como o gatilho', async () => {
+-    await renderDropdown();
+-    await open();
+-
+-    expect(
+-      within(
+-        screen.getByTestId('agenda-day-dropdown-option-2025-03-16'),
+-      ).getByText('16 de março, domingo'),
+-    ).toHaveProp('maxFontSizeMultiplier', theme.sizes.fixedHeightFontScale);
+-  });
+-
+-  it('iOS: o foco volta ao gatilho só no onDismiss do Modal', async () => {
+-    await renderDropdown();
+-    await open();
+-    const { onDismiss } = screen.getByTestId('agenda-day-dropdown-modal').props;
+-
+-    await fireEvent.press(
+-      screen.getByTestId('agenda-day-dropdown-option-2025-03-17'),
+-    );
+-    expect(AccessibilityInfo.sendAccessibilityEvent).not.toHaveBeenCalled();
+-
+-    await act(() => onDismiss());
+-    expect(AccessibilityInfo.sendAccessibilityEvent).toHaveBeenCalledWith(
+-      expect.anything(),
+-      'focus',
+-    );
+-  });
+-
+-  it('Android: o foco volta ao gatilho depois do commit que tira o Modal', async () => {
+-    jest.replaceProperty(Platform, 'OS', 'android');
+-    await renderDropdown();
+-    await open();
+-
+-    await fireEvent.press(
+-      screen.getByTestId('agenda-day-dropdown-option-2025-03-17'),
+-    );
+-
+-    expect(screen.queryByTestId('agenda-day-dropdown-options')).toBeNull();
+-    expect(AccessibilityInfo.sendAccessibilityEvent).toHaveBeenCalledWith(
+-      expect.anything(),
+-      'focus',
+-    );
+-  });
+-
+-  it('durante a saída da lista, as opções não recebem toque', async () => {
+-    // Saída que não termina: a lista continua montada, sumindo.
+-    jest
+-      .spyOn(Reanimated, 'withTiming')
+-      .mockImplementation(((value: number) => value) as never);
+-    await renderDropdown();
+-    await open();
+-
+-    await fireEvent.press(
+-      screen.getByTestId('agenda-day-dropdown-option-2025-03-17'),
+-    );
+-    await fireEvent.press(
+-      screen.getByTestId('agenda-day-dropdown-option-2025-03-16'),
+-    );
+-
+-    expect(onSelect).toHaveBeenCalledTimes(1);
+-    expect(onSelect).toHaveBeenCalledWith('2025-03-17');
+-    expect(screen.getByTestId('agenda-day-dropdown-options')).toHaveProp(
+-      'pointerEvents',
+-      'none',
+-    );
+-  });
+-});
+diff --git a/mobile/src/components/__tests__/EmptyState.test.tsx b/mobile/src/components/__tests__/EmptyState.test.tsx
+index 21f8d01..269f332 100644
+--- a/mobile/src/components/__tests__/EmptyState.test.tsx
++++ b/mobile/src/components/__tests__/EmptyState.test.tsx
+@@ -1,10 +1,10 @@
+ import { screen } from '@testing-library/react-native';
+ import { Text } from 'react-native';
+ import {
+-  ReduceMotion,
+   useReducedMotion,
++  withDelay,
+   withSpring,
+   withTiming,
+ } from 'react-native-reanimated';
+ 
+ import type { RecordedAnimation } from '../../test/recordingAnimations';
+@@ -19,10 +19,11 @@ jest.mock('react-native-reanimated', () => {
+     ...actual,
+     ...jest
+       .requireActual('../../test/recordingAnimations')
+       .recordingAnimations(),
+     useReducedMotion: jest.fn(() => false),
++    withDelay: jest.fn(actual.withDelay),
+     withSpring: jest.fn(actual.withSpring),
+     withTiming: jest.fn(actual.withTiming),
+   };
+ });
+ 
+@@ -40,10 +41,13 @@ const iconCircle = () => screen.getByTestId('vazio-icon', hidden);
+ const enteringOf = (node: { parent: unknown }) =>
+   (node.parent as { props: { entering: RecordedAnimation } }).props.entering;
+ 
+ beforeEach(() => {
+   FakeIcon.mockClear();
++  (withDelay as jest.Mock).mockClear();
++  (withSpring as jest.Mock).mockClear();
++  (withTiming as jest.Mock).mockClear();
+   (useReducedMotion as jest.Mock).mockReturnValue(false);
+ });
+ 
+ describe('EmptyState', () => {
+   it('ícone num círculo de 64 em surfaceRaised, título e descrição', async () => {
+@@ -123,25 +127,17 @@ describe('EmptyState', () => {
+ 
+     expect(screen.getByText('Ação')).toBeOnTheScreen();
+     expect(screen.queryByTestId('vazio-description')).toBeNull();
+   });
+ 
+-  describe('entrada', () => {
++  describe('entrada (valor animado, sem layout animation)', () => {
+     it('ícone: opacidade 0 → 1 em `base` e escala popFrom → 1 com a mola gentle', async () => {
+       await renderWithTheme(
+         <EmptyState testID="vazio" icon={FakeIcon} title="Sem aulas" />,
+       );
+ 
+-      const entering = enteringOf(iconCircle()) as unknown as (
+-        values: unknown,
+-      ) => { initialValues: unknown; animations: unknown };
+-      expect(typeof entering).toBe('function');
+-      const animation = entering({});
+-      expect(animation.initialValues).toEqual({
+-        opacity: 0,
+-        transform: [{ scale: motion.popFrom }],
+-      });
++      expect(enteringOf(iconCircle())).toBeUndefined();
+       expect(withTiming).toHaveBeenCalledWith(1, {
+         duration: motion.base,
+         easing: motion.easeOut,
+       });
+       expect(withSpring).toHaveBeenCalledWith(1, motion.spring.gentle);
+@@ -156,38 +152,31 @@ describe('EmptyState', () => {
+           description="Descrição"
+           action={<Text>Ação</Text>}
+         />,
+       );
+ 
+-      const delays = ['Sem aulas', 'Descrição', 'Ação'].map(
+-        text => enteringOf(screen.getByText(text)).calls.delay,
++      const delays = (withDelay as jest.Mock).mock.calls.map(call => call[0]);
++      expect(delays).toEqual(
++        expect.arrayContaining([
++          motion.stagger,
++          2 * motion.stagger,
++          3 * motion.stagger,
++        ]),
+       );
+-      expect(delays).toEqual([
+-        motion.stagger,
+-        2 * motion.stagger,
+-        3 * motion.stagger,
+-      ]);
+-      expect(enteringOf(screen.getByText('Sem aulas')).name).toBe('FadeInDown');
+     });
+ 
+-    it('com reduzir movimento: só fade, que o sistema não pula', async () => {
++    it('com reduzir movimento: só o fade `fast`, sem escala', async () => {
+       (useReducedMotion as jest.Mock).mockReturnValue(true);
+       await renderWithTheme(
+         <EmptyState
+           testID="vazio"
+           icon={FakeIcon}
+           title="Sem aulas"
+           description="Descrição"
+         />,
+       );
+ 
+-      for (const entering of [
+-        enteringOf(iconCircle()),
+-        enteringOf(screen.getByText('Sem aulas')),
+-        enteringOf(screen.getByText('Descrição')),
+-      ]) {
+-        expect(entering.name).toBe('FadeIn');
+-        expect(entering.calls.reduceMotion).toBe(ReduceMotion.Never);
+-      }
++      expect(withTiming).toHaveBeenCalledWith(1, { duration: motion.fast });
++      expect(withSpring).not.toHaveBeenCalled();
+     });
+   });
+ });
+diff --git a/mobile/src/components/__tests__/PrimaryButton.test.tsx b/mobile/src/components/__tests__/PrimaryButton.test.tsx
+deleted file mode 100644
+index 702af04..0000000
+--- a/mobile/src/components/__tests__/PrimaryButton.test.tsx
++++ /dev/null
+@@ -1,78 +0,0 @@
+-import { fireEvent, screen } from '@testing-library/react-native';
+-
+-import { renderWithTheme } from '../../test/renderWithTheme';
+-import { theme } from '../../theme';
+-import { PrimaryButton } from '../PrimaryButton';
+-
+-const baseProps = {
+-  label: 'FAZER LOGIN',
+-  accessibilityLabel: 'Fazer login',
+-  loadingAccessibilityLabel: 'Entrando',
+-  testID: 'login-submit-button',
+-  loadingTestID: 'login-submit-loading',
+-};
+-
+-describe('PrimaryButton', () => {
+-  it('desabilitado: mostra o texto em textDisabled e ignora o toque', async () => {
+-    const onPress = jest.fn();
+-    await renderWithTheme(
+-      <PrimaryButton {...baseProps} disabled onPress={onPress} />,
+-    );
+-
+-    const button = screen.getByTestId('login-submit-button');
+-    expect(button.props.accessibilityState).toMatchObject({
+-      disabled: true,
+-      busy: false,
+-    });
+-    expect(button).toHaveProp('accessibilityRole', 'button');
+-    expect(button).toHaveProp('accessibilityLabel', 'Fazer login');
+-    expect(screen.getByText('FAZER LOGIN')).toHaveStyle({
+-      color: theme.colors.textDisabled,
+-    });
+-
+-    await fireEvent.press(button);
+-    expect(onPress).not.toHaveBeenCalled();
+-  });
+-
+-  it('ativo: texto em textOnPrimary e chama onPress', async () => {
+-    const onPress = jest.fn();
+-    await renderWithTheme(<PrimaryButton {...baseProps} onPress={onPress} />);
+-
+-    const button = screen.getByTestId('login-submit-button');
+-    expect(button.props.accessibilityState).toMatchObject({ disabled: false });
+-    expect(screen.getByText('FAZER LOGIN')).toHaveStyle({ color: '#000000' });
+-
+-    await fireEvent.press(button);
+-    expect(onPress).toHaveBeenCalledTimes(1);
+-  });
+-
+-  it('carregando: troca o texto pelo spinner, fica busy e ignora o toque', async () => {
+-    const onPress = jest.fn();
+-    await renderWithTheme(
+-      <PrimaryButton {...baseProps} loading onPress={onPress} />,
+-    );
+-
+-    const button = screen.getByTestId('login-submit-button');
+-    expect(screen.queryByText('FAZER LOGIN')).toBeNull();
+-    expect(screen.getByTestId('login-submit-loading')).toBeOnTheScreen();
+-    expect(button.props.accessibilityState).toMatchObject({
+-      disabled: true,
+-      busy: true,
+-    });
+-    expect(button).toHaveProp('accessibilityLabel', 'Entrando');
+-
+-    await fireEvent.press(button);
+-    expect(onPress).not.toHaveBeenCalled();
+-  });
+-
+-  it('cobre a área segura de baixo com a cor do botão', async () => {
+-    await renderWithTheme(
+-      <PrimaryButton {...baseProps} onPress={jest.fn()} bottomInset={34} />,
+-    );
+-
+-    expect(screen.getByTestId('login-submit-button')).toHaveStyle({
+-      backgroundColor: '#29F4D5',
+-      paddingBottom: 34,
+-    });
+-  });
+-});
+diff --git a/mobile/src/components/__tests__/StudentChip.test.tsx b/mobile/src/components/__tests__/StudentChip.test.tsx
+index 7d1aa1c..d6a2a39 100644
+--- a/mobile/src/components/__tests__/StudentChip.test.tsx
++++ b/mobile/src/components/__tests__/StudentChip.test.tsx
+@@ -1,9 +1,9 @@
+ import { fireEvent, screen } from '@testing-library/react-native';
++import { StyleSheet } from 'react-native';
+ import { useReducedMotion, withSpring } from 'react-native-reanimated';
+ 
+-import type { RecordedAnimation } from '../../test/recordingAnimations';
+ import { renderWithTheme } from '../../test/renderWithTheme';
+ import { theme } from '../../theme';
+ import { StudentChip, type ChipStudent } from '../StudentChip';
+ 
+ jest.mock('react-native-reanimated', () => {
+@@ -40,16 +40,15 @@ const marina: ChipStudent = {
+   rm: 12568,
+   period: 'Vespertino',
+ };
+ 
+ const chip = () => screen.getByTestId('header-student-chip');
+-const contentEntering = () =>
+-  (
+-    screen.getByTestId('header-student-chip-content', hidden) as unknown as {
+-      props: { entering?: RecordedAnimation };
+-    }
+-  ).props.entering;
++/** Opacidade do conteúdo (a entrada é por valor animado, sem `entering`). */
++const contentOpacity = () =>
++  StyleSheet.flatten(
++    screen.getByTestId('header-student-chip-content', hidden).props.style,
++  ).opacity;
+ 
+ beforeEach(() => {
+   jest.clearAllMocks();
+   reducedMotionMock.mockReturnValue(false);
+ });
+@@ -121,21 +120,19 @@ describe('StudentChip', () => {
+ 
+   it('o 1º aluno entra com o header; trocar de aluno faz crossfade do conteúdo', async () => {
+     const { rerender } = await renderWithTheme(
+       <StudentChip student={rafael} onPress={jest.fn()} />,
+     );
+-    expect(contentEntering()).toBeUndefined();
++    expect(contentOpacity()).toBe(1);
+ 
+     await rerender(<StudentChip student={marina} onPress={jest.fn()} />);
+ 
+     expect(screen.getByTestId('header-student-name', hidden)).toHaveTextContent(
+       'Marina',
+     );
+     expect(chip()).toHaveAccessibleName(
+       'Aluno Marina, turma 3EF, RM 12568, período Vespertino',
+     );
+-    expect(contentEntering()).toMatchObject({
+-      name: 'FadeIn',
+-      calls: { duration: motion.base, reduceMotion: 'never' },
+-    });
++    // O conteúdo novo nasce em 0 e faz o fade.
++    expect(contentOpacity()).toBe(0);
+   });
+ });
+diff --git a/mobile/src/components/__tests__/TextField.test.tsx b/mobile/src/components/__tests__/TextField.test.tsx
+index a29a5d9..a274fce 100644
+--- a/mobile/src/components/__tests__/TextField.test.tsx
++++ b/mobile/src/components/__tests__/TextField.test.tsx
+@@ -186,19 +186,18 @@ describe('TextField', () => {
+ 
+     expect(input()).toHaveProp('accessibilityHint', 'Somente números');
+     expect(screen.queryByTestId('campo-error')).toBeNull();
+   });
+ 
+-  it('o erro entra por valor animado (sem layout animation); com reduzir movimento nasce visível', async () => {
++  it('o erro entra por valor animado (sem layout animation); com reduzir movimento sem deslocamento', async () => {
+     reducedMotionMock.mockReturnValue(true);
+     await renderField({ error: 'Erro' });
+ 
+     // Layout animation podia deixar a view montada e invisível no Android.
+     expect(entering('campo-error-enter')).toBeUndefined();
+     expect(style('campo-error-enter')).toMatchObject({
+-      opacity: 1,
+-      transform: [{ translateY: 0 }],
++      transform: [{ translateX: 0 }, { translateY: 0 }, { scale: 1 }],
+     });
+   });
+ 
+   describe('máscara de CPF', () => {
+     it('teclado numérico, 14 caracteres e autofill de usuário', async () => {
+diff --git a/mobile/src/components/icons/CloseIcon.tsx b/mobile/src/components/icons/CloseIcon.tsx
+deleted file mode 100644
+index 2c3f8d2..0000000
+--- a/mobile/src/components/icons/CloseIcon.tsx
++++ /dev/null
+@@ -1,15 +0,0 @@
+-import Svg, { Path } from 'react-native-svg';
+-
+-type IconProps = { color: string; size: number };
+-
+-/** Ícone do FECHAR (docs/figma/assets/close.svg), 24 × 24. */
+-export function CloseIcon({ color, size }: IconProps) {
+-  return (
+-    <Svg width={size} height={size} viewBox="0 0 24 24">
+-      <Path
+-        d="M20.7457 3.32851C20.3552 2.93798 19.722 2.93798 19.3315 3.32851L12.0371 10.6229L4.74275 3.32851C4.35223 2.93798 3.71906 2.93798 3.32854 3.32851C2.93801 3.71903 2.93801 4.3522 3.32854 4.74272L10.6229 12.0371L3.32856 19.3314C2.93803 19.722 2.93803 20.3551 3.32856 20.7457C3.71908 21.1362 4.35225 21.1362 4.74277 20.7457L12.0371 13.4513L19.3315 20.7457C19.722 21.1362 20.3552 21.1362 20.7457 20.7457C21.1362 20.3551 21.1362 19.722 20.7457 19.3315L13.4513 12.0371L20.7457 4.74272C21.1362 4.3522 21.1362 3.71903 20.7457 3.32851Z"
+-        fill={color}
+-      />
+-    </Svg>
+-  );
+-}
+diff --git a/mobile/src/constants/strings.ts b/mobile/src/constants/strings.ts
+index 7290df0..0765dfc 100644
+--- a/mobile/src/constants/strings.ts
++++ b/mobile/src/constants/strings.ts
+@@ -223,12 +223,10 @@ export const strings = {
+     error: { title: 'Não conseguimos conectar.' },
+   },
+   common: {
+     /** Logo da splash, do Login e do header. */
+     logoLabel: 'FIAP School',
+-    /** Fundo do dropdown aberto: o leitor de tela também fecha a lista por ele. */
+-    closeListAccessibilityLabel: 'Fechar lista',
+     error: { description: 'Confira sua conexão e tente de novo.' },
+     retry: 'Tentar de novo',
+     retryAccessibilityLabel: 'Tentar de novo',
+   },
+ } as const;
+diff --git a/mobile/src/features/auth/components/LoginErrorBanner.tsx b/mobile/src/features/auth/components/LoginErrorBanner.tsx
+index 6be6532..0480f2c 100644
+--- a/mobile/src/features/auth/components/LoginErrorBanner.tsx
++++ b/mobile/src/features/auth/components/LoginErrorBanner.tsx
+@@ -1,8 +1,8 @@
+ import { useEffect } from 'react';
+ import { AccessibilityInfo } from 'react-native';
+-import { EnterDown } from '../../../components/EnterDown';
++import { Entrance } from '../../../components/Entrance';
+ import { AlertIcon } from '../../../components/icons/AlertIcon';
+ import { Box, Text, useTheme } from '../../../theme';
+ 
+ type LoginErrorBannerProps = { message: string };
+ 
+@@ -11,11 +11,11 @@ type LoginErrorBannerProps = { message: string };
+  * erros de envio e o aviso de sessão expirada. Rosa escuro com borda
+  * `danger`, ícone de alerta e o texto em `text`. Entra com fade de baixo e é
+  * anunciado uma vez ao leitor de tela.
+  */
+ export function LoginErrorBanner({ message }: LoginErrorBannerProps) {
+-  const { colors, sizes } = useTheme();
++  const { colors, motion, sizes } = useTheme();
+ 
+   // A live region do Android só avisa mudança numa view que já existia, e o
+   // banner nasce agora (remonta a cada erro): o anúncio é explícito nas duas
+   // plataformas, sem live region para não ler duas vezes.
+   useEffect(() => {
+@@ -24,11 +24,11 @@ export function LoginErrorBanner({ message }: LoginErrorBannerProps) {
+ 
+   return (
+     // Valor animado, não layout animation: o banner nasce depois do envio, e
+     // no Android a entrada de layout podia deixá-lo montado e invisível. Sai
+     // sem animação (some quando um campo muda).
+-    <EnterDown testID="login-error-banner">
++    <Entrance testID="login-error-banner" offsetY={motion.enterOffsetSmall}>
+       <Box
+         testID="login-error-box"
+         minHeight={sizes.banner}
+         borderRadius="m"
+         backgroundColor="accentMuted"
+@@ -49,8 +49,8 @@ export function LoginErrorBanner({ message }: LoginErrorBannerProps) {
+           accessibilityLabel={message}
+         >
+           {message}
+         </Text>
+       </Box>
+-    </EnterDown>
++    </Entrance>
+   );
+ }
+diff --git a/mobile/src/features/auth/components/__tests__/LoginErrorBanner.test.tsx b/mobile/src/features/auth/components/__tests__/LoginErrorBanner.test.tsx
+index ee893f4..ba459f7 100644
+--- a/mobile/src/features/auth/components/__tests__/LoginErrorBanner.test.tsx
++++ b/mobile/src/features/auth/components/__tests__/LoginErrorBanner.test.tsx
+@@ -75,17 +75,19 @@ describe('LoginErrorBanner', () => {
+       expect(announce).toHaveBeenCalledTimes(1);
+       expect(announce).toHaveBeenCalledWith(MESSAGE);
+     },
+   );
+ 
+-  it('entra por valor animado (sem layout animation); com reduzir movimento nasce visível', async () => {
++  it('entra por valor animado (sem layout animation); com reduzir movimento sem deslocamento', async () => {
+     reducedMotionMock.mockReturnValue(true);
+ 
+     await renderWithTheme(<LoginErrorBanner message={MESSAGE} />);
+ 
+     // Layout animation podia deixar o banner montado e invisível no Android.
+     expect(entering()).toBeUndefined();
+     expect(
+       StyleSheet.flatten(screen.getByTestId('login-error-banner').props.style),
+-    ).toMatchObject({ opacity: 1, transform: [{ translateY: 0 }] });
++    ).toMatchObject({
++      transform: [{ translateX: 0 }, { translateY: 0 }, { scale: 1 }],
++    });
+   });
+ });
+diff --git a/mobile/src/features/lessons/LessonsScreen.tsx b/mobile/src/features/lessons/LessonsScreen.tsx
+index cd938bb..82c4c5b 100644
+--- a/mobile/src/features/lessons/LessonsScreen.tsx
++++ b/mobile/src/features/lessons/LessonsScreen.tsx
+@@ -22,11 +22,11 @@ import { CalendarOffIcon } from '../../components/icons/CalendarOffIcon';
+ import { Screen } from '../../components/Screen';
+ import { strings } from '../../constants/strings';
+ import { useFloatingTabBarInset } from '../../hooks/useFloatingTabBarInset';
+ import { Box, useTheme } from '../../theme';
+ import { useHeaderViewModel } from '../header/useHeaderViewModel';
+-import { AgendaEnter } from './components/AgendaEnter';
++import { Entrance } from '../../components/Entrance';
+ import { DayPage } from './components/DayPage';
+ import type { TimetableClock } from './components/Timetable';
+ import { WeekStrip } from './components/WeekStrip';
+ import { hourHeight } from './timetable';
+ import { useAgendaViewModel, type AgendaPage } from './useAgendaViewModel';
+@@ -165,11 +165,12 @@ export function LessonsScreen() {
+             title={strings.agenda.weekEmpty}
+           />
+         ) : null}
+         {vm.status === 'ready' && !vm.isWeekEmpty ? (
+           <>
+-            <AgendaEnter
++            <Entrance
++              offsetY={motion.enterOffsetSmall}
+               key={`strip-${vm.studentKey}`}
+               delay={motion.stagger}
+               style={{
+                 paddingHorizontal:
+                   window.width < breakpoints.phone ? spacing.s : spacing.m,
+@@ -184,11 +185,11 @@ export function LessonsScreen() {
+                 onSelect={onSelectChip}
+                 monthLabel={vm.monthLabel}
+                 showTodayButton={vm.showTodayButton}
+                 onPressToday={onPressToday}
+               />
+-            </AgendaEnter>
++            </Entrance>
+             <Box flex={1} onLayout={onPagerLayout}>
+               <Animated.FlatList
+                 key={`pager-${vm.studentKey}-${width}`}
+                 ref={listRef}
+                 testID="agenda-pager"
+diff --git a/mobile/src/features/lessons/components/AgendaEnter.tsx b/mobile/src/features/lessons/components/AgendaEnter.tsx
+deleted file mode 100644
+index 9df8aa0..0000000
+--- a/mobile/src/features/lessons/components/AgendaEnter.tsx
++++ /dev/null
+@@ -1,65 +0,0 @@
+-import { useEffect, type ReactNode } from 'react';
+-import type { StyleProp, ViewStyle } from 'react-native';
+-import Animated, {
+-  useAnimatedStyle,
+-  useReducedMotion,
+-  useSharedValue,
+-  withDelay,
+-  withTiming,
+-} from 'react-native-reanimated';
+-
+-import { useTheme } from '../../../theme';
+-
+-type AgendaEnterProps = {
+-  children: ReactNode;
+-  /** Atraso da entrada (cascata), em ms. */
+-  delay?: number;
+-  /** Deslocamento inicial em y; 0 = só fade. */
+-  offset?: number;
+-  style?: StyleProp<ViewStyle>;
+-  testID?: string;
+-};
+-
+-/**
+- * Entrada da Agenda (01-design.md da v2, 4.4) por valor animado, sem
+- * animação de layout: o que monta depois que os dados chegam (faixa,
+- * banner, blocos) não pode usar `entering`, porque no Android a entrada às
+- * vezes não termina e a view fica com opacidade 0 (mesmo conserto do
+- * `EnterDown` da v1). Com reduzir movimento, só o fade curto (`fast`):
+- * opacidade não é movimento.
+- */
+-export function AgendaEnter({
+-  children,
+-  delay = 0,
+-  offset,
+-  style,
+-  testID,
+-}: AgendaEnterProps) {
+-  const { motion } = useTheme();
+-  const reducedMotion = useReducedMotion();
+-  const progress = useSharedValue(0);
+-  const distance = reducedMotion ? 0 : offset ?? motion.enterOffsetSmall;
+-
+-  useEffect(() => {
+-    progress.set(
+-      withDelay(
+-        reducedMotion ? 0 : delay,
+-        withTiming(1, {
+-          duration: reducedMotion ? motion.fast : motion.base,
+-          easing: motion.easeOut,
+-        }),
+-      ),
+-    );
+-  }, [delay, motion, progress, reducedMotion]);
+-
+-  const animatedStyle = useAnimatedStyle(() => ({
+-    opacity: progress.get(),
+-    transform: [{ translateY: (1 - progress.get()) * distance }],
+-  }));
+-
+-  return (
+-    <Animated.View testID={testID} style={[style, animatedStyle]}>
+-      {children}
+-    </Animated.View>
+-  );
+-}
+diff --git a/mobile/src/features/lessons/components/DayPage.tsx b/mobile/src/features/lessons/components/DayPage.tsx
+index 4db219f..a1cbe30 100644
+--- a/mobile/src/features/lessons/components/DayPage.tsx
++++ b/mobile/src/features/lessons/components/DayPage.tsx
+@@ -11,11 +11,11 @@ import { EmptyState } from '../../../components/EmptyState';
+ import { CalendarOffIcon } from '../../../components/icons/CalendarOffIcon';
+ import { strings } from '../../../constants/strings';
+ import { Box, useTheme } from '../../../theme';
+ import { autoScrollTarget, minutesOfDay } from '../timetable';
+ import type { AgendaPage } from '../useAgendaViewModel';
+-import { AgendaEnter } from './AgendaEnter';
++import { Entrance } from '../../../components/Entrance';
+ import { NowBanner } from './NowBanner';
+ import { Timetable, type TimetableClock } from './Timetable';
+ 
+ type DayPageProps = {
+   page: AgendaPage;
+@@ -120,10 +120,11 @@ export const DayPage = memo(function DayPageView({
+         <RefreshControl
+           refreshing={refreshing}
+           onRefresh={onRefresh}
+           tintColor={colors.primary}
+           colors={[colors.primary]}
++          progressBackgroundColor={colors.surfaceRaised}
+         />
+       }
+     >
+       {empty ? (
+         <EmptyState
+@@ -133,17 +134,17 @@ export const DayPage = memo(function DayPageView({
+           description={page.emptyDescription}
+         />
+       ) : (
+         <>
+           {page.banner ? (
+-            <AgendaEnter delay={enterDelay}>
++            <Entrance delay={enterDelay} offsetY={motion.enterOffsetSmall}>
+               <NowBanner
+                 testID={`${testID}-banner`}
+                 banner={page.banner}
+                 announce={page.isToday && visible}
+               />
+-            </AgendaEnter>
++            </Entrance>
+           ) : null}
+           <Box
+             marginTop="m"
+             onLayout={(event: LayoutChangeEvent) =>
+               setTimetableY(event.nativeEvent.layout.y)
+diff --git a/mobile/src/features/lessons/components/NowBanner.tsx b/mobile/src/features/lessons/components/NowBanner.tsx
+index 894c661..f29db5f 100644
+--- a/mobile/src/features/lessons/components/NowBanner.tsx
++++ b/mobile/src/features/lessons/components/NowBanner.tsx
+@@ -1,22 +1,22 @@
+ import { useEffect, useRef } from 'react';
+-import { AccessibilityInfo, StyleSheet } from 'react-native';
++import { AccessibilityInfo, Platform, StyleSheet } from 'react-native';
+ import Animated, {
+   cancelAnimation,
+   Easing,
+   useAnimatedStyle,
+   useReducedMotion,
+   useSharedValue,
+   withRepeat,
+   withTiming,
+ } from 'react-native-reanimated';
+ 
++import { Entrance } from '../../../components/Entrance';
+ import { CheckIcon } from '../../../components/icons/CheckIcon';
+ import { ClockIcon } from '../../../components/icons/ClockIcon';
+ import { Box, Card, Text, useTheme } from '../../../theme';
+ import type { AgendaBanner } from '../useAgendaViewModel';
+-import { AgendaEnter } from './AgendaEnter';
+ 
+ const MARKER = 8;
+ const ICON = 16;
+ 
+ /** Ponto teal com o anel pulsando (aula em andamento); parado com reduzir movimento. */
+@@ -98,24 +98,28 @@ export function NowBanner({
+   const previous = useRef(message);
+ 
+   useEffect(() => {
+     if (previous.current === message) return;
+     previous.current = message;
+-    if (announce) AccessibilityInfo.announceForAccessibility(message);
++    // Um caminho por plataforma: no Android a live region do card (que já
++    // existia) lê a troca; o anúncio explícito leria de novo.
++    if (announce && Platform.OS === 'ios') {
++      AccessibilityInfo.announceForAccessibility(message);
++    }
+   }, [message, announce]);
+ 
+   return (
+     <Card
+       testID={testID}
+       variant="banner"
+       minHeight={sizes.banner}
+       justifyContent="center"
+       accessible
+       accessibilityLabel={message}
+-      accessibilityLiveRegion="polite"
++      accessibilityLiveRegion={announce ? 'polite' : 'none'}
+     >
+-      <AgendaEnter key={message} offset={0}>
++      <Entrance key={message}>
+         <Box flexDirection="row" alignItems="center" gap="s">
+           <Marker kind={banner.kind} />
+           <Text
+             testID={`${testID}-text`}
+             variant="bodyStrong"
+@@ -126,9 +130,9 @@ export function NowBanner({
+             <Text variant="body" color="textSecondary">
+               {banner.detail}
+             </Text>
+           </Text>
+         </Box>
+-      </AgendaEnter>
++      </Entrance>
+     </Card>
+   );
+ }
+diff --git a/mobile/src/features/lessons/components/Timetable.tsx b/mobile/src/features/lessons/components/Timetable.tsx
+index 99f0c6c..53a4ce8 100644
+--- a/mobile/src/features/lessons/components/Timetable.tsx
++++ b/mobile/src/features/lessons/components/Timetable.tsx
+@@ -13,11 +13,11 @@ import Animated, {
+ import { strings } from '../../../constants/strings';
+ import { Box, Card, Text, useTheme } from '../../../theme';
+ import { formatMinutes, hourMarks } from '../timetable';
+ import type { AgendaLesson, AgendaPage } from '../useAgendaViewModel';
+ import { useMinuteTicker } from '../useMinuteClock';
+-import { AgendaEnter } from './AgendaEnter';
++import { Entrance } from '../../../components/Entrance';
+ 
+ /** Rótulo de hora: metade da linha do `time`, para centralizar na linha. */
+ const HOUR_LABEL_SHIFT = 7;
+ /** Rótulos de hora a menos disso da linha de agora somem (ficam sob a marca). */
+ const LABEL_CLEARANCE = 14;
+@@ -132,12 +132,13 @@ function LessonBlock({
+   const compact = height < MIN_BLOCK_WITH_TIME;
+   const delay =
+     enterDelay + Math.min(index, motion.maxStaggered) * motion.stagger;
+ 
+   return (
+-    <AgendaEnter
++    <Entrance
+       delay={delay}
++      offsetY={motion.enterOffsetSmall}
+       style={[styles.block, { top, height, left: sizes.timetable.gutter }]}
+     >
+       <Animated.View style={[styles.fill, dimStyle]}>
+         <Card
+           testID={testID}
+@@ -184,11 +185,11 @@ function LessonBlock({
+             },
+             glowStyle,
+           ]}
+         />
+       </Animated.View>
+-    </AgendaEnter>
++    </Entrance>
+   );
+ }
+ 
+ /** Selo "Agora": cresce de `popFrom` com a mola `pop` (fade com reduzir movimento). */
+ function NowBadge({ testID }: { testID: string }) {
+diff --git a/mobile/src/features/lessons/components/WeekStrip.tsx b/mobile/src/features/lessons/components/WeekStrip.tsx
+index 04de795..93e85a0 100644
+--- a/mobile/src/features/lessons/components/WeekStrip.tsx
++++ b/mobile/src/features/lessons/components/WeekStrip.tsx
+@@ -22,11 +22,11 @@ import {
+   useSlidingIndicator,
+   type SlidingIndicator,
+ } from '../../../hooks/useSlidingIndicator';
+ import { Box, Text, useTheme } from '../../../theme';
+ import type { AgendaDayItem } from '../useAgendaViewModel';
+-import { AgendaEnter } from './AgendaEnter';
++import { Entrance } from '../../../components/Entrance';
+ 
+ type WeekStripProps = {
+   days: AgendaDayItem[];
+   selectedIndex: number;
+   /** Posição do pager em páginas (UI thread): o indicador segue o dedo. */
+@@ -210,20 +210,20 @@ export function WeekStrip({
+           accessibilityRole="header"
+         >
+           {monthLabel}
+         </Text>
+         {showTodayButton ? (
+-          <AgendaEnter offset={0}>
++          <Entrance>
+             <PillButton
+               testID="agenda-today-button"
+               label={strings.agenda.today}
+               accessibilityHint={strings.agenda.todayHint}
+               variant="ghost"
+               size="xs"
+               onPress={onPressToday}
+             />
+-          </AgendaEnter>
++          </Entrance>
+         ) : null}
+       </Box>
+       <Box marginTop="s" height={height}>
+         <Box
+           style={StyleSheet.absoluteFill}
+diff --git a/mobile/src/features/lessons/useAgendaViewModel.ts b/mobile/src/features/lessons/useAgendaViewModel.ts
+index ed6e657..7e41ad7 100644
+--- a/mobile/src/features/lessons/useAgendaViewModel.ts
++++ b/mobile/src/features/lessons/useAgendaViewModel.ts
+@@ -304,12 +304,15 @@ export function useAgendaViewModel({
+     if (result.isError) setFailedRetries(count => count + 1);
+   };
+ 
+   const onRefresh = async () => {
+     setRefreshing(true);
+-    await query.refetch();
+-    setRefreshing(false);
++    try {
++      await query.refetch();
++    } finally {
++      setRefreshing(false);
++    }
+   };
+ 
+   return {
+     status,
+     /** Remonta o pager (no dia de hoje) quando o aluno muda. */
+diff --git a/mobile/src/features/profile/ProfileScreen.tsx b/mobile/src/features/profile/ProfileScreen.tsx
+index 193a527..85eedbd 100644
+--- a/mobile/src/features/profile/ProfileScreen.tsx
++++ b/mobile/src/features/profile/ProfileScreen.tsx
+@@ -1,52 +1,34 @@
+ import { useIsFocused } from '@react-navigation/native';
+ import { RefreshControl, StyleSheet } from 'react-native';
+-import Animated, {
+-  FadeIn,
+-  FadeInDown,
+-  ReduceMotion,
+-  useReducedMotion,
+-} from 'react-native-reanimated';
+ 
+ import { Avatar } from '../../components/Avatar';
++import { Entrance } from '../../components/Entrance';
+ import { Screen } from '../../components/Screen';
+ import { strings } from '../../constants/strings';
+-import { Box, Card, Text, useTheme, type Theme } from '../../theme';
++import { Box, Card, Text, useTheme } from '../../theme';
+ import { TabScreenLayout } from '../header/TabScreenLayout';
+ import { LogoutRow } from './components/LogoutRow';
+ import { StudentRow } from './components/StudentRow';
+ import { useProfileViewModel } from './useProfileViewModel';
+ 
+-type Motion = Theme['motion'];
+-
+-/**
+- * Entrada em cascata da 1ª visita (4.6): o card do responsável, as linhas
+- * de aluno e a "Conta", de 12 para cima, até o teto do stagger. Com reduzir
+- * movimento, só o fade (opacidade não é movimento).
+- */
+-function entering(motion: Motion, reduced: boolean, index: number) {
+-  if (reduced) {
+-    return FadeIn.duration(motion.fast).reduceMotion(ReduceMotion.Never);
+-  }
+-  return FadeInDown.duration(motion.base)
+-    .delay(Math.min(index, motion.maxStaggered - 1) * motion.cardStagger)
+-    .easing(motion.easeOut)
+-    .withInitialValues({ transform: [{ translateY: motion.enterOffset }] })
+-    .reduceMotion(ReduceMotion.System);
+-}
+-
+ /**
+  * Aba Perfil (V3, 01-design.md da v2 3.5): header compacto sem o chip, o
+  * responsável (nome e CPF mascarado, como a API manda), os alunos com o
+  * atual em destaque e a troca num toque (DV8), e "Sair da conta" com
+  * confirmação inline (DV7). O conteúdo rola por baixo da tab bar flutuante.
+  */
+ export function ProfileScreen() {
+   const vm = useProfileViewModel({ focused: useIsFocused() });
+   const { colors, motion, sizes, spacing } = useTheme();
+-  const reducedMotion = useReducedMotion();
+-  const enter = (index: number) => entering(motion, reducedMotion, index);
++  // Entrada em cascata da 1ª visita (4.6): o card do responsável, as linhas
++  // de aluno e a "Conta", de 12 para cima, até o teto do stagger. Por valor
++  // animado: o `/me` pode chegar depois da tela (sem layout animation).
++  const enter = (index: number) => ({
++    delay: Math.min(index, motion.maxStaggered - 1) * motion.cardStagger,
++    offsetY: motion.enterOffset,
++  });
+   const accountIndex = 1 + vm.students.length;
+ 
+   return (
+     <Screen testID="profile-screen">
+       <TabScreenLayout
+@@ -64,14 +46,11 @@ export function ProfileScreen() {
+           />
+         }
+       >
+         <Box paddingHorizontal="m">
+           {vm.guardian ? (
+-            <Animated.View
+-              entering={enter(0)}
+-              style={{ marginTop: spacing.sm }}
+-            >
++            <Entrance {...enter(0)} style={{ marginTop: spacing.sm }}>
+               <Card
+                 testID="profile-guardian-card"
+                 variant="surface"
+                 accessible
+                 accessibilityLabel={strings.profile.guardianAccessibilityLabel(
+@@ -114,11 +93,11 @@ export function ProfileScreen() {
+                   >
+                     {vm.guardian.cpfMasked}
+                   </Text>
+                 </Box>
+               </Card>
+-            </Animated.View>
++            </Entrance>
+           ) : null}
+ 
+           <Box marginTop="l">
+             <Text variant="overline" accessibilityRole="header">
+               {strings.profile.studentsHeader}
+@@ -133,11 +112,11 @@ export function ProfileScreen() {
+               </Text>
+             ) : null}
+           </Box>
+           <Box gap="s" marginTop="sm">
+             {vm.students.map((student, index) => (
+-              <Animated.View key={student.id} entering={enter(1 + index)}>
++              <Entrance key={student.id} {...enter(1 + index)}>
+                 <StudentRow
+                   testID={`profile-student-${student.rm}`}
+                   firstName={student.firstName}
+                   lastName={student.lastName}
+                   fullName={student.fullName}
+@@ -146,18 +125,15 @@ export function ProfileScreen() {
+                   period={student.period}
+                   selected={student.selected}
+                   pressable={vm.canSwitch}
+                   onPress={() => vm.onSelectStudent(student.id)}
+                 />
+-              </Animated.View>
++              </Entrance>
+             ))}
+           </Box>
+ 
+-          <Animated.View
+-            entering={enter(accountIndex)}
+-            style={{ marginTop: spacing.l }}
+-          >
++          <Entrance {...enter(accountIndex)} style={{ marginTop: spacing.l }}>
+             <Text variant="overline" accessibilityRole="header">
+               {strings.profile.accountHeader}
+             </Text>
+             <Box marginTop="sm" minHeight={sizes.profile.logoutRow}>
+               <LogoutRow
+@@ -167,11 +143,11 @@ export function ProfileScreen() {
+                 onAsk={vm.onAskLogout}
+                 onCancel={vm.onCancelLogout}
+                 onConfirm={vm.onConfirmLogout}
+               />
+             </Box>
+-          </Animated.View>
++          </Entrance>
+         </Box>
+       </TabScreenLayout>
+     </Screen>
+   );
+ }
+diff --git a/mobile/src/features/profile/__tests__/StudentRow.test.tsx b/mobile/src/features/profile/__tests__/StudentRow.test.tsx
+index 95ccb21..7ffc58e 100644
+--- a/mobile/src/features/profile/__tests__/StudentRow.test.tsx
++++ b/mobile/src/features/profile/__tests__/StudentRow.test.tsx
+@@ -1,14 +1,14 @@
+ import { fireEvent, screen } from '@testing-library/react-native';
+ import type { ComponentProps } from 'react';
++import { StyleSheet } from 'react-native';
+ import {
+   useReducedMotion,
+   withSpring,
+   withTiming,
+ } from 'react-native-reanimated';
+ 
+-import type { RecordedAnimation } from '../../../test/recordingAnimations';
+ import { renderWithTheme } from '../../../test/renderWithTheme';
+ import { theme } from '../../../theme';
+ import { StudentRow } from '../components/StudentRow';
+ 
+ jest.mock('react-native-reanimated', () => {
+@@ -25,10 +25,19 @@ jest.mock('react-native-reanimated', () => {
+ });
+ 
+ const { borderRadii, colors, motion, shadows, sizes, spacing } = theme;
+ const reducedMotionMock = useReducedMotion as jest.Mock;
+ const hidden = { includeHiddenElements: true };
++/** Opacidade da entrada (valor animado) que envolve o elemento. */
++const entranceOpacity = (id: string) =>
++  StyleSheet.flatten(
++    (
++      screen.getByTestId(id, hidden).parent as unknown as {
++        props: { style: unknown };
++      }
++    ).props.style as never,
++  ).opacity;
+ 
+ type Props = ComponentProps<typeof StudentRow>;
+ 
+ const marina: Props = {
+   testID: 'profile-student-12568',
+@@ -206,36 +215,27 @@ describe('StudentRow', () => {
+         opacity: 1,
+       });
+     });
+ 
+     it('o selo só anima numa troca: na 1ª visita entra com a tela', async () => {
+-      const enteringOfBadge = () =>
+-        (
+-          screen.getByTestId('profile-student-12568-current', hidden)
+-            .parent as unknown as { props: { entering?: unknown } }
+-        ).props.entering;
+       const { rerender } = await renderWithTheme(
+         <StudentRow {...marina} selected />,
+       );
+-      expect(enteringOfBadge()).toBeUndefined();
++      expect(entranceOpacity('profile-student-12568-current')).toBe(1);
+ 
+       await rerender(<StudentRow {...marina} />);
+       await rerender(<StudentRow {...marina} selected />);
+ 
+-      expect(typeof enteringOfBadge()).toBe('function');
++      expect(entranceOpacity('profile-student-12568-current')).toBe(0);
+     });
+ 
+     it('o selo anima já na 1ª troca', async () => {
+       const { rerender } = await renderWithTheme(<StudentRow {...marina} />);
+ 
+       await rerender(<StudentRow {...marina} selected />);
+ 
+-      const badge = screen.getByTestId('profile-student-12568-current', hidden);
+-      expect(
+-        typeof (badge.parent as unknown as { props: { entering?: unknown } })
+-          .props.entering,
+-      ).toBe('function');
++      expect(entranceOpacity('profile-student-12568-current')).toBe(0);
+     });
+ 
+     it('deixar de ser atual: a camada apaga em `fast`, sem mola', async () => {
+       const { rerender } = await renderWithTheme(
+         <StudentRow {...marina} selected />,
+@@ -247,29 +247,17 @@ describe('StudentRow', () => {
+       expect(withSpring).not.toHaveBeenCalled();
+     });
+ 
+     it('com reduzir movimento: o selo e o rádio ainda entram em fade (opacidade não é movimento)', async () => {
+       reducedMotionMock.mockReturnValue(true);
+-      const enteringOf = (id: string) =>
+-        (
+-          screen.getByTestId(id, hidden).parent as unknown as {
+-            props: { entering?: RecordedAnimation };
+-          }
+-        ).props.entering;
+       const { rerender } = await renderWithTheme(<StudentRow {...marina} />);
+ 
+       await rerender(<StudentRow {...marina} selected />);
+-      expect(enteringOf('profile-student-12568-current')).toMatchObject({
+-        name: 'FadeIn',
+-        calls: { duration: motion.fast, reduceMotion: 'never' },
+-      });
++      expect(entranceOpacity('profile-student-12568-current')).toBe(0);
+ 
+       await rerender(<StudentRow {...marina} />);
+-      expect(enteringOf('profile-student-12568-radio')).toMatchObject({
+-        name: 'FadeIn',
+-        calls: { duration: motion.fast, reduceMotion: 'never' },
+-      });
++      expect(entranceOpacity('profile-student-12568-radio')).toBe(0);
+     });
+ 
+     it('com reduzir movimento: a camada ainda faz o fade, mas sem escala', async () => {
+       reducedMotionMock.mockReturnValue(true);
+       const { rerender } = await renderWithTheme(<StudentRow {...marina} />);
+diff --git a/mobile/src/features/profile/components/LogoutRow.tsx b/mobile/src/features/profile/components/LogoutRow.tsx
+index cabfd74..7a3fb05 100644
+--- a/mobile/src/features/profile/components/LogoutRow.tsx
++++ b/mobile/src/features/profile/components/LogoutRow.tsx
+@@ -5,19 +5,17 @@ import {
+   StyleSheet,
+   useWindowDimensions,
+   type View,
+ } from 'react-native';
+ import Animated, {
+-  FadeIn,
+-  FadeOut,
+-  ReduceMotion,
+   useAnimatedStyle,
+   useReducedMotion,
+   useSharedValue,
+   withSpring,
+ } from 'react-native-reanimated';
+ 
++import { Entrance } from '../../../components/Entrance';
+ import { LogoutIcon } from '../../../components/icons/LogoutIcon';
+ import { PillButton } from '../../../components/PillButton';
+ import { strings } from '../../../constants/strings';
+ import { Box, Text, useTheme } from '../../../theme';
+ 
+@@ -76,25 +74,20 @@ export function LogoutRow({
+   };
+   const pressOut = () => {
+     if (!reducedMotion) scale.set(withSpring(1, motion.press));
+   };
+ 
+-  // Opacidade não é movimento: o crossfade fica com reduzir movimento.
+-  const entering = toggled
+-    ? FadeIn.duration(motion.base).reduceMotion(ReduceMotion.Never)
+-    : undefined;
+-  const exiting = FadeOut.duration(motion.base).reduceMotion(
+-    ReduceMotion.Never,
+-  );
++  // A camada nova entra em fade por valor animado e a antiga sai sem
++  // animação: nada de layout animation, que no Android podia deixar uma
++  // camada invisível (ou presa por cima) na mesma área do toque.
+ 
+   return (
+     <Box testID={testID} height={sizes.profile.logoutRow}>
+       {confirming ? (
+-        <Animated.View
++        <Entrance
+           key="confirm"
+-          entering={entering}
+-          exiting={exiting}
++          enabled={toggled}
+           style={StyleSheet.absoluteFill}
+         >
+           <Box
+             flex={1}
+             flexDirection="row"
+@@ -155,18 +148,13 @@ export function LogoutRow({
+                 }
+                 onPress={onConfirm}
+               />
+             </Box>
+           </Box>
+-        </Animated.View>
++        </Entrance>
+       ) : (
+-        <Animated.View
+-          key="ask"
+-          entering={entering}
+-          exiting={exiting}
+-          style={StyleSheet.absoluteFill}
+-        >
++        <Entrance key="ask" enabled={toggled} style={StyleSheet.absoluteFill}>
+           <Pressable
+             ref={buttonRef}
+             testID={`${testID}-button`}
+             accessibilityRole="button"
+             accessibilityLabel={strings.profile.logout}
+@@ -197,11 +185,11 @@ export function LogoutRow({
+                   {strings.profile.logout}
+                 </Text>
+               </Box>
+             </Animated.View>
+           </Pressable>
+-        </Animated.View>
++        </Entrance>
+       )}
+     </Box>
+   );
+ }
+ 
+diff --git a/mobile/src/features/profile/components/StudentRow.tsx b/mobile/src/features/profile/components/StudentRow.tsx
+index b3113fc..4132dfa 100644
+--- a/mobile/src/features/profile/components/StudentRow.tsx
++++ b/mobile/src/features/profile/components/StudentRow.tsx
+@@ -1,24 +1,21 @@
+ import { useEffect, useRef, useState } from 'react';
+ import { Pressable, StyleSheet } from 'react-native';
+ import Animated, {
+-  FadeIn,
+-  FadeOut,
+-  ReduceMotion,
+   useAnimatedStyle,
+   useReducedMotion,
+   useSharedValue,
+   withSequence,
+   withSpring,
+   withTiming,
+-  type LayoutAnimation,
+ } from 'react-native-reanimated';
+ 
+ import { Avatar } from '../../../components/Avatar';
++import { Entrance } from '../../../components/Entrance';
+ import { CheckIcon } from '../../../components/icons/CheckIcon';
+ import { strings } from '../../../constants/strings';
+-import { Box, Text, useTheme, type Theme } from '../../../theme';
++import { Box, Text, useTheme } from '../../../theme';
+ 
+ type StudentRowProps = {
+   /** `profile-student-<rm>`; filhos: `-surface`, `-avatar`, `-highlight`, `-current`, `-radio`. */
+   testID: string;
+   firstName: string;
+@@ -35,36 +32,10 @@ type StudentRowProps = {
+ };
+ 
+ /** Espessura da borda da linha: a camada de destaque cobre a borda. */
+ const ROW_BORDER = 1;
+ 
+-type Motion = Theme['motion'];
+-
+-/** Opacidade não é movimento: o fade fica com reduzir movimento (4.6). */
+-function fadeInFast(motion: Motion) {
+-  return FadeIn.duration(motion.fast).reduceMotion(ReduceMotion.Never);
+-}
+-
+-/**
+- * Selo "Atual" entrando quando o aluno acaba de ser escolhido (4.6): fade e
+- * escala `popFrom` → 1 com a mola `pop`; com reduzir movimento, só o fade.
+- */
+-function badgeEntering(motion: Motion, reduced: boolean) {
+-  if (reduced) return fadeInFast(motion);
+-  const { fast, popFrom, spring } = motion;
+-  return (): LayoutAnimation => {
+-    'worklet';
+-    return {
+-      initialValues: { opacity: 0, transform: [{ scale: popFrom }] },
+-      animations: {
+-        opacity: withTiming(1, { duration: fast }),
+-        transform: [{ scale: withSpring(1, spring.pop) }],
+-      },
+-    };
+-  };
+-}
+-
+ /**
+  * Linha de um aluno no Perfil (01-design.md da v2, 3.5): avatar, nome e
+  * turma · RM · período. O atual tem o selo "Atual" e uma camada de borda
+  * teal com brilho; os outros, um rádio vazio. A troca é um crossfade da
+  * camada (sem animar cor) e, na linha nova, um "pop" de escala (4.6). Para o
+@@ -126,14 +97,10 @@ export function StudentRow({
+   };
+   const pressOut = () => {
+     if (!reducedMotion) scale.set(withSpring(1, motion.press));
+   };
+ 
+-  const fadeOut = FadeOut.duration(motion.fast).reduceMotion(
+-    ReduceMotion.Never,
+-  );
+-
+   return (
+     <Pressable
+       testID={testID}
+       accessibilityRole={switchable ? 'button' : 'text'}
+       accessibilityLabel={strings.profile.studentAccessibilityLabel(
+@@ -193,15 +160,18 @@ export function StudentRow({
+             <Text variant="caption">
+               {strings.profile.studentInfo(className, rm, period)}
+             </Text>
+           </Box>
+           {selected ? (
+-            <Animated.View
+-              entering={
+-                toggled ? badgeEntering(motion, reducedMotion) : undefined
+-              }
+-              exiting={fadeOut}
++            // Selo entrando depois da troca (4.6): fade e escala `popFrom`
++            // → 1 com a mola `pop`; com reduzir movimento, só o fade. Sai sem
++            // animação: nada de layout animation no Android (fatia 9).
++            <Entrance
++              enabled={toggled}
++              duration={motion.fast}
++              scaleFrom={motion.popFrom}
++              spring={motion.spring.pop}
+             >
+               <Box
+                 testID={`${testID}-current`}
+                 flexDirection="row"
+                 alignItems="center"
+@@ -221,26 +191,23 @@ export function StudentRow({
+                   maxFontSizeMultiplier={sizes.fixedHeightFontScale}
+                 >
+                   {strings.profile.current}
+                 </Text>
+               </Box>
+-            </Animated.View>
++            </Entrance>
+           ) : null}
+           {!selected && pressable ? (
+-            <Animated.View
+-              entering={toggled ? fadeInFast(motion) : undefined}
+-              exiting={fadeOut}
+-            >
++            <Entrance enabled={toggled} duration={motion.fast}>
+               <Box
+                 testID={`${testID}-radio`}
+                 width={sizes.profile.radio}
+                 height={sizes.profile.radio}
+                 borderRadius="pill"
+                 borderColor="borderInput"
+                 style={{ borderWidth: sizes.profile.radioBorder }}
+               />
+-            </Animated.View>
++            </Entrance>
+           ) : null}
+         </Box>
+       </Animated.View>
+     </Pressable>
+   );
+diff --git a/mobile/src/features/report-card/ReportCardScreen.tsx b/mobile/src/features/report-card/ReportCardScreen.tsx
+index e343492..3ca0b51 100644
+--- a/mobile/src/features/report-card/ReportCardScreen.tsx
++++ b/mobile/src/features/report-card/ReportCardScreen.tsx
+@@ -1,6 +1,7 @@
+ import { useIsFocused } from '@react-navigation/native';
++import { RefreshControl } from 'react-native';
+ 
+ import { BoletimSkeleton } from '../../components/BoletimSkeleton';
+ import { EmptyState } from '../../components/EmptyState';
+ import { Entrance } from '../../components/Entrance';
+ import { ClockIcon } from '../../components/icons/ClockIcon';
+@@ -24,11 +25,11 @@ import { useReportCardViewModel } from './useReportCardViewModel';
+  */
+ export function ReportCardScreen() {
+   const vm = useReportCardViewModel();
+   // As abas ficam montadas: só a visível anuncia o erro (3.8).
+   const isFocused = useIsFocused();
+-  const { motion } = useTheme();
++  const { colors, motion } = useTheme();
+   const segmentsDelay = 3 * motion.stagger;
+   const cardDelay = (index: number) =>
+     vm.contentEnterDelay +
+     Math.min(index, motion.maxStaggered) * motion.subjectStagger;
+ 
+@@ -48,10 +49,19 @@ export function ReportCardScreen() {
+     <Screen testID="boletim-screen">
+       <TabScreenLayout
+         title={strings.boletim.title}
+         titleTestID="boletim-title"
+         scrollTestID="boletim-scroll"
++        refreshControl={
++          <RefreshControl
++            refreshing={vm.refreshing}
++            onRefresh={vm.onRefresh}
++            tintColor={colors.primary}
++            colors={[colors.primary]}
++            progressBackgroundColor={colors.surfaceRaised}
++          />
++        }
+       >
+         <Box marginTop="sm" paddingBottom="l">
+           {vm.status === 'loading' ? (
+             <BoletimSkeleton testID="boletim-skeleton" />
+           ) : null}
+diff --git a/mobile/src/features/report-card/useReportCardViewModel.ts b/mobile/src/features/report-card/useReportCardViewModel.ts
+index 808758e..60fe88d 100644
+--- a/mobile/src/features/report-card/useReportCardViewModel.ts
++++ b/mobile/src/features/report-card/useReportCardViewModel.ts
+@@ -284,10 +284,25 @@ export function useReportCardViewModel() {
+     }
+     setSlideDirection(selectedTerm === null || term > selectedTerm ? 1 : -1);
+     setChosenTerm(term);
+   };
+ 
++  // Pull-to-refresh (2.15): o spinner só quando o usuário puxou; refaz os
++  // anos e o boletim do ano em tela, sem refazer a cascata de entrada.
++  const [refreshing, setRefreshing] = useState(false);
++  const onRefresh = async () => {
++    setRefreshing(true);
++    try {
++      await Promise.all([
++        yearsQuery.refetch(),
++        selectedYear === null ? null : reportQuery.refetch(),
++      ]);
++    } finally {
++      setRefreshing(false);
++    }
++  };
++
+   const onRetry = async () => {
+     if (retrying) return;
+     setRetrying(true);
+     const result =
+       status === 'error'
+@@ -322,9 +337,11 @@ export function useReportCardViewModel() {
+     errorDescription,
+     onSelectYear,
+     onSelectTerm,
+     onRetry,
+     retrying,
++    refreshing,
++    onRefresh,
+     /** Muda a cada Tentar de novo que falha: dispara o shake do ErrorState. */
+     shakeKey: failedRetries,
+   };
+ }
+diff --git a/mobile/src/features/splash/SplashScreen.tsx b/mobile/src/features/splash/SplashScreen.tsx
+index d071121..bd515ad 100644
+--- a/mobile/src/features/splash/SplashScreen.tsx
++++ b/mobile/src/features/splash/SplashScreen.tsx
+@@ -124,11 +124,11 @@ export function SplashScreen({ navigation }: RootStackScreenProps<'Splash'>) {
+         top: height + spacing.l,
+         left: 0,
+         width,
+         height: sizes.splashTrack,
+         overflow: 'hidden' as const,
+-        backgroundColor: colors.inputLine,
++        backgroundColor: colors.splashTrack,
+       },
+       segment: {
+         width: segmentWidth,
+         height: '100%' as const,
+         backgroundColor: colors.primary,
+diff --git a/mobile/src/hooks/useSkeletonPulse.ts b/mobile/src/hooks/useSkeletonPulse.ts
+deleted file mode 100644
+index aff58bc..0000000
+--- a/mobile/src/hooks/useSkeletonPulse.ts
++++ /dev/null
+@@ -1,41 +0,0 @@
+-import { useEffect } from 'react';
+-import {
+-  cancelAnimation,
+-  Easing,
+-  useAnimatedStyle,
+-  useReducedMotion,
+-  useSharedValue,
+-  withRepeat,
+-  withTiming,
+-} from 'react-native-reanimated';
+-
+-import { useTheme } from '../theme';
+-
+-/**
+- * Pulso do skeleton (01-design.md, 4.8): opacidade 0,5 ↔ 1, um shared value
+- * por tela para todos os blocos. Com reduzir movimento fica parado em 0,7.
+- * O loop é cancelado ao desmontar.
+- */
+-export function useSkeletonPulse() {
+-  const { motion } = useTheme();
+-  const { duration, min, reduced } = motion.skeleton;
+-  const reducedMotion = useReducedMotion();
+-  const opacity = useSharedValue(reducedMotion ? reduced : 1);
+-
+-  useEffect(() => {
+-    if (reducedMotion) {
+-      opacity.set(reduced);
+-      return;
+-    }
+-    opacity.set(
+-      withRepeat(
+-        withTiming(min, { duration, easing: Easing.inOut(Easing.ease) }),
+-        -1,
+-        true,
+-      ),
+-    );
+-    return () => cancelAnimation(opacity);
+-  }, [reducedMotion, opacity, duration, min, reduced]);
+-
+-  return useAnimatedStyle(() => ({ opacity: opacity.get() }));
+-}
+diff --git a/mobile/src/navigation/AppTabs.tsx b/mobile/src/navigation/AppTabs.tsx
+index 8eec0b5..b607a60 100644
+--- a/mobile/src/navigation/AppTabs.tsx
++++ b/mobile/src/navigation/AppTabs.tsx
+@@ -1,10 +1,11 @@
+ import {
+   createBottomTabNavigator,
+   type BottomTabBarProps,
+ } from '@react-navigation/bottom-tabs';
+ 
++import { HeaderEntranceProvider } from '../components/CompactHeader';
+ import { FloatingTabBar } from '../components/FloatingTabBar';
+ import { AgendaIcon } from '../components/icons/AgendaIcon';
+ import { BoletimIcon } from '../components/icons/BoletimIcon';
+ import { ProfileIcon } from '../components/icons/ProfileIcon';
+ import { strings } from '../constants/strings';
+@@ -32,47 +33,49 @@ const profileIcon = ({ color, size }: TabIconProps) => (
+ );
+ 
+ /**
+  * Abas Agenda, Boletim e Perfil com a tab bar flutuante (01-design.md da
+  * v2, 2.4 e 3.0). O voltar do Android numa aba que não é a Agenda volta para
+- * ela (`firstRoute`).
++ * ela (`firstRoute`). A entrada do header roda uma vez por montagem (4.3).
+  */
+ export function AppTabs() {
+   return (
+-    <Tab.Navigator
+-      tabBar={renderTabBar}
+-      backBehavior="firstRoute"
+-      screenOptions={{ headerShown: false, animation: 'fade' }}
+-    >
+-      <Tab.Screen
+-        name="Agenda"
+-        component={LessonsScreen}
+-        options={{
+-          title: strings.tabs.agenda,
+-          tabBarAccessibilityLabel: strings.tabs.agendaAccessibilityLabel,
+-          tabBarButtonTestID: 'tab-agenda',
+-          tabBarIcon: agendaIcon,
+-        }}
+-      />
+-      <Tab.Screen
+-        name="Boletim"
+-        component={ReportCardScreen}
+-        options={{
+-          title: strings.tabs.boletim,
+-          tabBarAccessibilityLabel: strings.tabs.boletimAccessibilityLabel,
+-          tabBarButtonTestID: 'tab-boletim',
+-          tabBarIcon: boletimIcon,
+-        }}
+-      />
+-      <Tab.Screen
+-        name="Perfil"
+-        component={ProfileScreen}
+-        options={{
+-          title: strings.tabs.perfil,
+-          tabBarAccessibilityLabel: strings.tabs.perfilAccessibilityLabel,
+-          tabBarButtonTestID: 'tab-perfil',
+-          tabBarIcon: profileIcon,
+-        }}
+-      />
+-    </Tab.Navigator>
++    <HeaderEntranceProvider>
++      <Tab.Navigator
++        tabBar={renderTabBar}
++        backBehavior="firstRoute"
++        screenOptions={{ headerShown: false, animation: 'fade' }}
++      >
++        <Tab.Screen
++          name="Agenda"
++          component={LessonsScreen}
++          options={{
++            title: strings.tabs.agenda,
++            tabBarAccessibilityLabel: strings.tabs.agendaAccessibilityLabel,
++            tabBarButtonTestID: 'tab-agenda',
++            tabBarIcon: agendaIcon,
++          }}
++        />
++        <Tab.Screen
++          name="Boletim"
++          component={ReportCardScreen}
++          options={{
++            title: strings.tabs.boletim,
++            tabBarAccessibilityLabel: strings.tabs.boletimAccessibilityLabel,
++            tabBarButtonTestID: 'tab-boletim',
++            tabBarIcon: boletimIcon,
++          }}
++        />
++        <Tab.Screen
++          name="Perfil"
++          component={ProfileScreen}
++          options={{
++            title: strings.tabs.perfil,
++            tabBarAccessibilityLabel: strings.tabs.perfilAccessibilityLabel,
++            tabBarButtonTestID: 'tab-perfil',
++            tabBarIcon: profileIcon,
++          }}
++        />
++      </Tab.Navigator>
++    </HeaderEntranceProvider>
+   );
+ }
+diff --git a/mobile/src/test/measureInWindow.ts b/mobile/src/test/measureInWindow.ts
+index c4332c3..0c69f83 100644
+--- a/mobile/src/test/measureInWindow.ts
++++ b/mobile/src/test/measureInWindow.ts
+@@ -5,11 +5,11 @@ type MeasureInWindow = (
+   callback: (x: number, y: number, width: number, height: number) => void,
+ ) => void;
+ 
+ /**
+  * O `measureInWindow` do Jest é um `jest.fn()` que nunca responde. Este mock
+- * faz toda View "estar" em `rect` (o Dropdown mede o gatilho para abrir).
++ * faz toda View "estar" em `rect` (componentes que medem a própria posição).
+  */
+ export function mockMeasureInWindow(rect: Rect) {
+   const proto = View.prototype as unknown as {
+     measureInWindow: MeasureInWindow;
+   };
+diff --git a/mobile/src/theme/__tests__/Card.test.tsx b/mobile/src/theme/__tests__/Card.test.tsx
+index 72fba50..2433624 100644
+--- a/mobile/src/theme/__tests__/Card.test.tsx
++++ b/mobile/src/theme/__tests__/Card.test.tsx
+@@ -42,13 +42,6 @@ describe('Card', () => {
+       borderColor: '#3A3A3A',
+       borderWidth: 1,
+       borderRadius: 999,
+     });
+   });
+-
+-  it('legado v1: aluno não selecionado mantém a borda transparente para não pular o layout', async () => {
+-    expect(await styleOf('student')).toMatchObject({
+-      borderColor: 'transparent',
+-      borderWidth: 1,
+-    });
+-  });
+ });
+diff --git a/mobile/src/theme/__tests__/Text.test.tsx b/mobile/src/theme/__tests__/Text.test.tsx
+index 044af0c..0d93a9b 100644
+--- a/mobile/src/theme/__tests__/Text.test.tsx
++++ b/mobile/src/theme/__tests__/Text.test.tsx
+@@ -59,14 +59,6 @@ describe('Text', () => {
+     expect(await styleOf('error', 'Erro')).toMatchObject({
+       color: '#FF5C8D',
+       fontSize: 13,
+     });
+   });
+-
+-  it('legado v1: sectionTitle continua igual até a fatia 9', async () => {
+-    expect(await styleOf('sectionTitle', 'AGENDA')).toMatchObject({
+-      color: '#29F4D5',
+-      fontFamily: 'Montserrat-Bold',
+-      fontSize: 20,
+-    });
+-  });
+ });
+diff --git a/mobile/src/theme/motion.ts b/mobile/src/theme/motion.ts
+index b89a6d6..03c16d4 100644
+--- a/mobile/src/theme/motion.ts
++++ b/mobile/src/theme/motion.ts
+@@ -107,18 +107,10 @@ export const motion = {
+     fadeInReduced: 200,
+     exitScaleTo: 0.92,
+     exitDuration: 250,
+     exitToLoginEasing: emphasized,
+   },
+-  // Legado v1: sai na fatia 9.
+-  /**
+-   * Opacidade de ações de texto pressionadas da v1 (barra, dropdown,
+-   * acordeão). Componente novo usa `opacities.pressed`.
+-   */
+-  pressedOpacity: 0.6,
+-  /** Pulso do skeleton da v1: 0,5 ↔ 1 em 800 ms; parado em 0,7 com reduzir movimento. */
+-  skeleton: { duration: 800, min: 0.5, reduced: 0.7 },
+ } as const;
+ 
+ /**
+  * Entrada padrão das telas (01-design.md, 4.x): fade de baixo para cima em
+  * `base`, `easeOut`, 8 pt, respeitando o reduzir movimento do sistema.
+diff --git a/mobile/src/theme/sizes.ts b/mobile/src/theme/sizes.ts
+index 8eefa5e..60455f0 100644
+--- a/mobile/src/theme/sizes.ts
++++ b/mobile/src/theme/sizes.ts
+@@ -99,30 +99,6 @@ export const sizes = {
+   logoBadgeBleed: 1,
+   /** Linha teal da splash: largura e quanto passa do logo em cima e embaixo. */
+   scanLine: { width: 2, overhang: 8 },
+   /** Espessura do trilho de espera da splash. */
+   splashTrack: 1,
+-
+-  // Legado v1: sai na fatia 9, junto com os componentes que usam.
+-  actionBar: 48,
+-  dropdown: 45,
+-  termCard: 90,
+-  studentCard: 90,
+-  primaryButton: 60,
+-  secondaryButton: 45,
+-  /** Somar `insets.bottom`. */
+-  tabBar: 64,
+-  chevron: 14,
+-  logoutIcon: 10,
+-  bullet: 6,
+-  bulletSlot: 16,
+-  illustration: { width: 328, height: 208 },
+-  /** Barras do skeleton da aula: horário e disciplina. */
+-  skeletonLessonTime: { width: 88, height: 12 },
+-  skeletonLessonSubject: { width: 180, height: 16 },
+-  /** Linhas de aula no skeleton da agenda. */
+-  skeletonLessonRows: 4,
+-  /** Espessura da linha do input do login. */
+-  inputLine: 1,
+-  /** Limite de altura do acordeão aberto e parado: "sem limite". */
+-  accordionOpenMaxHeight: 100_000,
+ } as const;
+diff --git a/mobile/src/theme/theme.ts b/mobile/src/theme/theme.ts
+index c9f0073..351bc3f 100644
+--- a/mobile/src/theme/theme.ts
++++ b/mobile/src/theme/theme.ts
+@@ -23,12 +23,11 @@ const pill = {
+   justifyContent: 'center',
+ } as const;
+ 
+ /**
+  * Tema único do app (escuro, sem modo claro). Fonte: 01-design.md da v2,
+- * seção 1. Os nomes da v1 que a v2 não tem ficam nos blocos "legado v1", que
+- * saem na fatia 9 junto com as telas antigas.
++ * seção 1.
+  */
+ export const theme = createTheme({
+   colors: {
+     background: palette.black,
+     /** Campos de texto, calha de horas do timetable. */
+@@ -58,13 +57,12 @@ export const theme = createTheme({
+     textDisabled: palette.gray500,
+     /** Texto sobre teal, âmbar ou rosa claro. */
+     textOnPrimary: palette.black,
+     transparent: 'transparent',
+ 
+-    // Legado v1: sai na fatia 9.
+-    inputLine: palette.gray600,
+-    bulletBorder: palette.gray300,
++    /** Trilho de espera da splash. */
++    splashTrack: palette.gray600,
+   },
+   spacing: {
+     none: 0,
+     xxs: 2,
+     xs: 4,
+@@ -232,123 +230,10 @@ export const theme = createTheme({
+       fontFamily: fonts.medium,
+       fontSize: 13,
+       lineHeight: 18,
+       color: 'danger',
+     },
+-
+-    // Legado v1: sai na fatia 9. Os nomes que a v2 reaproveita com outro
+-    // sentido (`title`, `label`, `error`) ficaram com o sufixo V1.
+-    bodyMedium: {
+-      fontFamily: fonts.medium,
+-      fontSize: 16,
+-      lineHeight: 20,
+-      color: 'text',
+-    },
+-    bodyBold: {
+-      fontFamily: fonts.bold,
+-      fontSize: 16,
+-      lineHeight: 20,
+-      color: 'text',
+-    },
+-    greeting: {
+-      fontFamily: fonts.regular,
+-      fontSize: 24,
+-      lineHeight: 29,
+-      color: 'text',
+-      textAlign: 'center',
+-    },
+-    greetingName: {
+-      fontFamily: fonts.bold,
+-      fontSize: 24,
+-      lineHeight: 29,
+-      color: 'text',
+-      textTransform: 'uppercase',
+-    },
+-    titleV1: {
+-      fontFamily: fonts.regular,
+-      fontSize: 24,
+-      lineHeight: 29,
+-      color: 'text',
+-      textAlign: 'center',
+-    },
+-    inputValue: {
+-      fontFamily: fonts.regular,
+-      fontSize: { compact: 28, phone: 32 },
+-      lineHeight: { compact: 34, phone: 39 },
+-      color: 'text',
+-      textAlign: 'center',
+-    },
+-    labelV1: {
+-      fontFamily: fonts.regular,
+-      fontSize: 20,
+-      lineHeight: 24,
+-      color: 'text',
+-      textAlign: 'center',
+-      textTransform: 'uppercase',
+-    },
+-    labelFocused: {
+-      fontFamily: fonts.semiBold,
+-      fontSize: 20,
+-      lineHeight: 24,
+-      color: 'text',
+-      textAlign: 'center',
+-      textTransform: 'uppercase',
+-    },
+-    sectionTitle: {
+-      fontFamily: fonts.bold,
+-      fontSize: 20,
+-      lineHeight: 24,
+-      color: 'primary',
+-      textAlign: 'center',
+-      textTransform: 'uppercase',
+-    },
+-    emptyState: {
+-      fontFamily: fonts.regular,
+-      fontSize: 20,
+-      lineHeight: 24,
+-      color: 'text',
+-      textAlign: 'center',
+-    },
+-    lessonSubject: {
+-      fontFamily: fonts.semiBold,
+-      fontSize: 16,
+-      lineHeight: 20,
+-      color: 'text',
+-    },
+-    termTitle: {
+-      fontFamily: fonts.bold,
+-      fontSize: 16,
+-      lineHeight: 20,
+-      color: 'primary',
+-      textTransform: 'uppercase',
+-    },
+-    errorV1: {
+-      fontFamily: fonts.medium,
+-      fontSize: 16,
+-      lineHeight: 20,
+-      color: 'primary',
+-      textAlign: 'center',
+-    },
+-    captionPlain: {
+-      fontFamily: fonts.regular,
+-      fontSize: 12,
+-      lineHeight: 15,
+-      color: 'text',
+-    },
+-    subject: {
+-      fontFamily: fonts.medium,
+-      fontSize: 12,
+-      lineHeight: 15,
+-      color: 'text',
+-      textTransform: 'uppercase',
+-    },
+-    detail: {
+-      fontFamily: fonts.medium,
+-      fontSize: 12,
+-      lineHeight: 15,
+-      color: 'text',
+-    },
+   },
+   /** Fundo e borda do `PillButton` (2.3); a altura vem do `size`. */
+   buttonVariants: {
+     defaults: {},
+     primary: { ...pill, backgroundColor: 'primary' },
+@@ -358,28 +243,10 @@ export const theme = createTheme({
+       borderColor: 'borderStrong',
+     },
+     ghost: { ...pill, backgroundColor: 'transparent' },
+     danger: { ...pill, backgroundColor: 'danger' },
+     disabled: { ...pill, backgroundColor: 'surfaceHigh' },
+-
+-    // Legado v1: sai na fatia 9 (`PrimaryButton` e `SecondaryButton`).
+-    primaryV1: {
+-      backgroundColor: 'primary',
+-      height: sizes.primaryButton,
+-      borderRadius: 'none',
+-      alignItems: 'center',
+-      justifyContent: 'center',
+-    },
+-    secondaryV1: {
+-      borderWidth: 1,
+-      borderColor: 'primary',
+-      borderRadius: 'm',
+-      height: sizes.secondaryButton,
+-      paddingHorizontal: 'l',
+-      alignItems: 'center',
+-      justifyContent: 'center',
+-    },
+   },
+   /**
+    * Todas as variantes da v2 têm `borderWidth: 1`: os estados trocam só a cor
+    * de uma camada sobreposta, sem pulo de layout (1.11).
+    */
+@@ -425,44 +292,10 @@ export const theme = createTheme({
+       backgroundColor: 'surfaceRaised',
+       borderColor: 'borderStrong',
+       borderWidth: 1,
+       borderRadius: 'pill',
+     },
+-
+-    // Legado v1: sai na fatia 9.
+-    dropdown: {
+-      backgroundColor: 'surface',
+-      borderRadius: 'm',
+-      height: sizes.dropdown,
+-      paddingHorizontal: 'm',
+-      flexDirection: 'row',
+-      alignItems: 'center',
+-      justifyContent: 'space-between',
+-    },
+-    options: {
+-      backgroundColor: 'surface',
+-      borderRadius: 'm',
+-      paddingVertical: 'xs',
+-    },
+-    term: {
+-      backgroundColor: 'surfaceRaised',
+-      borderRadius: 'm',
+-      height: sizes.termCard,
+-      paddingHorizontal: 'sm',
+-      flexDirection: 'row',
+-      alignItems: 'center',
+-      justifyContent: 'space-between',
+-    },
+-    student: {
+-      backgroundColor: 'surfaceRaised',
+-      borderRadius: 'm',
+-      height: sizes.studentCard,
+-      padding: 'm',
+-      borderWidth: 1,
+-      borderColor: 'transparent',
+-      justifyContent: 'space-between',
+-    },
+   },
+   sizes,
+   motion,
+   shadows,
+   gradients,

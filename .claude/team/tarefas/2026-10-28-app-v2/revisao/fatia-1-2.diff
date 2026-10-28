@@ -1,0 +1,4028 @@
+0af1bf5 feat(mobile): primitivos da v2 (ícones, Avatar, PillButton, shimmer e estados)
+b490cf7 fix(mobile): degradês do tema com opacidade por parada
+daf17fe feat(mobile): tema v2 com paleta, sombras, degradês e tipografia nova
+ mobile/src/components/Avatar.tsx                   |  57 ++++
+ mobile/src/components/EmptyState.tsx               | 126 +++++----
+ mobile/src/components/ErrorState.tsx               |  59 +++--
+ mobile/src/components/PillButton.tsx               | 178 +++++++++++++
+ mobile/src/components/PrimaryButton.tsx            |   2 +-
+ mobile/src/components/SecondaryButton.tsx          |   2 +-
+ mobile/src/components/Skeleton.tsx                 | 162 +++++++++++-
+ mobile/src/components/UnderlineInput.tsx           |   2 +-
+ .../components/__tests__/AgendaSkeleton.test.tsx   |   2 +-
+ mobile/src/components/__tests__/Avatar.test.tsx    | 107 ++++++++
+ .../components/__tests__/BoletimSkeleton.test.tsx  |   2 +-
+ mobile/src/components/__tests__/CpfInput.test.tsx  |   3 +-
+ .../src/components/__tests__/EmptyState.test.tsx   | 157 +++++++----
+ .../src/components/__tests__/ErrorState.test.tsx   |  42 ++-
+ .../src/components/__tests__/PillButton.test.tsx   | 245 +++++++++++++++++
+ .../components/__tests__/PrimaryButton.test.tsx    |   5 +-
+ mobile/src/components/__tests__/Skeleton.test.tsx  | 148 +++++++++++
+ mobile/src/components/icons/AlertIcon.tsx          |  14 +
+ mobile/src/components/icons/CalendarOffIcon.tsx    |  17 ++
+ mobile/src/components/icons/CheckIcon.tsx          |  12 +
+ mobile/src/components/icons/ChevronRightIcon.tsx   |  12 +
+ mobile/src/components/icons/ClockIcon.tsx          |  13 +
+ mobile/src/components/icons/EyeIcon.tsx            |  13 +
+ mobile/src/components/icons/EyeOffIcon.tsx         |  14 +
+ mobile/src/components/icons/IdCardIcon.tsx         |  16 ++
+ mobile/src/components/icons/LockIcon.tsx           |  13 +
+ mobile/src/components/icons/ProfileIcon.tsx        |  13 +
+ mobile/src/components/icons/RefreshIcon.tsx        |  13 +
+ mobile/src/components/icons/StrokeIcon.tsx         |  39 +++
+ mobile/src/components/icons/UsersIcon.tsx          |  15 ++
+ mobile/src/components/icons/WifiOffIcon.tsx        |  16 ++
+ .../icons/__tests__/strokeIcons.test.tsx           | 100 +++++++
+ mobile/src/constants/strings.ts                    |   2 +-
+ .../features/auth/components/LoginErrorMessage.tsx |   2 +-
+ mobile/src/features/lessons/LessonsScreen.tsx      |   2 +
+ .../lessons/__tests__/LessonsScreen.test.tsx       |   4 +-
+ .../src/features/report-card/ReportCardScreen.tsx  |   3 +-
+ mobile/src/features/splash/BootErrorScreen.tsx     |   2 +
+ mobile/src/features/students/NoStudentScreen.tsx   |   2 +
+ .../src/features/students/SelectStudentScreen.tsx  |   2 +-
+ .../hooks/__tests__/useSlidingIndicator.test.tsx   | 181 +++++++++++++
+ mobile/src/hooks/useSlidingIndicator.ts            | 123 +++++++++
+ mobile/src/theme/__tests__/Card.test.tsx           |  44 ++-
+ mobile/src/theme/__tests__/Text.test.tsx           |  63 ++++-
+ mobile/src/theme/__tests__/palette-only.test.js    |  34 +++
+ mobile/src/theme/__tests__/theme.test.ts           | 142 ++++++++++
+ mobile/src/theme/motion.ts                         |  57 +++-
+ mobile/src/theme/opacities.ts                      |  10 +
+ mobile/src/theme/palette.ts                        |  41 ++-
+ mobile/src/theme/shadows.ts                        |  57 ++++
+ mobile/src/theme/sizes.ts                          |  96 +++++--
+ mobile/src/theme/theme.ts                          | 294 ++++++++++++++++++---
+ mobile/src/utils/__tests__/names.test.ts           |  28 +-
+ mobile/src/utils/names.ts                          |  10 +
+ 54 files changed, 2581 insertions(+), 237 deletions(-)
+diff --git a/mobile/src/components/Avatar.tsx b/mobile/src/components/Avatar.tsx
+new file mode 100644
+index 0000000..618a61d
+--- /dev/null
++++ b/mobile/src/components/Avatar.tsx
+@@ -0,0 +1,57 @@
++import { Box, Text, useTheme } from '../theme';
++import { initials } from '../utils/names';
++
++type AvatarProps = {
++  firstName: string;
++  lastName: string;
++  size: 's' | 'm' | 'l';
++  /** `guardian` ganha o anel rosa do selo (só decoração). */
++  tone: 'student' | 'guardian';
++  testID?: string;
++};
++
++const textVariant = { s: 'overline', m: 'bodyStrong', l: 'title' } as const;
++
++/** Espessura do anel do responsável. */
++const GUARDIAN_RING = 1.5;
++
++/**
++ * Círculo com as iniciais (01-design.md da v2, 2.2). Decorativo: o rótulo de
++ * acessibilidade fica no pai (chip do aluno, linha do perfil).
++ */
++export function Avatar({
++  firstName,
++  lastName,
++  size,
++  tone,
++  testID,
++}: AvatarProps) {
++  const { sizes } = useTheme();
++  const side = sizes.avatar[size];
++  const guardian = tone === 'guardian';
++
++  return (
++    <Box
++      testID={testID}
++      accessible={false}
++      importantForAccessibility="no-hide-descendants"
++      width={side}
++      height={side}
++      borderRadius="pill"
++      alignItems="center"
++      justifyContent="center"
++      backgroundColor={guardian ? 'accentMuted' : 'primaryMuted'}
++      borderColor={guardian ? 'accent' : 'transparent'}
++      style={guardian ? { borderWidth: GUARDIAN_RING } : undefined}
++    >
++      <Text
++        variant={textVariant[size]}
++        color={guardian ? 'danger' : 'primary'}
++        letterSpacing={size === 's' ? 0 : undefined}
++        maxFontSizeMultiplier={sizes.fixedHeightFontScale}
++      >
++        {initials(firstName, lastName)}
++      </Text>
++    </Box>
++  );
++}
+diff --git a/mobile/src/components/EmptyState.tsx b/mobile/src/components/EmptyState.tsx
+index 35926d7..293ea2e 100644
+--- a/mobile/src/components/EmptyState.tsx
++++ b/mobile/src/components/EmptyState.tsx
+@@ -1,109 +1,129 @@
+-import { Image, StyleSheet } from 'react-native';
++import type { ComponentType, ReactNode } from 'react';
+ import Animated, {
+   FadeIn,
+   Keyframe,
+   ReduceMotion,
+   useReducedMotion,
+ } from 'react-native-reanimated';
+ 
+ import { Box, enterDown, Text, useTheme, type Theme } from '../theme';
+-
+-const illustrationSource = require('../../assets/no-classroom.png');
++import type { IconProps } from './icons/StrokeIcon';
+ 
+ type EmptyStateProps = {
++  /** Ícone de traço (`components/icons`), desenhado no círculo. */
++  icon: ComponentType<IconProps>;
+   title: string;
+   description?: string;
+-  illustration?: boolean;
++  /** Ação opcional abaixo do texto (um `PillButton`). */
++  action?: ReactNode;
++  /** `danger`: círculo `accentMuted` e ícone `danger` (estados de erro). */
++  tone?: 'neutral' | 'danger';
++  /** Filhos: `X-icon` (o círculo). */
+   testID: string;
+ };
+ 
+ type Motion = Theme['motion'];
+ 
+ /**
+- * Entradas do estado vazio (01-design.md, 4.5 e 4.8). A ilustração cresce de
+- * 0,96 para 1 enquanto aparece, e o texto vem um stagger depois dela. Com
+- * reduzir movimento, tudo só aparece em fade: opacidade não é movimento, então
+- * o sistema não pode pular (`ReduceMotion.Never`).
++ * Entradas (01-design.md da v2, 4.7): o ícone cresce de 0,96 para 1 enquanto
++ * aparece e o resto vem em cascata depois dele. Com reduzir movimento, tudo
++ * só aparece em fade: opacidade não é movimento, então o sistema não pode
++ * pular (`ReduceMotion.Never`).
+  */
+-function entrances(motion: Motion, illustration: boolean, reduced: boolean) {
+-  const first = illustration ? 1 : 0;
++function entrances(motion: Motion, reduced: boolean) {
+   if (reduced) {
+     const fade = (delay: number) =>
+       FadeIn.duration(motion.base)
+         .delay(delay)
+         .reduceMotion(ReduceMotion.Never);
+     return {
+-      illustration: fade(0),
+-      text: (index: number) => fade((first + index) * motion.stagger),
++      icon: fade(0),
++      item: (index: number) => fade(index * motion.stagger),
+     };
+   }
+   return {
+-    illustration: new Keyframe({
+-      0: {
+-        opacity: 0,
+-        transform: [{ scale: motion.illustrationScaleFrom }],
+-      },
++    icon: new Keyframe({
++      0: { opacity: 0, transform: [{ scale: motion.illustrationScaleFrom }] },
+       100: { opacity: 1, transform: [{ scale: 1 }], easing: motion.easeOut },
+     })
+       .duration(motion.base)
+       .reduceMotion(ReduceMotion.System),
+-    text: (index: number) =>
+-      enterDown(motion, (first + index) * motion.stagger),
++    item: (index: number) => enterDown(motion, index * motion.stagger),
+   };
+ }
+ 
+ /**
+- * Estado vazio (01-design.md, 2.10): ilustração do "sem aulas" cortada em
+- * 328 × 208 (os 82 px de baixo do PNG são o degradê), título e descrição.
+- * A ilustração é decorativa.
++ * Estado vazio da v2 (01-design.md da v2, 2.16, DV9): ícone em SVG num
++ * círculo (nítido em qualquer densidade, no lugar da ilustração PNG),
++ * título, descrição e uma ação opcional, centralizados.
+  */
+ export function EmptyState({
++  icon: Icon,
+   title,
+   description,
+-  illustration = true,
++  action,
++  tone = 'neutral',
+   testID,
+ }: EmptyStateProps) {
+-  const { motion, sizes, spacing } = useTheme();
++  const { colors, motion, sizes, spacing } = useTheme();
+   const reducedMotion = useReducedMotion();
+-  const enter = entrances(motion, illustration, reducedMotion);
++  const enter = entrances(motion, reducedMotion);
++  const danger = tone === 'danger';
++  // Título é o item 1 da cascata; descrição e ação vêm depois, sem buraco.
++  const descriptionIndex = 2;
++  const actionIndex = description ? 3 : 2;
+ 
+   return (
+-    <Box testID={testID} alignItems="center">
+-      {illustration ? (
+-        <Animated.View entering={enter.illustration}>
+-          <Box
+-            testID={`${testID}-illustration`}
+-            accessible={false}
+-            importantForAccessibility="no-hide-descendants"
+-            overflow="hidden"
+-            style={sizes.illustration}
+-          >
+-            <Image
+-              source={illustrationSource}
+-              style={styles.illustration}
+-              resizeMode="cover"
+-            />
+-          </Box>
+-        </Animated.View>
+-      ) : null}
+-      <Animated.View entering={enter.text(0)} style={{ marginTop: spacing.m }}>
+-        <Text variant="emptyState">{title}</Text>
++    <Box testID={testID} alignItems="center" paddingVertical="xxxl">
++      <Animated.View entering={enter.icon}>
++        <Box
++          testID={`${testID}-icon`}
++          accessible={false}
++          importantForAccessibility="no-hide-descendants"
++          width={sizes.emptyIcon.circle}
++          height={sizes.emptyIcon.circle}
++          borderRadius="pill"
++          alignItems="center"
++          justifyContent="center"
++          backgroundColor={danger ? 'accentMuted' : 'surfaceRaised'}
++        >
++          <Icon
++            color={danger ? colors.danger : colors.textSecondary}
++            size={sizes.emptyIcon.glyph}
++          />
++        </Box>
++      </Animated.View>
++      <Animated.View
++        entering={enter.item(1)}
++        style={{ marginTop: spacing.m, paddingHorizontal: spacing.l }}
++      >
++        <Text variant="title" textAlign="center">
++          {title}
++        </Text>
+       </Animated.View>
+       {description ? (
+         <Animated.View
+-          entering={enter.text(1)}
+-          style={{ marginTop: spacing.s, paddingHorizontal: spacing.huge }}
++          entering={enter.item(descriptionIndex)}
++          style={{ marginTop: spacing.s, paddingHorizontal: spacing.l }}
+         >
+-          <Text variant="body" textAlign="center">
++          <Text
++            testID={`${testID}-description`}
++            variant="body"
++            color="textSecondary"
++            textAlign="center"
++          >
+             {description}
+           </Text>
+         </Animated.View>
+       ) : null}
++      {action ? (
++        <Animated.View
++          entering={enter.item(actionIndex)}
++          style={{ marginTop: spacing.l }}
++        >
++          {action}
++        </Animated.View>
++      ) : null}
+     </Box>
+   );
+ }
+-
+-const styles = StyleSheet.create({
+-  // PNG 328 × 290 alinhado ao topo; a caixa corta o degradê de baixo.
+-  illustration: { width: '100%', aspectRatio: 328 / 290 },
+-});
+diff --git a/mobile/src/components/ErrorState.tsx b/mobile/src/components/ErrorState.tsx
+index e29d72d..335c6d2 100644
+--- a/mobile/src/components/ErrorState.tsx
++++ b/mobile/src/components/ErrorState.tsx
+@@ -1,79 +1,82 @@
+-import { useEffect } from 'react';
++import { useEffect, type ComponentType } from 'react';
+ import { AccessibilityInfo } from 'react-native';
+ import Animated from 'react-native-reanimated';
+ 
+ import { strings } from '../constants/strings';
+ import { useShakeStyle } from '../hooks/useShakeStyle';
+-import { Box, enterDown, Text, useTheme } from '../theme';
+-import { SecondaryButton } from './SecondaryButton';
++import { EmptyState } from './EmptyState';
++import { AlertIcon } from './icons/AlertIcon';
++import { RefreshIcon } from './icons/RefreshIcon';
++import type { IconProps } from './icons/StrokeIcon';
++import { PillButton } from './PillButton';
++
++/** Ícone do retry, na cor que o `PillButton` passa. */
++const retryIcon = (color: string) => <RefreshIcon color={color} />;
+ 
+ type ErrorStateProps = {
+   title: string;
+   description: string;
+   onRetry: () => void;
+   retrying: boolean;
+   testID: string;
+-  /** Muda a cada retry que falha: dispara o shake curto (4.8). */
++  /** Padrão `AlertIcon`; o BootError usa o `WifiOffIcon`. */
++  icon?: ComponentType<IconProps>;
++  /** Muda a cada retry que falha: dispara o shake curto. */
+   shakeKey?: number;
+   /**
+    * Se o leitor de tela deve ouvir o erro agora. As abas ficam montadas, então
+    * cada tela passa `useIsFocused()`: só a visível anuncia, e a outra anuncia
+    * quando o usuário chega nela. Fora de um navigator (BootError), `true`.
+    */
+   announce: boolean;
+ };
+ 
+ /**
+- * Erro com TENTAR DE NOVO (01-design.md, 2.14): título em `emptyState`,
+- * descrição e o botão secundário. Sem ilustração, para não parecer "vazio".
+- * O leitor de tela ouve o erro quando ele aparece e a cada retry que falha
+- * (3.8); o spinner do retry não repete o anúncio.
++ * Erro com "Tentar de novo" (01-design.md da v2, 2.16): o `EmptyState` em tom
++ * de perigo com a pílula secundária pequena. O leitor de tela ouve o erro
++ * quando ele aparece e a cada retry que falha; o spinner do retry não repete
++ * o anúncio.
+  */
+ export function ErrorState({
+   title,
+   description,
+   onRetry,
+   retrying,
+   testID,
++  icon = AlertIcon,
+   shakeKey = 0,
+   announce,
+ }: ErrorStateProps) {
+-  const { motion, spacing } = useTheme();
+   const shakeStyle = useShakeStyle(shakeKey, 'short');
+   const spoken = `${title} ${description}`;
+ 
+   // Anúncio explícito nas duas plataformas, sem live region (que no Android
+   // só avisa mudança numa view que já existia e leria duas vezes).
+   useEffect(() => {
+     if (announce) AccessibilityInfo.announceForAccessibility(spoken);
+   }, [spoken, shakeKey, announce]);
+-  const enter = (index: number) => enterDown(motion, index * motion.stagger);
+ 
+   return (
+-    <Animated.View testID={testID} style={shakeStyle}>
+-      <Box
+-        alignItems="center"
+-        paddingHorizontal="huge"
+-        style={{ marginTop: spacing.section }}
+-      >
+-        <Animated.View entering={enter(0)}>
+-          <Text variant="emptyState">{title}</Text>
+-        </Animated.View>
+-        <Animated.View entering={enter(1)} style={{ marginTop: spacing.s }}>
+-          <Text variant="body" textAlign="center">
+-            {description}
+-          </Text>
+-        </Animated.View>
+-        <Animated.View entering={enter(2)} style={{ marginTop: spacing.l }}>
+-          <SecondaryButton
++    <Animated.View style={shakeStyle}>
++      <EmptyState
++        testID={testID}
++        icon={icon}
++        tone="danger"
++        title={title}
++        description={description}
++        action={
++          <PillButton
+             testID={`${testID}-retry`}
+             label={strings.common.retry}
+             accessibilityLabel={strings.common.retryAccessibilityLabel}
++            variant="secondary"
++            size="sm"
++            icon={retryIcon}
+             loading={retrying}
+             onPress={onRetry}
+           />
+-        </Animated.View>
+-      </Box>
++        }
++      />
+     </Animated.View>
+   );
+ }
+diff --git a/mobile/src/components/PillButton.tsx b/mobile/src/components/PillButton.tsx
+new file mode 100644
+index 0000000..b5628fe
+--- /dev/null
++++ b/mobile/src/components/PillButton.tsx
+@@ -0,0 +1,178 @@
++import type { ReactNode } from 'react';
++import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
++import Animated, {
++  useAnimatedStyle,
++  useReducedMotion,
++  useSharedValue,
++  withSpring,
++  withTiming,
++} from 'react-native-reanimated';
++
++import { ButtonContainer, Text, useTheme, type Theme } from '../theme';
++
++type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
++type Size = 'md' | 'sm' | 'xs';
++
++type PillButtonProps = {
++  label: string;
++  onPress: () => void;
++  variant?: Variant;
++  size?: Size;
++  /** Recebe a cor do ícone (muda com a variante e com o desabilitado). */
++  icon?: (color: string) => ReactNode;
++  iconPosition?: 'start' | 'end';
++  disabled?: boolean;
++  loading?: boolean;
++  fullWidth?: boolean;
++  /** Os filhos derivam dele: `X-surface`, `X-label` e `X-loading` (spinner). */
++  testID: string;
++  /** Padrão: o próprio `label`. */
++  accessibilityLabel?: string;
++  /** Lido enquanto carrega (ex.: "Entrando…"). */
++  loadingAccessibilityLabel?: string;
++  accessibilityHint?: string;
++};
++
++type Color = keyof Theme['colors'];
++
++/** Cor do texto e do ícone por variante (01-design.md da v2, 2.3). */
++const contentColor: Record<Variant, { text: Color; icon: Color }> = {
++  primary: { text: 'textOnPrimary', icon: 'textOnPrimary' },
++  secondary: { text: 'text', icon: 'primary' },
++  ghost: { text: 'primary', icon: 'primary' },
++  danger: { text: 'textOnPrimary', icon: 'textOnPrimary' },
++};
++
++const horizontalPadding = { md: 'l', sm: 'm', xs: 'sm' } as const;
++
++/**
++ * Botão em pílula (01-design.md da v2, 2.3), no lugar do `PrimaryButton` e
++ * do `SecondaryButton` da v1. Carregando, o rótulo some (mas fica no layout,
++ * então a largura não muda), o spinner aparece e o toque é ignorado. O toque
++ * encolhe o botão com mola; o `ghost` também esmaece. Com reduzir movimento,
++ * só o esmaecimento fica (opacidade não é movimento).
++ */
++export function PillButton({
++  label,
++  onPress,
++  variant = 'primary',
++  size = 'md',
++  icon,
++  iconPosition = 'start',
++  disabled = false,
++  loading = false,
++  fullWidth = false,
++  testID,
++  accessibilityLabel,
++  loadingAccessibilityLabel,
++  accessibilityHint,
++}: PillButtonProps) {
++  const { colors, motion, opacities, shadows, sizes, spacing } = useTheme();
++  const reducedMotion = useReducedMotion();
++  const scale = useSharedValue(1);
++  const pressOpacity = useSharedValue(1);
++  const inactive = disabled || loading;
++  const height = sizes.pill[size];
++  // Alvo mínimo de 44: o que falta vira área de toque invisível.
++  const slop = Math.max(0, (sizes.touchTarget - height) / 2);
++  const textColor =
++    colors[disabled ? 'textDisabled' : contentColor[variant].text];
++  const iconColor =
++    colors[disabled ? 'textDisabled' : contentColor[variant].icon];
++
++  const pressStyle = useAnimatedStyle(() => ({
++    opacity: pressOpacity.get(),
++    transform: [{ scale: scale.get() }],
++  }));
++  const labelStyle = useAnimatedStyle(() => ({
++    opacity: withTiming(loading ? 0 : 1, {
++      duration: loading ? motion.instant : motion.fast,
++    }),
++  }));
++  const spinnerStyle = useAnimatedStyle(() => ({
++    opacity: withTiming(loading ? 1 : 0, { duration: motion.fast }),
++  }));
++
++  const pressIn = () => {
++    if (!reducedMotion) scale.set(withSpring(motion.pressScale, motion.press));
++    if (variant === 'ghost') {
++      pressOpacity.set(
++        withTiming(opacities.pressed, { duration: motion.instant }),
++      );
++    }
++  };
++  const pressOut = () => {
++    if (!reducedMotion) scale.set(withSpring(1, motion.press));
++    pressOpacity.set(withTiming(1, { duration: motion.fast }));
++  };
++
++  const iconNode = icon ? icon(iconColor) : null;
++
++  return (
++    <Pressable
++      testID={testID}
++      accessibilityRole="button"
++      accessibilityLabel={
++        loading && loadingAccessibilityLabel
++          ? loadingAccessibilityLabel
++          : accessibilityLabel ?? label
++      }
++      accessibilityHint={accessibilityHint}
++      accessibilityState={{ disabled: inactive, busy: loading }}
++      disabled={inactive}
++      hitSlop={{ top: slop, bottom: slop }}
++      onPress={onPress}
++      onPressIn={pressIn}
++      onPressOut={pressOut}
++      style={fullWidth ? styles.fullWidth : styles.hug}
++    >
++      <Animated.View style={pressStyle}>
++        <ButtonContainer
++          testID={`${testID}-surface`}
++          variant={disabled ? 'disabled' : variant}
++          height={height}
++          paddingHorizontal={horizontalPadding[size]}
++          style={
++            variant === 'primary' && !disabled
++              ? { boxShadow: [shadows.glowPrimary] }
++              : undefined
++          }
++        >
++          <Animated.View
++            testID={`${testID}-label`}
++            style={[styles.content, { gap: spacing.s }, labelStyle]}
++          >
++            {iconPosition === 'start' ? iconNode : null}
++            <Text
++              variant={size === 'md' ? 'button' : 'buttonSmall'}
++              color={disabled ? 'textDisabled' : contentColor[variant].text}
++              numberOfLines={1}
++              maxFontSizeMultiplier={sizes.fixedHeightFontScale}
++            >
++              {label}
++            </Text>
++            {iconPosition === 'end' ? iconNode : null}
++          </Animated.View>
++          {loading ? (
++            <Animated.View
++              style={[StyleSheet.absoluteFill, styles.center, spinnerStyle]}
++            >
++              <ActivityIndicator
++                testID={`${testID}-loading`}
++                size="small"
++                color={textColor}
++              />
++            </Animated.View>
++          ) : null}
++        </ButtonContainer>
++      </Animated.View>
++    </Pressable>
++  );
++}
++
++const styles = StyleSheet.create({
++  content: { flexDirection: 'row', alignItems: 'center' },
++  center: { alignItems: 'center', justifyContent: 'center' },
++  fullWidth: { alignSelf: 'stretch' },
++  hug: { alignSelf: 'center' },
++});
+diff --git a/mobile/src/components/PrimaryButton.tsx b/mobile/src/components/PrimaryButton.tsx
+index 8eb0b7a..83a01fb 100644
+--- a/mobile/src/components/PrimaryButton.tsx
++++ b/mobile/src/components/PrimaryButton.tsx
+@@ -67,17 +67,17 @@ export function PrimaryButton({
+       }
+       accessibilityState={{ disabled: inactive, busy: loading }}
+       disabled={inactive}
+       onPress={onPress}
+       onPressIn={() => scale.set(withSpring(motion.pressScale, motion.press))}
+       onPressOut={() => scale.set(withSpring(1, motion.press))}
+       style={{ backgroundColor: colors.primary, paddingBottom: bottomInset }}
+     >
+-      <ButtonContainer variant="primary">
++      <ButtonContainer variant="primaryV1">
+         <Animated.View style={contentStyle}>
+           {loading ? (
+             <Animated.View
+               entering={FadeIn.duration(motion.fast).reduceMotion(
+                 ReduceMotion.System,
+               )}
+             >
+               <ActivityIndicator
+diff --git a/mobile/src/components/SecondaryButton.tsx b/mobile/src/components/SecondaryButton.tsx
+index 155aff3..c0ed62f 100644
+--- a/mobile/src/components/SecondaryButton.tsx
++++ b/mobile/src/components/SecondaryButton.tsx
+@@ -31,17 +31,17 @@ export function SecondaryButton({
+       accessibilityLabel={accessibilityLabel}
+       accessibilityState={{ busy: loading, disabled: loading }}
+       disabled={loading}
+       onPress={onPress}
+       style={({ pressed }) => ({
+         opacity: pressed ? motion.pressedOpacity : 1,
+       })}
+     >
+-      <ButtonContainer variant="secondary">
++      <ButtonContainer variant="secondaryV1">
+         <Text
+           variant="bodyBold"
+           color="primary"
+           maxFontSizeMultiplier={sizes.fixedHeightFontScale}
+           opacity={loading ? 0 : 1}
+         >
+           {label}
+         </Text>
+diff --git a/mobile/src/components/Skeleton.tsx b/mobile/src/components/Skeleton.tsx
+index 3c4e9f2..bb57441 100644
+--- a/mobile/src/components/Skeleton.tsx
++++ b/mobile/src/components/Skeleton.tsx
+@@ -1,13 +1,163 @@
+-import { Box, type BoxProps } from '../theme';
++import {
++  createContext,
++  useContext,
++  useEffect,
++  useId,
++  type PropsWithChildren,
++} from 'react';
++import { StyleSheet, type LayoutChangeEvent } from 'react-native';
++import Animated, {
++  cancelAnimation,
++  Easing,
++  useAnimatedStyle,
++  useReducedMotion,
++  useSharedValue,
++  withRepeat,
++  withTiming,
++  type SharedValue,
++} from 'react-native-reanimated';
++import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
++
++import { Box, useTheme, type BoxProps, type Theme } from '../theme';
++
++type Shimmer = {
++  /** Passada da faixa, 0 → 1, compartilhada por todos os blocos do grupo. */
++  progress: SharedValue<number>;
++  reducedMotion: boolean;
++};
++
++const ShimmerContext = createContext<Shimmer | null>(null);
++
++/**
++ * Um shimmer por tela (01-design.md da v2, 2.16): todos os blocos de dentro
++ * leem o mesmo `progress`, num loop linear sem fim que é cancelado ao
++ * desmontar. Com reduzir movimento não há loop: os blocos ficam parados.
++ */
++export function SkeletonGroup({ children }: PropsWithChildren) {
++  const { motion } = useTheme();
++  const reducedMotion = useReducedMotion();
++  const progress = useSharedValue(0);
++
++  useEffect(() => {
++    if (reducedMotion) return;
++    progress.set(
++      withRepeat(
++        withTiming(1, {
++          duration: motion.shimmer.duration,
++          easing: Easing.linear,
++        }),
++        -1,
++      ),
++    );
++    return () => cancelAnimation(progress);
++  }, [reducedMotion, progress, motion.shimmer.duration]);
++
++  return (
++    <ShimmerContext.Provider value={{ progress, reducedMotion }}>
++      {children}
++    </ShimmerContext.Provider>
++  );
++}
++
++/** `translateX` da faixa: de `−faixa` (fora, à esquerda) até a largura do bloco. */
++export function shimmerTranslateX(
++  progress: number,
++  blockWidth: number,
++  band: number,
++): number {
++  'worklet';
++  return -band + progress * (blockWidth + band);
++}
++
++type Radius = Exclude<keyof Theme['borderRadii'], 'none'>;
+ 
+ type SkeletonProps = Omit<BoxProps, 'backgroundColor' | 'borderRadius'> & {
+-  radius?: 'm' | 'round';
++  radius?: Radius;
+ };
+ 
+ /**
+- * Bloco do skeleton (01-design.md, 2.13), em `surface`. Não anima sozinho: o
+- * grupo inteiro pulsa junto com `useSkeletonPulse`.
++ * Bloco do skeleton em `surfaceHigh`. Dentro de um `SkeletonGroup`, uma faixa
++ * clara (degradê em SVG) atravessa o bloco só com `translateX`. Fora de um
++ * grupo é só o bloco: os skeletons da v1 pulsam por fora até a fatia 9.
+  */
+-export function Skeleton({ radius = 'm', ...props }: SkeletonProps) {
+-  return <Box backgroundColor="surface" borderRadius={radius} {...props} />;
++export function Skeleton({ radius = 'm', testID, ...props }: SkeletonProps) {
++  const shimmer = useContext(ShimmerContext);
++  const { motion } = useTheme();
++  const reduced = shimmer?.reducedMotion ?? false;
++
++  return (
++    <Box
++      testID={testID}
++      backgroundColor="surfaceHigh"
++      borderRadius={radius}
++      overflow="hidden"
++      {...props}
++      opacity={reduced ? motion.shimmer.reducedOpacity : props.opacity}
++    >
++      {shimmer && !reduced ? (
++        <ShimmerBand progress={shimmer.progress} testID={testID} />
++      ) : null}
++    </Box>
++  );
+ }
++
++/**
++ * A faixa vai de `−largura da faixa` até a largura do bloco. Ela mede o
++ * próprio contêiner (absoluto, do tamanho do bloco) para não depender do
++ * `onLayout` de quem usa o `Skeleton`.
++ */
++function ShimmerBand({
++  progress,
++  testID,
++}: {
++  progress: SharedValue<number>;
++  testID?: string;
++}) {
++  const { gradients, sizes } = useTheme();
++  const band = sizes.skeleton.shimmerWidth;
++  const blockWidth = useSharedValue(0);
++  const gradientId = `shimmer-${useId()}`;
++
++  const bandStyle = useAnimatedStyle(() => ({
++    transform: [
++      { translateX: shimmerTranslateX(progress.get(), blockWidth.get(), band) },
++    ],
++  }));
++
++  const onLayout = (event: LayoutChangeEvent) =>
++    blockWidth.set(event.nativeEvent.layout.width);
++
++  return (
++    <Box
++      testID={testID ? `${testID}-track` : undefined}
++      style={StyleSheet.absoluteFill}
++      onLayout={onLayout}
++      pointerEvents="none"
++    >
++      <Animated.View
++        testID={testID ? `${testID}-shimmer` : undefined}
++        style={[styles.band, { width: band }, bandStyle]}
++      >
++        <Svg width="100%" height="100%">
++          <Defs>
++            <LinearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0">
++              {gradients.shimmer.map((stop, index, stops) => (
++                <Stop
++                  key={index}
++                  offset={index / (stops.length - 1)}
++                  stopColor={stop.color}
++                  stopOpacity={stop.opacity}
++                />
++              ))}
++            </LinearGradient>
++          </Defs>
++          <Rect width="100%" height="100%" fill={`url(#${gradientId})`} />
++        </Svg>
++      </Animated.View>
++    </Box>
++  );
++}
++
++const styles = StyleSheet.create({
++  band: { position: 'absolute', top: 0, bottom: 0, left: 0 },
++});
+diff --git a/mobile/src/components/UnderlineInput.tsx b/mobile/src/components/UnderlineInput.tsx
+index e47e124..b379021 100644
+--- a/mobile/src/components/UnderlineInput.tsx
++++ b/mobile/src/components/UnderlineInput.tsx
+@@ -72,17 +72,17 @@ export function UnderlineInput({
+ 
+   const lineStyle = useAnimatedStyle(() => ({
+     backgroundColor: withTiming(lineColor, { duration: motion.fast }),
+   }));
+ 
+   return (
+     <Box width="100%">
+       <Text
+-        variant={focused ? 'labelFocused' : 'label'}
++        variant={focused ? 'labelFocused' : 'labelV1'}
+         importantForAccessibility="no"
+         accessibilityElementsHidden
+       >
+         {label}
+       </Text>
+       <ThemedTextInput
+         ref={inputRef}
+         testID={testID}
+diff --git a/mobile/src/components/__tests__/AgendaSkeleton.test.tsx b/mobile/src/components/__tests__/AgendaSkeleton.test.tsx
+index bf631eb..642d3d2 100644
+--- a/mobile/src/components/__tests__/AgendaSkeleton.test.tsx
++++ b/mobile/src/components/__tests__/AgendaSkeleton.test.tsx
+@@ -24,17 +24,17 @@ describe('AgendaSkeleton', () => {
+     await renderWithTheme(<AgendaSkeleton testID="agenda-skeleton" />);
+ 
+     expect(
+       screen.getByTestId('agenda-skeleton-dropdown', {
+         includeHiddenElements: true,
+       }),
+     ).toHaveStyle({
+       height: theme.sizes.dropdown,
+-      backgroundColor: theme.colors.surface,
++      backgroundColor: theme.colors.surfaceHigh,
+     });
+     expect(
+       screen.getAllByTestId(/^agenda-skeleton-row-\d$/, {
+         includeHiddenElements: true,
+       }),
+     ).toHaveLength(4);
+   });
+ });
+diff --git a/mobile/src/components/__tests__/Avatar.test.tsx b/mobile/src/components/__tests__/Avatar.test.tsx
+new file mode 100644
+index 0000000..2d8261e
+--- /dev/null
++++ b/mobile/src/components/__tests__/Avatar.test.tsx
+@@ -0,0 +1,107 @@
++import { screen } from '@testing-library/react-native';
++
++import { renderWithTheme } from '../../test/renderWithTheme';
++import { theme } from '../../theme';
++import { Avatar } from '../Avatar';
++
++const { colors, sizes } = theme;
++
++// O avatar é escondido do leitor de tela, então as consultas incluem
++// elementos ocultos.
++const hidden = { includeHiddenElements: true };
++const avatar = () => screen.getByTestId('avatar', hidden);
++const text = (value: string) => screen.getByText(value, hidden);
++
++describe('Avatar', () => {
++  it('aluno: iniciais em primary sobre primaryMuted, círculo do tamanho m', async () => {
++    await renderWithTheme(
++      <Avatar
++        testID="avatar"
++        firstName="Rafael"
++        lastName="da Silva"
++        size="m"
++        tone="student"
++      />,
++    );
++
++    expect(avatar()).toHaveStyle({
++      width: sizes.avatar.m,
++      height: sizes.avatar.m,
++      borderRadius: 999,
++      backgroundColor: colors.primaryMuted,
++    });
++    expect(text('RS')).toHaveStyle({
++      color: colors.primary,
++      fontFamily: 'Montserrat-SemiBold',
++      fontSize: 15,
++    });
++  });
++
++  it('responsável: rosa claro sobre accentMuted, com o anel accent de 1,5', async () => {
++    await renderWithTheme(
++      <Avatar
++        testID="avatar"
++        firstName="Gustavo"
++        lastName="da Silva"
++        size="l"
++        tone="guardian"
++      />,
++    );
++
++    expect(avatar()).toHaveStyle({
++      width: sizes.avatar.l,
++      height: sizes.avatar.l,
++      backgroundColor: colors.accentMuted,
++      borderColor: colors.accent,
++      borderWidth: 1.5,
++    });
++    expect(text('GS')).toHaveStyle({
++      color: colors.danger,
++      fontSize: 20,
++    });
++  });
++
++  it('tamanho s: overline sem o espaçamento entre letras', async () => {
++    await renderWithTheme(
++      <Avatar
++        testID="avatar"
++        firstName="Bianca"
++        lastName="Silveira da Costa"
++        size="s"
++        tone="student"
++      />,
++    );
++
++    expect(avatar()).toHaveStyle({
++      width: sizes.avatar.s,
++      height: sizes.avatar.s,
++    });
++    expect(text('BC')).toHaveStyle({
++      fontSize: 11,
++      letterSpacing: 0,
++      color: colors.primary,
++    });
++  });
++
++  it('é decorativo: quem tem rótulo é o pai', async () => {
++    await renderWithTheme(
++      <Avatar
++        testID="avatar"
++        firstName="Rafael"
++        lastName="da Silva"
++        size="m"
++        tone="student"
++      />,
++    );
++
++    expect(avatar()).toHaveProp('accessible', false);
++    expect(avatar()).toHaveProp(
++      'importantForAccessibility',
++      'no-hide-descendants',
++    );
++    expect(text('RS')).toHaveProp(
++      'maxFontSizeMultiplier',
++      sizes.fixedHeightFontScale,
++    );
++  });
++});
+diff --git a/mobile/src/components/__tests__/BoletimSkeleton.test.tsx b/mobile/src/components/__tests__/BoletimSkeleton.test.tsx
+index 84439ab..7c9bf17 100644
+--- a/mobile/src/components/__tests__/BoletimSkeleton.test.tsx
++++ b/mobile/src/components/__tests__/BoletimSkeleton.test.tsx
+@@ -22,17 +22,17 @@ describe('BoletimSkeleton', () => {
+     await renderWithTheme(<BoletimSkeleton testID="boletim-skeleton" />);
+ 
+     expect(
+       screen.getByTestId('boletim-skeleton-dropdown', {
+         includeHiddenElements: true,
+       }),
+     ).toHaveStyle({
+       height: theme.sizes.dropdown,
+-      backgroundColor: theme.colors.surface,
++      backgroundColor: theme.colors.surfaceHigh,
+     });
+     const terms = screen.getAllByTestId(/^boletim-skeleton-term-\d$/, {
+       includeHiddenElements: true,
+     });
+     expect(terms).toHaveLength(3);
+     expect(terms[0]).toHaveStyle({ height: theme.sizes.termCard });
+   });
+ 
+diff --git a/mobile/src/components/__tests__/CpfInput.test.tsx b/mobile/src/components/__tests__/CpfInput.test.tsx
+index a90c346..7cfa3df 100644
+--- a/mobile/src/components/__tests__/CpfInput.test.tsx
++++ b/mobile/src/components/__tests__/CpfInput.test.tsx
+@@ -1,12 +1,13 @@
+ import { fireEvent, screen } from '@testing-library/react-native';
+ import { useState } from 'react';
+ 
+ import { renderWithTheme } from '../../test/renderWithTheme';
++import { theme } from '../../theme';
+ import { CpfInput } from '../CpfInput';
+ 
+ /** CPF controlado, como o ViewModel faz. */
+ function ControlledCpf({ onChange }: { onChange?: (value: string) => void }) {
+   const [value, setValue] = useState('');
+   return (
+     <CpfInput
+       label="CPF"
+@@ -73,17 +74,17 @@ describe('CpfInput', () => {
+       fontFamily: 'Montserrat-Regular',
+     });
+   });
+ 
+   it('a linha é inputLine vazia e text preenchida', async () => {
+     await renderWithTheme(<ControlledCpf />);
+ 
+     expect(screen.getByTestId('login-cpf-input-line')).toHaveStyle({
+-      backgroundColor: '#5C5C5C',
++      backgroundColor: theme.colors.inputLine,
+     });
+ 
+     await fireEvent.changeText(input(), '969');
+ 
+     expect(screen.getByTestId('login-cpf-input-line')).toHaveStyle({
+       backgroundColor: '#FFFFFF',
+     });
+   });
+diff --git a/mobile/src/components/__tests__/EmptyState.test.tsx b/mobile/src/components/__tests__/EmptyState.test.tsx
+index 6a2616f..b8f074e 100644
+--- a/mobile/src/components/__tests__/EmptyState.test.tsx
++++ b/mobile/src/components/__tests__/EmptyState.test.tsx
+@@ -1,114 +1,175 @@
+ import { screen } from '@testing-library/react-native';
++import { Text } from 'react-native';
+ import { ReduceMotion, useReducedMotion } from 'react-native-reanimated';
+ 
+ import type { RecordedAnimation } from '../../test/recordingAnimations';
+ import { renderWithTheme } from '../../test/renderWithTheme';
+ import { theme } from '../../theme';
+ import { EmptyState } from '../EmptyState';
++import type { IconProps } from '../icons/StrokeIcon';
+ 
+ jest.mock('react-native-reanimated', () => ({
+   ...jest.requireActual('react-native-reanimated/mock'),
+   ...jest.requireActual('../../test/recordingAnimations').recordingAnimations(),
+   useReducedMotion: jest.fn(() => false),
+ }));
+ 
+-const { motion } = theme;
++const { colors, motion, sizes } = theme;
++
++/** Ícone falso que mostra a cor e o tamanho recebidos. */
++const FakeIcon = jest.fn(({ color, size }: IconProps) => (
++  <Text>{`ícone ${color} ${size}`}</Text>
++));
++
++const hidden = { includeHiddenElements: true };
++const iconCircle = () => screen.getByTestId('vazio-icon', hidden);
+ 
+ /** O `entering` da view animada que envolve o elemento. */
+ const enteringOf = (node: { parent: unknown }) =>
+   (node.parent as { props: { entering: RecordedAnimation } }).props.entering;
+ 
+-const illustrationEntering = () =>
+-  enteringOf(
+-    screen.getByTestId('vazio-illustration', { includeHiddenElements: true }),
+-  );
++beforeEach(() => {
++  FakeIcon.mockClear();
++  (useReducedMotion as jest.Mock).mockReturnValue(false);
++});
+ 
+ describe('EmptyState', () => {
+-  it('ilustração decorativa no tamanho do tema, título e descrição', async () => {
++  it('ícone num círculo de 64 em surfaceRaised, título e descrição', async () => {
+     await renderWithTheme(
+       <EmptyState
+         testID="vazio"
++        icon={FakeIcon}
+         title="Nenhum aluno vinculado"
+         description="Fale com a secretaria."
+       />,
+     );
+ 
+     expect(screen.getByTestId('vazio')).toBeOnTheScreen();
+-    expect(screen.getByText('Nenhum aluno vinculado')).toBeOnTheScreen();
+-    expect(screen.getByText('Fale com a secretaria.')).toBeOnTheScreen();
+-    const illustration = screen.getByTestId('vazio-illustration', {
+-      includeHiddenElements: true,
++    expect(iconCircle()).toHaveStyle({
++      width: sizes.emptyIcon.circle,
++      height: sizes.emptyIcon.circle,
++      borderRadius: 999,
++      backgroundColor: colors.surfaceRaised,
++    });
++    expect(
++      screen.getByText(
++        `ícone ${colors.textSecondary} ${sizes.emptyIcon.glyph}`,
++        hidden,
++      ),
++    ).toBeTruthy();
++    expect(screen.getByText('Nenhum aluno vinculado')).toHaveStyle({
++      fontFamily: 'Montserrat-SemiBold',
++      fontSize: 20,
++      textAlign: 'center',
++    });
++    expect(screen.getByText('Fale com a secretaria.')).toHaveStyle({
++      color: colors.textSecondary,
++      textAlign: 'center',
+     });
+-    expect(illustration).toHaveStyle(theme.sizes.illustration);
+-    expect(illustration).toHaveProp('accessible', false);
+   });
+ 
+-  it('sem ilustração quando pedido', async () => {
++  it('o ícone é decorativo', async () => {
++    await renderWithTheme(
++      <EmptyState testID="vazio" icon={FakeIcon} title="Sem aulas" />,
++    );
++
++    expect(iconCircle()).toHaveProp('accessible', false);
++    expect(iconCircle()).toHaveProp(
++      'importantForAccessibility',
++      'no-hide-descendants',
++    );
++  });
++
++  it('tom de perigo: círculo accentMuted e ícone em danger', async () => {
+     await renderWithTheme(
+-      <EmptyState testID="vazio" title="Sem aulas" illustration={false} />,
++      <EmptyState
++        testID="vazio"
++        icon={FakeIcon}
++        tone="danger"
++        title="Não foi possível carregar"
++      />,
+     );
+ 
++    expect(iconCircle()).toHaveStyle({ backgroundColor: colors.accentMuted });
+     expect(
+-      screen.queryByTestId('vazio-illustration', {
+-        includeHiddenElements: true,
+-      }),
+-    ).toBeNull();
++      screen.getByText(
++        `ícone ${colors.danger} ${sizes.emptyIcon.glyph}`,
++        hidden,
++      ),
++    ).toBeTruthy();
+   });
+ 
+-  describe('entrada (01-design.md, 4.5)', () => {
+-    beforeEach(() => {
+-      (useReducedMotion as jest.Mock).mockReturnValue(false);
+-    });
++  it('mostra a ação opcional e nada quando não há descrição', async () => {
++    await renderWithTheme(
++      <EmptyState
++        testID="vazio"
++        icon={FakeIcon}
++        title="Sem aulas"
++        action={<Text>Ação</Text>}
++      />,
++    );
++
++    expect(screen.getByText('Ação')).toBeOnTheScreen();
++    expect(screen.queryByTestId('vazio-description')).toBeNull();
++  });
+ 
+-    it('ilustração: opacidade 0 → 1 e escala 0,96 → 1 em `base`', async () => {
+-      await renderWithTheme(<EmptyState testID="vazio" title="Sem aulas" />);
++  describe('entrada', () => {
++    it('ícone: opacidade 0 → 1 e escala 0,96 → 1 em `base`', async () => {
++      await renderWithTheme(
++        <EmptyState testID="vazio" icon={FakeIcon} title="Sem aulas" />,
++      );
+ 
+-      const entering = illustrationEntering();
++      const entering = enteringOf(iconCircle());
+       expect(entering.name).toBe('Keyframe');
+       expect(entering.keyframes).toEqual({
+-        0: { opacity: 0, transform: [{ scale: 0.96 }] },
++        0: { opacity: 0, transform: [{ scale: motion.illustrationScaleFrom }] },
+         100: { opacity: 1, transform: [{ scale: 1 }], easing: motion.easeOut },
+       });
+       expect(entering.calls.duration).toBe(motion.base);
+       expect(entering.calls.reduceMotion).toBe(ReduceMotion.System);
+     });
+ 
+-    it('com ilustração, o título espera um stagger e o resto vem em seguida', async () => {
++    it('título, descrição e ação entram em cascata depois do ícone', async () => {
+       await renderWithTheme(
+-        <EmptyState testID="vazio" title="Sem aulas" description="Descrição" />,
+-      );
+-
+-      const title = enteringOf(screen.getByText('Sem aulas'));
+-      expect(title.name).toBe('FadeInDown');
+-      expect(title.calls.delay).toBe(motion.stagger);
+-      expect(enteringOf(screen.getByText('Descrição')).calls.delay).toBe(
+-        2 * motion.stagger,
++        <EmptyState
++          testID="vazio"
++          icon={FakeIcon}
++          title="Sem aulas"
++          description="Descrição"
++          action={<Text>Ação</Text>}
++        />,
+       );
+-    });
+ 
+-    it('sem ilustração, o título entra sem atraso (4.8)', async () => {
+-      await renderWithTheme(
+-        <EmptyState testID="vazio" title="Sem boletim" illustration={false} />,
++      const delays = ['Sem aulas', 'Descrição', 'Ação'].map(
++        text => enteringOf(screen.getByText(text)).calls.delay,
+       );
+-
+-      expect(enteringOf(screen.getByText('Sem boletim')).calls.delay).toBe(0);
++      expect(delays).toEqual([
++        motion.stagger,
++        2 * motion.stagger,
++        3 * motion.stagger,
++      ]);
++      expect(enteringOf(screen.getByText('Sem aulas')).name).toBe('FadeInDown');
+     });
+ 
+     it('com reduzir movimento: só fade, que o sistema não pula', async () => {
+       (useReducedMotion as jest.Mock).mockReturnValue(true);
+       await renderWithTheme(
+-        <EmptyState testID="vazio" title="Sem aulas" description="Descrição" />,
++        <EmptyState
++          testID="vazio"
++          icon={FakeIcon}
++          title="Sem aulas"
++          description="Descrição"
++        />,
+       );
+ 
+-      const illustration = illustrationEntering();
+-      expect(illustration.name).toBe('FadeIn');
+-      expect(illustration.calls.duration).toBe(motion.base);
+-      expect(illustration.calls.reduceMotion).toBe(ReduceMotion.Never);
+-      for (const text of ['Sem aulas', 'Descrição']) {
+-        const entering = enteringOf(screen.getByText(text));
++      for (const entering of [
++        enteringOf(iconCircle()),
++        enteringOf(screen.getByText('Sem aulas')),
++        enteringOf(screen.getByText('Descrição')),
++      ]) {
+         expect(entering.name).toBe('FadeIn');
+         expect(entering.calls.reduceMotion).toBe(ReduceMotion.Never);
+       }
+     });
+   });
+ });
+diff --git a/mobile/src/components/__tests__/ErrorState.test.tsx b/mobile/src/components/__tests__/ErrorState.test.tsx
+index 631a9ae..6141306 100644
+--- a/mobile/src/components/__tests__/ErrorState.test.tsx
++++ b/mobile/src/components/__tests__/ErrorState.test.tsx
+@@ -1,39 +1,77 @@
+ import { fireEvent, screen } from '@testing-library/react-native';
+ import { AccessibilityInfo } from 'react-native';
+ 
+ import { renderWithTheme } from '../../test/renderWithTheme';
++import { theme } from '../../theme';
+ import { ErrorState } from '../ErrorState';
++import { WifiOffIcon } from '../icons/WifiOffIcon';
+ 
+ describe('ErrorState', () => {
+   const base = {
+     title: 'Não conseguimos conectar.',
+     description: 'Confira sua conexão e tente de novo.',
+     testID: 'boot-error',
+     announce: true,
+   };
+ 
+-  it('título, descrição e TENTAR DE NOVO com o testID derivado', async () => {
++  it('título, descrição e Tentar de novo com o testID derivado', async () => {
+     const onRetry = jest.fn();
+     await renderWithTheme(
+       <ErrorState {...base} onRetry={onRetry} retrying={false} />,
+     );
+ 
+     expect(screen.getByText('Não conseguimos conectar.')).toBeOnTheScreen();
+     expect(
+       screen.getByText('Confira sua conexão e tente de novo.'),
+     ).toBeOnTheScreen();
+     const retry = screen.getByTestId('boot-error-retry');
+-    expect(retry).toHaveTextContent('TENTAR DE NOVO');
++    expect(retry).toHaveTextContent('Tentar de novo');
+     expect(retry).toHaveAccessibleName('Tentar de novo');
+     await fireEvent.press(retry);
+     expect(onRetry).toHaveBeenCalledTimes(1);
+   });
+ 
++  it('estado vazio em tom de perigo, com o AlertIcon por padrão', async () => {
++    await renderWithTheme(
++      <ErrorState {...base} onRetry={jest.fn()} retrying={false} />,
++    );
++
++    expect(
++      screen.getByTestId('boot-error-icon', { includeHiddenElements: true }),
++    ).toHaveStyle({ backgroundColor: theme.colors.accentMuted });
++  });
++
++  it('aceita outro ícone (WifiOffIcon no BootError)', async () => {
++    const { toJSON } = await renderWithTheme(
++      <ErrorState
++        {...base}
++        icon={WifiOffIcon}
++        onRetry={jest.fn()}
++        retrying={false}
++      />,
++    );
++
++    // O WifiOffIcon tem 4 traços (3 arcos e a barra); o AlertIcon, 1.
++    const paths = JSON.stringify(toJSON()).match(/RNSVGPath/g) ?? [];
++    expect(paths.length).toBeGreaterThanOrEqual(4);
++  });
++
++  it('o retry é uma pílula secundária pequena (44)', async () => {
++    await renderWithTheme(
++      <ErrorState {...base} onRetry={jest.fn()} retrying={false} />,
++    );
++
++    expect(screen.getByTestId('boot-error-retry-surface')).toHaveStyle({
++      height: theme.sizes.pill.sm,
++      backgroundColor: theme.colors.surfaceRaised,
++    });
++  });
++
+   it('tentando: spinner no botão, busy e sem novo toque', async () => {
+     const onRetry = jest.fn();
+     await renderWithTheme(<ErrorState {...base} onRetry={onRetry} retrying />);
+ 
+     const retry = screen.getByTestId('boot-error-retry');
+     expect(retry).toBeBusy();
+     expect(screen.getByTestId('boot-error-retry-loading')).toBeOnTheScreen();
+     await fireEvent.press(retry);
+diff --git a/mobile/src/components/__tests__/PillButton.test.tsx b/mobile/src/components/__tests__/PillButton.test.tsx
+new file mode 100644
+index 0000000..45971e1
+--- /dev/null
++++ b/mobile/src/components/__tests__/PillButton.test.tsx
+@@ -0,0 +1,245 @@
++import { fireEvent, screen } from '@testing-library/react-native';
++import { StyleSheet, Text } from 'react-native';
++
++import { renderWithTheme } from '../../test/renderWithTheme';
++import { theme } from '../../theme';
++import { PillButton } from '../PillButton';
++
++const { colors, shadows, sizes } = theme;
++
++const surface = () => screen.getByTestId('btn-surface');
++
++describe('PillButton', () => {
++  it('primário: pílula de 56 em primary, com brilho, texto textOnPrimary e chama onPress', async () => {
++    const onPress = jest.fn();
++    await renderWithTheme(
++      <PillButton testID="btn" label="Entrar" onPress={onPress} />,
++    );
++
++    const button = screen.getByTestId('btn');
++    expect(button).toHaveProp('accessibilityRole', 'button');
++    expect(button).toHaveAccessibleName('Entrar');
++    expect(surface()).toHaveStyle({
++      height: sizes.pill.md,
++      borderRadius: 999,
++      backgroundColor: colors.primary,
++      paddingHorizontal: theme.spacing.l,
++      boxShadow: [shadows.glowPrimary],
++    });
++    expect(screen.getByText('Entrar')).toHaveStyle({
++      color: colors.textOnPrimary,
++      fontFamily: 'Montserrat-SemiBold',
++      fontSize: 16,
++    });
++    expect(screen.getByText('Entrar')).toHaveProp(
++      'maxFontSizeMultiplier',
++      sizes.fixedHeightFontScale,
++    );
++
++    await fireEvent.press(button);
++    expect(onPress).toHaveBeenCalledTimes(1);
++  });
++
++  it('secundário: surfaceRaised com borda forte, texto text e ícone em primary', async () => {
++    const icon = jest.fn((color: string) => <Text>ícone {color}</Text>);
++    await renderWithTheme(
++      <PillButton
++        testID="btn"
++        label="Tentar de novo"
++        variant="secondary"
++        icon={icon}
++        onPress={jest.fn()}
++      />,
++    );
++
++    expect(surface()).toHaveStyle({
++      backgroundColor: colors.surfaceRaised,
++      borderColor: colors.borderStrong,
++      borderWidth: 1,
++    });
++    expect(StyleSheet.flatten(surface().props.style).boxShadow).toBeUndefined();
++    expect(screen.getByText('Tentar de novo')).toHaveStyle({
++      color: colors.text,
++    });
++    expect(icon).toHaveBeenCalledWith(colors.primary);
++  });
++
++  it('ghost: sem fundo, texto e ícone em primary', async () => {
++    const icon = jest.fn(() => null);
++    await renderWithTheme(
++      <PillButton
++        testID="btn"
++        label="Hoje"
++        variant="ghost"
++        size="xs"
++        icon={icon}
++        onPress={jest.fn()}
++      />,
++    );
++
++    expect(surface()).toHaveStyle({ backgroundColor: 'transparent' });
++    expect(screen.getByText('Hoje')).toHaveStyle({ color: colors.primary });
++    expect(icon).toHaveBeenCalledWith(colors.primary);
++  });
++
++  it('perigo: fundo danger com texto textOnPrimary', async () => {
++    await renderWithTheme(
++      <PillButton
++        testID="btn"
++        label="Sair"
++        variant="danger"
++        onPress={jest.fn()}
++      />,
++    );
++
++    expect(surface()).toHaveStyle({ backgroundColor: colors.danger });
++    expect(screen.getByText('Sair')).toHaveStyle({
++      color: colors.textOnPrimary,
++    });
++  });
++
++  it('desabilitado: surfaceHigh, texto textDisabled, sem brilho e sem toque', async () => {
++    const onPress = jest.fn();
++    const icon = jest.fn(() => null);
++    await renderWithTheme(
++      <PillButton
++        testID="btn"
++        label="Entrar"
++        icon={icon}
++        disabled
++        onPress={onPress}
++      />,
++    );
++
++    const button = screen.getByTestId('btn');
++    expect(button).toBeDisabled();
++    expect(surface()).toHaveStyle({ backgroundColor: colors.surfaceHigh });
++    expect(StyleSheet.flatten(surface().props.style).boxShadow).toBeUndefined();
++    expect(screen.getByText('Entrar')).toHaveStyle({
++      color: colors.textDisabled,
++    });
++    expect(icon).toHaveBeenCalledWith(colors.textDisabled);
++
++    await fireEvent.press(button);
++    expect(onPress).not.toHaveBeenCalled();
++  });
++
++  describe('carregando', () => {
++    it('spinner na cor do texto, rótulo invisível mas no layout, busy e sem toque', async () => {
++      const onPress = jest.fn();
++      await renderWithTheme(
++        <PillButton
++          testID="btn"
++          label="Entrar"
++          accessibilityLabel="Entrar no app"
++          loadingAccessibilityLabel="Entrando…"
++          loading
++          onPress={onPress}
++        />,
++      );
++
++      const button = screen.getByTestId('btn');
++      expect(button).toBeBusy();
++      expect(button).toHaveAccessibleName('Entrando…');
++      expect(screen.getByTestId('btn-loading')).toHaveProp(
++        'color',
++        colors.textOnPrimary,
++      );
++      // A largura não muda: o rótulo continua montado, com opacidade 0.
++      expect(
++        screen.getByTestId('btn-label', { includeHiddenElements: true }),
++      ).toHaveStyle({ opacity: 0 });
++
++      await fireEvent.press(button);
++      expect(onPress).not.toHaveBeenCalled();
++    });
++
++    it('sem carregar, não há spinner e o rótulo aparece', async () => {
++      await renderWithTheme(
++        <PillButton testID="btn" label="Entrar" onPress={jest.fn()} />,
++      );
++
++      expect(screen.queryByTestId('btn-loading')).toBeNull();
++      expect(screen.getByTestId('btn-label')).toHaveStyle({ opacity: 1 });
++      expect(screen.getByTestId('btn')).not.toBeBusy();
++    });
++  });
++
++  describe('tamanhos', () => {
++    it('sm: 44 de altura, buttonSmall e sem hitSlop (já tem 44)', async () => {
++      await renderWithTheme(
++        <PillButton testID="btn" label="Sair" size="sm" onPress={jest.fn()} />,
++      );
++
++      expect(surface()).toHaveStyle({
++        height: sizes.pill.sm,
++        paddingHorizontal: theme.spacing.m,
++      });
++      expect(screen.getByText('Sair')).toHaveStyle({ fontSize: 14 });
++      expect(screen.getByTestId('btn')).toHaveProp('hitSlop', {
++        top: 0,
++        bottom: 0,
++      });
++    });
++
++    it('xs: 32 de altura e hitSlop até 44', async () => {
++      await renderWithTheme(
++        <PillButton testID="btn" label="Hoje" size="xs" onPress={jest.fn()} />,
++      );
++
++      expect(surface()).toHaveStyle({
++        height: sizes.pill.xs,
++        paddingHorizontal: theme.spacing.sm,
++      });
++      expect(screen.getByTestId('btn')).toHaveProp('hitSlop', {
++        top: 6,
++        bottom: 6,
++      });
++    });
++  });
++
++  it('ícone no fim quando pedido', async () => {
++    await renderWithTheme(
++      <PillButton
++        testID="btn"
++        label="Ver perfil"
++        iconPosition="end"
++        icon={() => <Text>seta</Text>}
++        onPress={jest.fn()}
++      />,
++    );
++
++    const texts = screen
++      .getAllByText(/Ver perfil|seta/)
++      .map(node => String(node.props.children));
++    expect(texts).toEqual(['Ver perfil', 'seta']);
++  });
++
++  it('largura total ocupa a linha; senão, só o conteúdo', async () => {
++    const { rerender } = await renderWithTheme(
++      <PillButton testID="btn" label="Entrar" fullWidth onPress={jest.fn()} />,
++    );
++    expect(screen.getByTestId('btn')).toHaveStyle({ alignSelf: 'stretch' });
++
++    await rerender(
++      <PillButton testID="btn" label="Entrar" onPress={jest.fn()} />,
++    );
++    expect(screen.getByTestId('btn')).toHaveStyle({ alignSelf: 'center' });
++  });
++
++  it('repassa a dica de acessibilidade', async () => {
++    await renderWithTheme(
++      <PillButton
++        testID="btn"
++        label="Sair"
++        accessibilityHint="Encerra a sessão"
++        onPress={jest.fn()}
++      />,
++    );
++
++    expect(screen.getByTestId('btn')).toHaveProp(
++      'accessibilityHint',
++      'Encerra a sessão',
++    );
++  });
++});
+diff --git a/mobile/src/components/__tests__/PrimaryButton.test.tsx b/mobile/src/components/__tests__/PrimaryButton.test.tsx
+index 8e14c3c..702af04 100644
+--- a/mobile/src/components/__tests__/PrimaryButton.test.tsx
++++ b/mobile/src/components/__tests__/PrimaryButton.test.tsx
+@@ -1,11 +1,12 @@
+ import { fireEvent, screen } from '@testing-library/react-native';
+ 
+ import { renderWithTheme } from '../../test/renderWithTheme';
++import { theme } from '../../theme';
+ import { PrimaryButton } from '../PrimaryButton';
+ 
+ const baseProps = {
+   label: 'FAZER LOGIN',
+   accessibilityLabel: 'Fazer login',
+   loadingAccessibilityLabel: 'Entrando',
+   testID: 'login-submit-button',
+   loadingTestID: 'login-submit-loading',
+@@ -20,17 +21,19 @@ describe('PrimaryButton', () => {
+ 
+     const button = screen.getByTestId('login-submit-button');
+     expect(button.props.accessibilityState).toMatchObject({
+       disabled: true,
+       busy: false,
+     });
+     expect(button).toHaveProp('accessibilityRole', 'button');
+     expect(button).toHaveProp('accessibilityLabel', 'Fazer login');
+-    expect(screen.getByText('FAZER LOGIN')).toHaveStyle({ color: '#777777' });
++    expect(screen.getByText('FAZER LOGIN')).toHaveStyle({
++      color: theme.colors.textDisabled,
++    });
+ 
+     await fireEvent.press(button);
+     expect(onPress).not.toHaveBeenCalled();
+   });
+ 
+   it('ativo: texto em textOnPrimary e chama onPress', async () => {
+     const onPress = jest.fn();
+     await renderWithTheme(<PrimaryButton {...baseProps} onPress={onPress} />);
+diff --git a/mobile/src/components/__tests__/Skeleton.test.tsx b/mobile/src/components/__tests__/Skeleton.test.tsx
+new file mode 100644
+index 0000000..26de5ad
+--- /dev/null
++++ b/mobile/src/components/__tests__/Skeleton.test.tsx
+@@ -0,0 +1,148 @@
++import { screen } from '@testing-library/react-native';
++import {
++  cancelAnimation,
++  Easing,
++  useReducedMotion,
++  withRepeat,
++  withTiming,
++} from 'react-native-reanimated';
++
++import { renderWithTheme } from '../../test/renderWithTheme';
++import { theme } from '../../theme';
++import { shimmerTranslateX, Skeleton, SkeletonGroup } from '../Skeleton';
++
++jest.mock('react-native-reanimated', () => {
++  const actual = jest.requireActual('react-native-reanimated/mock');
++  return {
++    ...actual,
++    useReducedMotion: jest.fn(() => false),
++    withRepeat: jest.fn(actual.withRepeat),
++    withTiming: jest.fn(actual.withTiming),
++    cancelAnimation: jest.fn(),
++  };
++});
++
++const reducedMotionMock = useReducedMotion as jest.Mock;
++const { colors, motion, sizes } = theme;
++
++beforeEach(() => {
++  jest.clearAllMocks();
++  reducedMotionMock.mockReturnValue(false);
++});
++
++describe('Skeleton', () => {
++  it('bloco em surfaceHigh, no tamanho e no raio pedidos, cortando o que passa', async () => {
++    await renderWithTheme(
++      <SkeletonGroup>
++        <Skeleton testID="bloco" width={180} height={16} radius="xs" />
++      </SkeletonGroup>,
++    );
++
++    expect(screen.getByTestId('bloco')).toHaveStyle({
++      width: 180,
++      height: 16,
++      borderRadius: theme.borderRadii.xs,
++      backgroundColor: colors.surfaceHigh,
++      overflow: 'hidden',
++    });
++  });
++
++  it('um loop linear por grupo, de 0 a 1 em `shimmer.duration`, sem fim', async () => {
++    await renderWithTheme(
++      <SkeletonGroup>
++        <Skeleton testID="a" width={100} height={16} />
++        <Skeleton testID="b" width={100} height={16} />
++      </SkeletonGroup>,
++    );
++
++    expect(withTiming).toHaveBeenCalledWith(1, {
++      duration: motion.shimmer.duration,
++      easing: Easing.linear,
++    });
++    expect(withRepeat).toHaveBeenCalledTimes(1);
++    expect(withRepeat).toHaveBeenCalledWith(expect.anything(), -1);
++  });
++
++  it('a faixa do shimmer tem a largura do tema e mede o bloco', async () => {
++    await renderWithTheme(
++      <SkeletonGroup>
++        <Skeleton testID="bloco" height={60} />
++      </SkeletonGroup>,
++    );
++
++    expect(screen.getByTestId('bloco-shimmer')).toHaveStyle({
++      width: sizes.skeleton.shimmerWidth,
++    });
++    expect(screen.getByTestId('bloco-track')).toHaveProp(
++      'onLayout',
++      expect.any(Function),
++    );
++  });
++
++  it('o loop é cancelado ao desmontar', async () => {
++    const { unmount } = await renderWithTheme(
++      <SkeletonGroup>
++        <Skeleton testID="bloco" height={60} />
++      </SkeletonGroup>,
++    );
++
++    await unmount();
++
++    expect(cancelAnimation).toHaveBeenCalled();
++  });
++
++  it('com reduzir movimento: sem faixa nem loop, bloco parado em 0,7', async () => {
++    reducedMotionMock.mockReturnValue(true);
++    await renderWithTheme(
++      <SkeletonGroup>
++        <Skeleton testID="bloco" height={60} />
++      </SkeletonGroup>,
++    );
++
++    expect(screen.queryByTestId('bloco-shimmer')).toBeNull();
++    expect(withRepeat).not.toHaveBeenCalled();
++    expect(screen.getByTestId('bloco')).toHaveStyle({
++      opacity: motion.shimmer.reducedOpacity,
++    });
++  });
++
++  it('fora de um grupo é só o bloco (skeletons da v1, que pulsam por fora)', async () => {
++    await renderWithTheme(
++      <Skeleton testID="bloco" radius="round" height={6} />,
++    );
++
++    expect(screen.queryByTestId('bloco-shimmer')).toBeNull();
++    expect(screen.getByTestId('bloco')).toHaveStyle({
++      borderRadius: 999,
++      backgroundColor: colors.surfaceHigh,
++    });
++  });
++});
++
++describe('shimmerTranslateX', () => {
++  it('atravessa o bloco: de −faixa (fora, à esquerda) até a largura dele', () => {
++    expect(shimmerTranslateX(0, 300, 120)).toBe(-120);
++    expect(shimmerTranslateX(0.5, 300, 120)).toBe(90);
++    expect(shimmerTranslateX(1, 300, 120)).toBe(300);
++  });
++});
++
++describe('degradê da faixa', () => {
++  it('as pontas são transparentes e o meio é branco a 7 % (alfa chega ao svg)', async () => {
++    const { toJSON } = await renderWithTheme(
++      <SkeletonGroup>
++        <Skeleton testID="bloco" height={60} />
++      </SkeletonGroup>,
++    );
++
++    // O svg recebe [offset, ARGB, ...]; o alfa é o byte mais alto.
++    const json = JSON.stringify(toJSON());
++    const gradient = JSON.parse(
++      json.match(/"gradient":(\[[^\]]*\])/)?.[1] ?? '[]',
++    ) as number[];
++    const alphas = gradient
++      .filter((_, index) => index % 2 === 1)
++      .map(argb => Math.floor(argb / 2 ** 24));
++    expect(alphas).toEqual([0, Math.round(0.07 * 255), 0]);
++  });
++});
+diff --git a/mobile/src/components/icons/AlertIcon.tsx b/mobile/src/components/icons/AlertIcon.tsx
+new file mode 100644
+index 0000000..3da5f6b
+--- /dev/null
++++ b/mobile/src/components/icons/AlertIcon.tsx
+@@ -0,0 +1,14 @@
++import { Circle, Path } from 'react-native-svg';
++
++import { StrokeIcon, type IconProps } from './StrokeIcon';
++
++/** Erros: círculo com exclamação (o ponto é preenchido). */
++export function AlertIcon(props: IconProps) {
++  return (
++    <StrokeIcon {...props}>
++      <Circle cx={12} cy={12} r={9} />
++      <Path d="M12 7.5v5.5" />
++      <Circle cx={12} cy={16.5} r={1} fill={props.color} stroke="none" />
++    </StrokeIcon>
++  );
++}
+diff --git a/mobile/src/components/icons/CalendarOffIcon.tsx b/mobile/src/components/icons/CalendarOffIcon.tsx
+new file mode 100644
+index 0000000..b1ddd61
+--- /dev/null
++++ b/mobile/src/components/icons/CalendarOffIcon.tsx
+@@ -0,0 +1,17 @@
++import { Path, Rect } from 'react-native-svg';
++
++import { StrokeIcon, type IconProps } from './StrokeIcon';
++
++/** Dia sem aulas: calendário com um X. */
++export function CalendarOffIcon(props: IconProps) {
++  return (
++    <StrokeIcon {...props}>
++      <Rect x={3.5} y={5} width={17} height={15.5} rx={2.5} />
++      <Path d="M3.5 9.5h17" />
++      <Path d="M8 3v4" />
++      <Path d="M16 3v4" />
++      <Path d="M9.5 13.5l5 5" />
++      <Path d="M14.5 13.5l-5 5" />
++    </StrokeIcon>
++  );
++}
+diff --git a/mobile/src/components/icons/CheckIcon.tsx b/mobile/src/components/icons/CheckIcon.tsx
+new file mode 100644
+index 0000000..6b9a09a
+--- /dev/null
++++ b/mobile/src/components/icons/CheckIcon.tsx
+@@ -0,0 +1,12 @@
++import { Path } from 'react-native-svg';
++
++import { StrokeIcon, type IconProps } from './StrokeIcon';
++
++/** Selo "Atual": visto. */
++export function CheckIcon(props: IconProps) {
++  return (
++    <StrokeIcon {...props}>
++      <Path d="M5 12.5l4.5 4.5L19 7.5" />
++    </StrokeIcon>
++  );
++}
+diff --git a/mobile/src/components/icons/ChevronRightIcon.tsx b/mobile/src/components/icons/ChevronRightIcon.tsx
+new file mode 100644
+index 0000000..13de044
+--- /dev/null
++++ b/mobile/src/components/icons/ChevronRightIcon.tsx
+@@ -0,0 +1,12 @@
++import { Path } from 'react-native-svg';
++
++import { StrokeIcon, type IconProps } from './StrokeIcon';
++
++/** Chip do aluno: seta para a direita. */
++export function ChevronRightIcon(props: IconProps) {
++  return (
++    <StrokeIcon {...props}>
++      <Path d="M9.5 6l6 6-6 6" />
++    </StrokeIcon>
++  );
++}
+diff --git a/mobile/src/components/icons/ClockIcon.tsx b/mobile/src/components/icons/ClockIcon.tsx
+new file mode 100644
+index 0000000..5d09802
+--- /dev/null
++++ b/mobile/src/components/icons/ClockIcon.tsx
+@@ -0,0 +1,13 @@
++import { Circle, Path } from 'react-native-svg';
++
++import { StrokeIcon, type IconProps } from './StrokeIcon';
++
++/** Trimestre "Ainda não avaliado": relógio. */
++export function ClockIcon(props: IconProps) {
++  return (
++    <StrokeIcon {...props}>
++      <Circle cx={12} cy={12} r={9} />
++      <Path d="M12 7v5l3.5 2" />
++    </StrokeIcon>
++  );
++}
+diff --git a/mobile/src/components/icons/EyeIcon.tsx b/mobile/src/components/icons/EyeIcon.tsx
+new file mode 100644
+index 0000000..b16db40
+--- /dev/null
++++ b/mobile/src/components/icons/EyeIcon.tsx
+@@ -0,0 +1,13 @@
++import { Circle, Path } from 'react-native-svg';
++
++import { StrokeIcon, type IconProps } from './StrokeIcon';
++
++/** Mostrar senha: olho aberto. */
++export function EyeIcon(props: IconProps) {
++  return (
++    <StrokeIcon {...props}>
++      <Path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
++      <Circle cx={12} cy={12} r={3} />
++    </StrokeIcon>
++  );
++}
+diff --git a/mobile/src/components/icons/EyeOffIcon.tsx b/mobile/src/components/icons/EyeOffIcon.tsx
+new file mode 100644
+index 0000000..38c24d6
+--- /dev/null
++++ b/mobile/src/components/icons/EyeOffIcon.tsx
+@@ -0,0 +1,14 @@
++import { Circle, Path } from 'react-native-svg';
++
++import { StrokeIcon, type IconProps } from './StrokeIcon';
++
++/** Ocultar senha: o olho com uma barra diagonal. */
++export function EyeOffIcon(props: IconProps) {
++  return (
++    <StrokeIcon {...props}>
++      <Path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
++      <Circle cx={12} cy={12} r={3} />
++      <Path d="M4 4l16 16" />
++    </StrokeIcon>
++  );
++}
+diff --git a/mobile/src/components/icons/IdCardIcon.tsx b/mobile/src/components/icons/IdCardIcon.tsx
+new file mode 100644
+index 0000000..979d5a8
+--- /dev/null
++++ b/mobile/src/components/icons/IdCardIcon.tsx
+@@ -0,0 +1,16 @@
++import { Circle, Path, Rect } from 'react-native-svg';
++
++import { StrokeIcon, type IconProps } from './StrokeIcon';
++
++/** Campo CPF: documento com foto. */
++export function IdCardIcon(props: IconProps) {
++  return (
++    <StrokeIcon {...props}>
++      <Rect x={3} y={5} width={18} height={14} rx={2.5} />
++      <Circle cx={9} cy={11} r={2} />
++      <Path d="M6 16c.5-1.4 1.6-2.1 3-2.1s2.5.7 3 2.1" />
++      <Path d="M14.5 10h4" />
++      <Path d="M14.5 13.5h3" />
++    </StrokeIcon>
++  );
++}
+diff --git a/mobile/src/components/icons/LockIcon.tsx b/mobile/src/components/icons/LockIcon.tsx
+new file mode 100644
+index 0000000..5d052b5
+--- /dev/null
++++ b/mobile/src/components/icons/LockIcon.tsx
+@@ -0,0 +1,13 @@
++import { Path, Rect } from 'react-native-svg';
++
++import { StrokeIcon, type IconProps } from './StrokeIcon';
++
++/** Campo Senha: cadeado. */
++export function LockIcon(props: IconProps) {
++  return (
++    <StrokeIcon {...props}>
++      <Rect x={5} y={10.5} width={14} height={10} rx={2.5} />
++      <Path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" />
++    </StrokeIcon>
++  );
++}
+diff --git a/mobile/src/components/icons/ProfileIcon.tsx b/mobile/src/components/icons/ProfileIcon.tsx
+new file mode 100644
+index 0000000..4fb4437
+--- /dev/null
++++ b/mobile/src/components/icons/ProfileIcon.tsx
+@@ -0,0 +1,13 @@
++import { Circle, Path } from 'react-native-svg';
++
++import { StrokeIcon, type IconProps } from './StrokeIcon';
++
++/** Aba Perfil: cabeça e ombros. */
++export function ProfileIcon(props: IconProps) {
++  return (
++    <StrokeIcon {...props}>
++      <Circle cx={12} cy={8} r={4} />
++      <Path d="M4.5 21c.7-3.9 3.7-6.5 7.5-6.5s6.8 2.6 7.5 6.5" />
++    </StrokeIcon>
++  );
++}
+diff --git a/mobile/src/components/icons/RefreshIcon.tsx b/mobile/src/components/icons/RefreshIcon.tsx
+new file mode 100644
+index 0000000..4b09696
+--- /dev/null
++++ b/mobile/src/components/icons/RefreshIcon.tsx
+@@ -0,0 +1,13 @@
++import { Path } from 'react-native-svg';
++
++import { StrokeIcon, type IconProps } from './StrokeIcon';
++
++/** "Tentar de novo": seta circular. */
++export function RefreshIcon(props: IconProps) {
++  return (
++    <StrokeIcon {...props}>
++      <Path d="M20 12a8 8 0 1 1-2.6-5.9" />
++      <Path d="M20 4.5V9h-4.5" />
++    </StrokeIcon>
++  );
++}
+diff --git a/mobile/src/components/icons/StrokeIcon.tsx b/mobile/src/components/icons/StrokeIcon.tsx
+new file mode 100644
+index 0000000..375322d
+--- /dev/null
++++ b/mobile/src/components/icons/StrokeIcon.tsx
+@@ -0,0 +1,39 @@
++import type { ReactNode } from 'react';
++import Svg from 'react-native-svg';
++
++import { useTheme } from '../../theme';
++
++export type IconProps = {
++  color: string;
++  /** Padrão `sizes.iconSmall` (20). */
++  size?: number;
++};
++
++/**
++ * Base dos ícones de traço da v2 (01-design.md da v2, 2.1): viewBox 24,
++ * traço `sizes.iconStroke` na cor do ícone, pontas e junções redondas, sem
++ * preenchimento. Decorativo: quem tem rótulo é o pai.
++ */
++export function StrokeIcon({
++  color,
++  size,
++  children,
++}: IconProps & { children: ReactNode }) {
++  const { sizes } = useTheme();
++  const side = size ?? sizes.iconSmall;
++  return (
++    <Svg
++      width={side}
++      height={side}
++      viewBox="0 0 24 24"
++      fill="none"
++      stroke={color}
++      strokeWidth={sizes.iconStroke}
++      strokeLinecap="round"
++      strokeLinejoin="round"
++      accessible={false}
++    >
++      {children}
++    </Svg>
++  );
++}
+diff --git a/mobile/src/components/icons/UsersIcon.tsx b/mobile/src/components/icons/UsersIcon.tsx
+new file mode 100644
+index 0000000..5c2eaff
+--- /dev/null
++++ b/mobile/src/components/icons/UsersIcon.tsx
+@@ -0,0 +1,15 @@
++import { Circle, Path } from 'react-native-svg';
++
++import { StrokeIcon, type IconProps } from './StrokeIcon';
++
++/** Sem aluno: duas pessoas. */
++export function UsersIcon(props: IconProps) {
++  return (
++    <StrokeIcon {...props}>
++      <Circle cx={9} cy={8} r={3.5} />
++      <Path d="M2.5 20c.5-3.6 3.2-6 6.5-6s6 2.4 6.5 6" />
++      <Path d="M16 4.8a3.5 3.5 0 0 1 0 6.4" />
++      <Path d="M18 14.3c2 .8 3.2 2.9 3.5 5.7" />
++    </StrokeIcon>
++  );
++}
+diff --git a/mobile/src/components/icons/WifiOffIcon.tsx b/mobile/src/components/icons/WifiOffIcon.tsx
+new file mode 100644
+index 0000000..de22d2b
+--- /dev/null
++++ b/mobile/src/components/icons/WifiOffIcon.tsx
+@@ -0,0 +1,16 @@
++import { Circle, Path } from 'react-native-svg';
++
++import { StrokeIcon, type IconProps } from './StrokeIcon';
++
++/** BootError: sinal de wi-fi cortado (o ponto é preenchido). */
++export function WifiOffIcon(props: IconProps) {
++  return (
++    <StrokeIcon {...props}>
++      <Path d="M2 9a14.5 14.5 0 0 1 20 0" />
++      <Path d="M5 12.5a10 10 0 0 1 14 0" />
++      <Path d="M8.5 16a5 5 0 0 1 7 0" />
++      <Circle cx={12} cy={19.5} r={1.2} fill={props.color} stroke="none" />
++      <Path d="M3.5 3.5l17 17" />
++    </StrokeIcon>
++  );
++}
+diff --git a/mobile/src/components/icons/__tests__/strokeIcons.test.tsx b/mobile/src/components/icons/__tests__/strokeIcons.test.tsx
+new file mode 100644
+index 0000000..cf0b981
+--- /dev/null
++++ b/mobile/src/components/icons/__tests__/strokeIcons.test.tsx
+@@ -0,0 +1,100 @@
++import { screen } from '@testing-library/react-native';
++import type { ComponentType } from 'react';
++import type { JsonElement } from 'test-renderer';
++
++import { renderWithTheme } from '../../../test/renderWithTheme';
++import { theme } from '../../../theme';
++import { AlertIcon } from '../AlertIcon';
++import { CalendarOffIcon } from '../CalendarOffIcon';
++import { CheckIcon } from '../CheckIcon';
++import { ChevronRightIcon } from '../ChevronRightIcon';
++import { ClockIcon } from '../ClockIcon';
++import { EyeIcon } from '../EyeIcon';
++import { EyeOffIcon } from '../EyeOffIcon';
++import { IdCardIcon } from '../IdCardIcon';
++import { LockIcon } from '../LockIcon';
++import { ProfileIcon } from '../ProfileIcon';
++import { RefreshIcon } from '../RefreshIcon';
++import type { IconProps } from '../StrokeIcon';
++import { UsersIcon } from '../UsersIcon';
++import { WifiOffIcon } from '../WifiOffIcon';
++
++const icons: [string, ComponentType<IconProps>][] = [
++  ['ProfileIcon', ProfileIcon],
++  ['LockIcon', LockIcon],
++  ['IdCardIcon', IdCardIcon],
++  ['EyeIcon', EyeIcon],
++  ['EyeOffIcon', EyeOffIcon],
++  ['AlertIcon', AlertIcon],
++  ['WifiOffIcon', WifiOffIcon],
++  ['ClockIcon', ClockIcon],
++  ['CalendarOffIcon', CalendarOffIcon],
++  ['UsersIcon', UsersIcon],
++  ['RefreshIcon', RefreshIcon],
++  ['CheckIcon', CheckIcon],
++  ['ChevronRightIcon', ChevronRightIcon],
++];
++
++const svgRoot = () => screen.toJSON() as JsonElement;
++
++/** Nós do tipo pedido, em qualquer profundidade. */
++function nodesOf(node: JsonElement, type: string): JsonElement[] {
++  const children = (node.children ?? []).filter(
++    (child: JsonElement | string): child is JsonElement =>
++      typeof child !== 'string',
++  );
++  const found: JsonElement[] = node.type === type ? [node] : [];
++  return found.concat(
++    ...children.map((child: JsonElement): JsonElement[] =>
++      nodesOf(child, type),
++    ),
++  );
++}
++
++describe('ícones de traço (01-design.md da v2, 2.1)', () => {
++  it.each(icons)(
++    '%s: traço na cor pedida, 1,9, pontas redondas, sem preenchimento e 20 por padrão',
++    async (_name, Icon) => {
++      await renderWithTheme(<Icon color="#29F4D5" />);
++
++      expect(svgRoot().props).toMatchObject({
++        width: theme.sizes.iconSmall,
++        height: theme.sizes.iconSmall,
++        vbWidth: 24,
++        vbHeight: 24,
++        stroke: '#29F4D5',
++        strokeWidth: theme.sizes.iconStroke,
++        strokeLinecap: 'round',
++        strokeLinejoin: 'round',
++        fill: 'none',
++      });
++    },
++  );
++
++  it.each(icons)('%s: aceita outro tamanho', async (_name, Icon) => {
++    await renderWithTheme(<Icon color="#FFFFFF" size={28} />);
++
++    expect(svgRoot().props).toMatchObject({ width: 28, height: 28 });
++  });
++
++  it.each([
++    ['AlertIcon', AlertIcon],
++    ['WifiOffIcon', WifiOffIcon],
++  ] as const)('%s: o ponto é preenchido na cor do ícone', async (_n, Icon) => {
++    await renderWithTheme(<Icon color="#FF5C8D" />);
++
++    // Só o ponto define `fill` (os outros herdam o `none` do Svg).
++    const filled = nodesOf(svgRoot(), 'RNSVGCircle').filter(circle =>
++      (circle.props.propList ?? []).includes('fill'),
++    );
++    expect(filled).toHaveLength(1);
++  });
++
++  it('o EyeOffIcon é o olho com a barra diagonal', async () => {
++    await renderWithTheme(<EyeIcon color="#FFFFFF" />);
++    const eyePaths = nodesOf(svgRoot(), 'RNSVGPath').length;
++    await renderWithTheme(<EyeOffIcon color="#FFFFFF" />);
++
++    expect(nodesOf(svgRoot(), 'RNSVGPath')).toHaveLength(eyePaths + 1);
++  });
++});
+diff --git a/mobile/src/constants/strings.ts b/mobile/src/constants/strings.ts
+index e9b7344..ac73d2a 100644
+--- a/mobile/src/constants/strings.ts
++++ b/mobile/src/constants/strings.ts
+@@ -110,12 +110,12 @@ export const strings = {
+     /** Logo da splash, do Login e do Header. */
+     logoLabel: 'FIAP School',
+     /** `7EF - RM 12567 - Matutino` (Header e cartão da troca de aluno). */
+     studentInfo: (className: string, rm: number, period: string) =>
+       `${className} - RM ${rm} - ${period}`,
+     /** Fundo do dropdown aberto: o leitor de tela também fecha a lista por ele. */
+     closeListAccessibilityLabel: 'Fechar lista',
+     error: { description: 'Confira sua conexão e tente de novo.' },
+-    retry: 'TENTAR DE NOVO',
++    retry: 'Tentar de novo',
+     retryAccessibilityLabel: 'Tentar de novo',
+   },
+ } as const;
+diff --git a/mobile/src/features/auth/components/LoginErrorMessage.tsx b/mobile/src/features/auth/components/LoginErrorMessage.tsx
+index dac02c9..043bda2 100644
+--- a/mobile/src/features/auth/components/LoginErrorMessage.tsx
++++ b/mobile/src/features/auth/components/LoginErrorMessage.tsx
+@@ -24,17 +24,17 @@ export function LoginErrorMessage({ message }: LoginErrorMessageProps) {
+ 
+   return (
+     <Animated.View
+       entering={enterDown(motion)}
+       exiting={FadeOut.duration(motion.fast).reduceMotion(ReduceMotion.System)}
+     >
+       <Text
+         testID="login-error-message"
+-        variant="error"
++        variant="errorV1"
+         marginTop="xxl"
+         accessibilityLabel={spoken}
+       >
+         {message}
+       </Text>
+     </Animated.View>
+   );
+ }
+diff --git a/mobile/src/features/lessons/LessonsScreen.tsx b/mobile/src/features/lessons/LessonsScreen.tsx
+index 05a0f22..7d44cdd 100644
+--- a/mobile/src/features/lessons/LessonsScreen.tsx
++++ b/mobile/src/features/lessons/LessonsScreen.tsx
+@@ -1,14 +1,15 @@
+ import { useIsFocused } from '@react-navigation/native';
+ import Animated, { FadeOut, ReduceMotion } from 'react-native-reanimated';
+ 
+ import { AgendaSkeleton } from '../../components/AgendaSkeleton';
+ import { Dropdown } from '../../components/Dropdown';
+ import { EmptyState } from '../../components/EmptyState';
++import { CalendarOffIcon } from '../../components/icons/CalendarOffIcon';
+ import { ErrorState } from '../../components/ErrorState';
+ import { LessonItem } from '../../components/LessonItem';
+ import { Screen } from '../../components/Screen';
+ import { SectionTitle } from '../../components/SectionTitle';
+ import { strings } from '../../constants/strings';
+ import { Box, enterDown, useTheme } from '../../theme';
+ import { AppHeader } from '../header/AppHeader';
+ import { useAgendaViewModel } from './useAgendaViewModel';
+@@ -76,16 +77,17 @@ export function LessonsScreen() {
+                 exiting={FadeOut.duration(motion.exitFast)
+                   .easing(motion.easeIn)
+                   .reduceMotion(ReduceMotion.System)}
+                 style={{ marginTop: spacing.l }}
+               >
+                 {vm.isEmpty ? (
+                   <EmptyState
+                     testID="agenda-empty"
++                    icon={CalendarOffIcon}
+                     title={strings.agenda.empty}
+                   />
+                 ) : (
+                   <Box
+                     testID="agenda-lesson-list"
+                     paddingHorizontal="xxxl"
+                     gap="m"
+                   >
+diff --git a/mobile/src/features/lessons/__tests__/LessonsScreen.test.tsx b/mobile/src/features/lessons/__tests__/LessonsScreen.test.tsx
+index 9b46576..84d0bb2 100644
+--- a/mobile/src/features/lessons/__tests__/LessonsScreen.test.tsx
++++ b/mobile/src/features/lessons/__tests__/LessonsScreen.test.tsx
+@@ -101,26 +101,26 @@ describe('LessonsScreen', () => {
+     );
+     expect(screen.getByTestId('agenda-lesson-1-subject')).toHaveTextContent(
+       'Língua Inglesa',
+     );
+     expect(screen.queryByTestId('agenda-lesson-2')).toBeNull();
+     expect(screen.queryByTestId('agenda-empty')).toBeNull();
+   });
+ 
+-  it('domingo: ilustração e "Sem aulas neste dia", sem lista', async () => {
++  it('domingo: ícone e "Sem aulas neste dia", sem lista', async () => {
+     await renderScreen();
+ 
+     await chooseDay('2025-03-16');
+ 
+     expect(screen.getByTestId('agenda-empty')).toHaveTextContent(
+       'Sem aulas neste dia',
+     );
+     expect(
+-      screen.getByTestId('agenda-empty-illustration', {
++      screen.getByTestId('agenda-empty-icon', {
+         includeHiddenElements: true,
+       }),
+     ).toBeOnTheScreen();
+     expect(screen.queryByTestId('agenda-lesson-list')).toBeNull();
+   });
+ 
+   it('API fora do ar: erro sem dropdown; TENTAR DE NOVO traz a agenda', async () => {
+     server.use(
+diff --git a/mobile/src/features/report-card/ReportCardScreen.tsx b/mobile/src/features/report-card/ReportCardScreen.tsx
+index 9388502..98d75df 100644
+--- a/mobile/src/features/report-card/ReportCardScreen.tsx
++++ b/mobile/src/features/report-card/ReportCardScreen.tsx
+@@ -1,14 +1,15 @@
+ import { useIsFocused } from '@react-navigation/native';
+ import Animated, { FadeOut, ReduceMotion } from 'react-native-reanimated';
+ 
+ import { BoletimSkeleton } from '../../components/BoletimSkeleton';
+ import { Dropdown } from '../../components/Dropdown';
+ import { EmptyState } from '../../components/EmptyState';
++import { ClockIcon } from '../../components/icons/ClockIcon';
+ import { ErrorState } from '../../components/ErrorState';
+ import { Screen } from '../../components/Screen';
+ import { SectionTitle } from '../../components/SectionTitle';
+ import { strings } from '../../constants/strings';
+ import { Box, enterDown, useTheme } from '../../theme';
+ import { AppHeader } from '../header/AppHeader';
+ import { TermAccordion } from './components/TermAccordion';
+ import { useReportCardViewModel } from './useReportCardViewModel';
+@@ -53,18 +54,18 @@ export function ReportCardScreen() {
+         <Box marginTop="m" paddingBottom="l">
+           {vm.status === 'loading' ? (
+             <BoletimSkeleton testID="boletim-skeleton" />
+           ) : null}
+           {vm.status === 'error' ? errorState : null}
+           {vm.status === 'ready' && vm.isEmpty ? (
+             <EmptyState
+               testID="boletim-empty"
++              icon={ClockIcon}
+               title={strings.boletim.empty}
+-              illustration={false}
+             />
+           ) : null}
+           {vm.status === 'ready' && !vm.isEmpty ? (
+             <>
+               <Animated.View entering={enterDown(motion, 3 * motion.stagger)}>
+                 <Dropdown
+                   testID="boletim-year-dropdown"
+                   label={vm.selectedYearLabel}
+diff --git a/mobile/src/features/splash/BootErrorScreen.tsx b/mobile/src/features/splash/BootErrorScreen.tsx
+index 5b5517e..26a2d74 100644
+--- a/mobile/src/features/splash/BootErrorScreen.tsx
++++ b/mobile/src/features/splash/BootErrorScreen.tsx
+@@ -1,10 +1,11 @@
+ import { ActionBar } from '../../components/ActionBar';
+ import { ErrorState } from '../../components/ErrorState';
++import { WifiOffIcon } from '../../components/icons/WifiOffIcon';
+ import { Screen } from '../../components/Screen';
+ import { strings } from '../../constants/strings';
+ import type { RootStackScreenProps } from '../../navigation/types';
+ import { useBootErrorViewModel } from './useBootErrorViewModel';
+ 
+ /**
+  * Erro de rede na abertura (01-design.md, 3.7): barra só com SAIR, sem
+  * saudação (o `/me` falhou), e o ErrorState com TENTAR DE NOVO.
+@@ -18,16 +19,17 @@ export function BootErrorScreen({
+     <Screen testID="boot-error-screen">
+       <ActionBar
+         canSwitchStudent={false}
+         onLogout={vm.onLogout}
+         logoutDisabled={vm.logoutDisabled}
+       />
+       <ErrorState
+         testID="boot-error"
++        icon={WifiOffIcon}
+         title={strings.boot.error.title}
+         description={strings.common.error.description}
+         onRetry={vm.onRetry}
+         retrying={vm.retrying}
+         shakeKey={vm.shakeKey}
+         announce
+       />
+     </Screen>
+diff --git a/mobile/src/features/students/NoStudentScreen.tsx b/mobile/src/features/students/NoStudentScreen.tsx
+index a0c2907..7814a98 100644
+--- a/mobile/src/features/students/NoStudentScreen.tsx
++++ b/mobile/src/features/students/NoStudentScreen.tsx
+@@ -1,9 +1,10 @@
+ import { EmptyState } from '../../components/EmptyState';
++import { UsersIcon } from '../../components/icons/UsersIcon';
+ import { Header } from '../../components/Header';
+ import { Screen } from '../../components/Screen';
+ import { strings } from '../../constants/strings';
+ import { Box } from '../../theme';
+ import { useNoStudentViewModel } from './useNoStudentViewModel';
+ 
+ /**
+  * Responsável sem aluno vinculado (M7, 01-design.md 3.6): barra só com SAIR,
+@@ -19,16 +20,17 @@ export function NoStudentScreen() {
+         canSwitchStudent={false}
+         onSwitchStudent={() => {}}
+         onLogout={vm.onLogout}
+         logoutDisabled={vm.logoutDisabled}
+       >
+         <Box marginTop="section" paddingBottom="xxl">
+           <EmptyState
+             testID="no-student-empty"
++            icon={UsersIcon}
+             title={strings.noStudent.title}
+             description={strings.noStudent.description}
+           />
+         </Box>
+       </Header>
+     </Screen>
+   );
+ }
+diff --git a/mobile/src/features/students/SelectStudentScreen.tsx b/mobile/src/features/students/SelectStudentScreen.tsx
+index cab65f5..256a0c4 100644
+--- a/mobile/src/features/students/SelectStudentScreen.tsx
++++ b/mobile/src/features/students/SelectStudentScreen.tsx
+@@ -50,17 +50,17 @@ export function SelectStudentScreen({
+         style={styles.fill}
+         contentContainerStyle={[
+           styles.center,
+           { paddingHorizontal: spacing.m, paddingVertical: spacing.section },
+         ]}
+         showsVerticalScrollIndicator={false}
+       >
+         <Animated.View entering={enterDown(motion, 0)}>
+-          <Text ref={titleRef} variant="title" accessibilityRole="header">
++          <Text ref={titleRef} variant="titleV1" accessibilityRole="header">
+             {strings.selectStudent.title}
+           </Text>
+         </Animated.View>
+         <Box gap="m" style={{ marginTop: spacing.section }}>
+           {vm.students.map((student, index) => (
+             <Animated.View
+               key={student.id}
+               entering={enterDown(
+diff --git a/mobile/src/hooks/__tests__/useSlidingIndicator.test.tsx b/mobile/src/hooks/__tests__/useSlidingIndicator.test.tsx
+new file mode 100644
+index 0000000..3658264
+--- /dev/null
++++ b/mobile/src/hooks/__tests__/useSlidingIndicator.test.tsx
+@@ -0,0 +1,181 @@
++import { ThemeProvider } from '@shopify/restyle';
++import { renderHook } from '@testing-library/react-native';
++import type { PropsWithChildren } from 'react';
++import {
++  useReducedMotion,
++  withSpring,
++  type SharedValue,
++} from 'react-native-reanimated';
++
++import { theme } from '../../theme';
++import {
++  indicatorTranslateX,
++  proximityOpacity,
++  useActiveLayerStyle,
++  useSlidingIndicator,
++  type SlidingIndicatorOptions,
++} from '../useSlidingIndicator';
++
++jest.mock('react-native-reanimated', () => {
++  const actual = jest.requireActual('react-native-reanimated/mock');
++  return {
++    ...actual,
++    useReducedMotion: jest.fn(() => false),
++    withSpring: jest.fn(actual.withSpring),
++  };
++});
++
++const springMock = withSpring as jest.Mock;
++const reducedMotionMock = useReducedMotion as jest.Mock;
++
++function Wrapper({ children }: PropsWithChildren) {
++  return <ThemeProvider theme={theme}>{children}</ThemeProvider>;
++}
++
++/** Shared value externo, como o `progress` do pager. */
++const progressOf = (value: number) =>
++  ({ get: () => value, value } as unknown as SharedValue<number>);
++
++const translateXOf = (style: unknown) =>
++  (style as { transform: [{ translateX: number }] }).transform[0].translateX;
++
++const renderIndicator = (initial: SlidingIndicatorOptions) =>
++  renderHook(
++    (options: SlidingIndicatorOptions) => useSlidingIndicator(options),
++    {
++      initialProps: initial,
++      wrapper: Wrapper,
++    },
++  );
++
++beforeEach(() => {
++  springMock.mockClear();
++  reducedMotionMock.mockReturnValue(false);
++});
++
++describe('indicatorTranslateX', () => {
++  it('posição × (largura do item + gap)', () => {
++    expect(indicatorTranslateX(0, 100, 4)).toBe(0);
++    expect(indicatorTranslateX(2, 100, 4)).toBe(208);
++    expect(indicatorTranslateX(1.5, 51, 4)).toBeCloseTo(82.5);
++  });
++});
++
++describe('proximityOpacity', () => {
++  it('1 com o indicador em cima do item e 0 a uma largura de distância', () => {
++    expect(proximityOpacity(1, 1, 100, 0)).toBe(1);
++    expect(proximityOpacity(0, 1, 100, 0)).toBe(0);
++    expect(proximityOpacity(3, 1, 100, 0)).toBe(0);
++  });
++
++  it('no meio do caminho, metade (a cor acompanha o indicador)', () => {
++    expect(proximityOpacity(0.5, 1, 100, 0)).toBeCloseTo(0.5);
++    expect(proximityOpacity(0.5, 0, 100, 0)).toBeCloseTo(0.5);
++  });
++
++  it('conta o gap na distância (distância em px ÷ largura do item)', () => {
++    // 0,5 passo de 104 px = 52 px de distância → 1 − 52/100.
++    expect(proximityOpacity(0.5, 1, 100, 4)).toBeCloseTo(0.48);
++  });
++
++  it('antes do 1º layout (largura 0): só o item mais próximo acende', () => {
++    expect(proximityOpacity(1, 1, 0, 0)).toBe(1);
++    expect(proximityOpacity(1, 2, 0, 0)).toBe(0);
++    expect(proximityOpacity(1.4, 1, 0, 0)).toBe(1);
++  });
++});
++
++describe('useSlidingIndicator', () => {
++  it('modo index: começa no índice, sem animar', async () => {
++    const { result } = await renderIndicator({
++      count: 3,
++      index: 1,
++      itemWidth: 100,
++    });
++
++    expect(translateXOf(result.current.indicatorStyle)).toBe(100);
++    expect(springMock).not.toHaveBeenCalled();
++  });
++
++  it('modo index: troca de índice desliza com a mola snappy', async () => {
++    const { result, rerender } = await renderIndicator({
++      count: 3,
++      index: 0,
++      itemWidth: 100,
++    });
++
++    await rerender({ count: 3, index: 2, itemWidth: 100 });
++
++    expect(springMock).toHaveBeenCalledWith(2, theme.motion.spring.snappy);
++    expect(translateXOf(result.current.indicatorStyle)).toBe(200);
++  });
++
++  it('modo index com reduzir movimento: vai direto, sem mola', async () => {
++    reducedMotionMock.mockReturnValue(true);
++    const { result, rerender } = await renderIndicator({
++      count: 3,
++      index: 0,
++      itemWidth: 100,
++    });
++
++    await rerender({ count: 3, index: 2, itemWidth: 100 });
++
++    expect(springMock).not.toHaveBeenCalled();
++    expect(translateXOf(result.current.indicatorStyle)).toBe(200);
++  });
++
++  it('modo progress: segue o valor externo direto, com o gap', async () => {
++    const { result } = await renderIndicator({
++      count: 7,
++      progress: progressOf(1.5),
++      itemWidth: 50,
++      gap: 4,
++    });
++
++    expect(translateXOf(result.current.indicatorStyle)).toBe(81);
++    expect(springMock).not.toHaveBeenCalled();
++  });
++
++  it('modo progress: o overscroll do pager não leva o indicador para fora', async () => {
++    const before = await renderIndicator({
++      count: 7,
++      progress: progressOf(-0.3),
++      itemWidth: 50,
++    });
++    expect(translateXOf(before.result.current.indicatorStyle)).toBe(0);
++
++    const after = await renderIndicator({
++      count: 7,
++      progress: progressOf(6.4),
++      itemWidth: 50,
++    });
++    expect(translateXOf(after.result.current.indicatorStyle)).toBe(300);
++  });
++});
++
++describe('useActiveLayerStyle', () => {
++  it('opacidade da camada ativa pela proximidade do indicador', async () => {
++    const { result } = await renderHook(
++      () => {
++        const indicator = useSlidingIndicator({
++          count: 3,
++          progress: progressOf(0.25),
++          itemWidth: 100,
++        });
++        return [
++          useActiveLayerStyle(indicator, 0),
++          useActiveLayerStyle(indicator, 1),
++          useActiveLayerStyle(indicator, 2),
++        ];
++      },
++      { wrapper: Wrapper },
++    );
++
++    const [first, second, third] = result.current.map(
++      style => (style as unknown as { opacity: number }).opacity,
++    );
++    expect(first).toBeCloseTo(0.75);
++    expect(second).toBeCloseTo(0.25);
++    expect(third).toBe(0);
++  });
++});
+diff --git a/mobile/src/hooks/useSlidingIndicator.ts b/mobile/src/hooks/useSlidingIndicator.ts
+new file mode 100644
+index 0000000..2516076
+--- /dev/null
++++ b/mobile/src/hooks/useSlidingIndicator.ts
+@@ -0,0 +1,123 @@
++import { useEffect, useRef } from 'react';
++import {
++  useAnimatedStyle,
++  useDerivedValue,
++  useReducedMotion,
++  useSharedValue,
++  withSpring,
++  type DerivedValue,
++  type SharedValue,
++} from 'react-native-reanimated';
++
++import { useTheme } from '../theme';
++
++/** `translateX` do indicador na posição `position` (em itens, pode ser fracionária). */
++export function indicatorTranslateX(
++  position: number,
++  itemWidth: number,
++  gap: number,
++): number {
++  'worklet';
++  return position * (itemWidth + gap);
++}
++
++/**
++ * Opacidade da camada "ativa" do item `index` (01-design.md da v2, 2.4):
++ * `clamp(1 − |posIndicador − posItem| / larguraDoItem, 0, 1)`, em px. Antes
++ * do 1º layout (largura 0) acende só o item mais próximo.
++ */
++export function proximityOpacity(
++  position: number,
++  index: number,
++  itemWidth: number,
++  gap: number,
++): number {
++  'worklet';
++  if (itemWidth <= 0) return Math.round(position) === index ? 1 : 0;
++  const distance = Math.abs(position - index) * (itemWidth + gap);
++  return Math.min(Math.max(1 - distance / itemWidth, 0), 1);
++}
++
++type Layout = {
++  /** Quantidade de itens: a posição fica entre 0 e `count − 1`. */
++  count: number;
++  /** Largura de um item, do `onLayout` (0 antes do 1º layout). */
++  itemWidth: number;
++  gap?: number;
++};
++
++export type SlidingIndicatorOptions = Layout &
++  (
++    | {
++        /** Item ativo: o indicador vai até ele com a mola `snappy`. */
++        index: number;
++        progress?: never;
++      }
++    | {
++        /** Posição externa em itens (a rolagem do pager): lida direto, sem mola. */
++        progress: SharedValue<number>;
++        index?: never;
++      }
++  );
++
++export type SlidingIndicator = {
++  /** Posição do indicador em itens. */
++  position: DerivedValue<number>;
++  itemWidth: number;
++  gap: number;
++  indicatorStyle: ReturnType<typeof useAnimatedStyle>;
++};
++
++/**
++ * Indicador que desliza (01-design.md da v2, 2.17): fonte única da tab bar,
++ * do segmento e da faixa semanal. No modo `index` anima com
++ * `motion.spring.snappy` (direto com reduzir movimento); no modo `progress`
++ * segue o shared value de fora, já que quem anima é a rolagem nativa.
++ */
++export function useSlidingIndicator(
++  options: SlidingIndicatorOptions,
++): SlidingIndicator {
++  const { count, itemWidth, gap = 0, index, progress } = options;
++  const { motion } = useTheme();
++  const reducedMotion = useReducedMotion();
++  const target = index ?? 0;
++  const animatedIndex = useSharedValue(target);
++  // Só a troca de índice anima: a 1ª renderização já nasce no lugar.
++  const previousTarget = useRef(target);
++
++  useEffect(() => {
++    if (progress || previousTarget.current === target) return;
++    previousTarget.current = target;
++    animatedIndex.set(
++      reducedMotion ? target : withSpring(target, motion.spring.snappy),
++    );
++  }, [target, progress, reducedMotion, animatedIndex, motion.spring.snappy]);
++
++  const position = useDerivedValue(() => {
++    const raw = progress ? progress.get() : animatedIndex.get();
++    return Math.min(Math.max(raw, 0), Math.max(count - 1, 0));
++  });
++
++  const indicatorStyle = useAnimatedStyle(() => ({
++    transform: [
++      { translateX: indicatorTranslateX(position.get(), itemWidth, gap) },
++    ],
++  }));
++
++  return { position, itemWidth, gap, indicatorStyle };
++}
++
++/**
++ * Estilo da camada ativa do item `index` (ícone e texto na cor ativa por
++ * cima da inativa): a cor acompanha o indicador no meio do caminho, sem
++ * `setState` (crossfade, 1.10 regra 1).
++ */
++export function useActiveLayerStyle(
++  indicator: SlidingIndicator,
++  index: number,
++) {
++  const { position, itemWidth, gap } = indicator;
++  return useAnimatedStyle(() => ({
++    opacity: proximityOpacity(position.get(), index, itemWidth, gap),
++  }));
++}
+diff --git a/mobile/src/theme/__tests__/Card.test.tsx b/mobile/src/theme/__tests__/Card.test.tsx
+index db11e8c..72fba50 100644
+--- a/mobile/src/theme/__tests__/Card.test.tsx
++++ b/mobile/src/theme/__tests__/Card.test.tsx
+@@ -1,22 +1,54 @@
+ import { render, screen } from '@testing-library/react-native';
+ import { ThemeProvider } from '@shopify/restyle';
+ import { StyleSheet } from 'react-native';
+ 
+ import { Card, theme } from '..';
+ 
+-const renderCard = (variant: 'student') =>
+-  render(
++const styleOf = async (
++  variant: Exclude<keyof typeof theme.cardVariants, 'defaults'>,
++) => {
++  await render(
+     <ThemeProvider theme={theme}>
+       <Card testID="card" variant={variant} />
+     </ThemeProvider>,
+   );
++  return StyleSheet.flatten(screen.getByTestId('card').props.style);
++};
+ 
+ describe('Card', () => {
+-  it('mantém a borda transparente no aluno não selecionado para não pular o layout', async () => {
+-    await renderCard('student');
++  it('surface: fundo surface, borda sutil de 1, raio l e padding l', async () => {
++    expect(await styleOf('surface')).toMatchObject({
++      backgroundColor: '#141414',
++      borderColor: '#262626',
++      borderWidth: 1,
++      borderRadius: 20,
++      padding: 24,
++    });
++  });
++
++  it('lesson: surfaceRaised, raio s e padding sm × s', async () => {
++    expect(await styleOf('lesson')).toMatchObject({
++      backgroundColor: '#1E1E1E',
++      borderWidth: 1,
++      borderRadius: 10,
++      paddingHorizontal: 12,
++      paddingVertical: 8,
++    });
++  });
+ 
+-    const style = StyleSheet.flatten(screen.getByTestId('card').props.style);
++  it('floating: pílula com borda forte', async () => {
++    expect(await styleOf('floating')).toMatchObject({
++      backgroundColor: '#1E1E1E',
++      borderColor: '#3A3A3A',
++      borderWidth: 1,
++      borderRadius: 999,
++    });
++  });
+ 
+-    expect(style).toMatchObject({ borderColor: 'transparent', borderWidth: 1 });
++  it('legado v1: aluno não selecionado mantém a borda transparente para não pular o layout', async () => {
++    expect(await styleOf('student')).toMatchObject({
++      borderColor: 'transparent',
++      borderWidth: 1,
++    });
+   });
+ });
+diff --git a/mobile/src/theme/__tests__/Text.test.tsx b/mobile/src/theme/__tests__/Text.test.tsx
+index 0b26479..044af0c 100644
+--- a/mobile/src/theme/__tests__/Text.test.tsx
++++ b/mobile/src/theme/__tests__/Text.test.tsx
+@@ -1,23 +1,72 @@
+ import { render, screen } from '@testing-library/react-native';
+ import { ThemeProvider } from '@shopify/restyle';
+ import { StyleSheet } from 'react-native';
+ 
+ import { Text, theme } from '..';
+ 
++const styleOf = async (
++  variant: Exclude<keyof typeof theme.textVariants, 'defaults'>,
++  text: string,
++) => {
++  await render(
++    <ThemeProvider theme={theme}>
++      <Text variant={variant}>{text}</Text>
++    </ThemeProvider>,
++  );
++  return StyleSheet.flatten(screen.getByText(text).props.style);
++};
++
+ describe('Text', () => {
+-  it('aplica cor primary, Montserrat Bold e tamanho 20 na variante sectionTitle', async () => {
+-    await render(
+-      <ThemeProvider theme={theme}>
+-        <Text variant="sectionTitle">AGENDA</Text>
+-      </ThemeProvider>,
+-    );
++  it('body da v2: Montserrat Regular 15/22 em text', async () => {
++    expect(await styleOf('body', 'Corpo')).toMatchObject({
++      color: '#FFFFFF',
++      fontFamily: 'Montserrat-Regular',
++      fontSize: 15,
++      lineHeight: 22,
++    });
++  });
+ 
+-    const style = StyleSheet.flatten(screen.getByText('AGENDA').props.style);
++  it('overline: SemiBold 11 em textTertiary, caixa alta e espaçado', async () => {
++    expect(await styleOf('overline', 'Alunos')).toMatchObject({
++      color: '#8C8C8C',
++      fontFamily: 'Montserrat-SemiBold',
++      fontSize: 11,
++      lineHeight: 14,
++      textTransform: 'uppercase',
++      letterSpacing: 0.8,
++    });
++  });
+ 
++  it('números (grade) usam dígitos tabulares', async () => {
++    expect(await styleOf('grade', '8,5')).toMatchObject({
++      fontFamily: 'Montserrat-Bold',
++      fontSize: 24,
++      fontVariant: ['tabular-nums'],
++    });
++  });
++
++  it('button sai da caixa alta e fica em textOnPrimary', async () => {
++    const style = await styleOf('button', 'Entrar');
+     expect(style).toMatchObject({
++      color: '#000000',
++      fontFamily: 'Montserrat-SemiBold',
++      fontSize: 16,
++    });
++    expect(style.textTransform).toBeUndefined();
++  });
++
++  it('error usa danger (rosa claro), não o teal', async () => {
++    expect(await styleOf('error', 'Erro')).toMatchObject({
++      color: '#FF5C8D',
++      fontSize: 13,
++    });
++  });
++
++  it('legado v1: sectionTitle continua igual até a fatia 9', async () => {
++    expect(await styleOf('sectionTitle', 'AGENDA')).toMatchObject({
+       color: '#29F4D5',
+       fontFamily: 'Montserrat-Bold',
+       fontSize: 20,
+     });
+   });
+ });
+diff --git a/mobile/src/theme/__tests__/palette-only.test.js b/mobile/src/theme/__tests__/palette-only.test.js
+new file mode 100644
+index 0000000..1c8b686
+--- /dev/null
++++ b/mobile/src/theme/__tests__/palette-only.test.js
+@@ -0,0 +1,34 @@
++/**
++ * @jest-environment node
++ */
++
++const fs = require('fs');
++const path = require('path');
++
++const src = path.resolve(__dirname, '../..');
++
++/** Arquivos de produção em `src/` (sem testes nem utilitários de teste). */
++function productionFiles(dir) {
++  return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
++    const full = path.join(dir, entry.name);
++    if (entry.isDirectory()) {
++      return entry.name === '__tests__' || entry.name === 'test'
++        ? []
++        : productionFiles(full);
++    }
++    return /\.tsx?$/.test(entry.name) ? [full] : [];
++  });
++}
++
++describe('paleta', () => {
++  it('hexadecimal e rgba só em theme/palette.ts (01-design.md da v2, 1.1)', () => {
++    const offenders = productionFiles(src)
++      .filter(file => file !== path.join(src, 'theme', 'palette.ts'))
++      .filter(file =>
++        /#[0-9a-f]{3,8}\b|rgba?\(/i.test(fs.readFileSync(file, 'utf8')),
++      )
++      .map(file => path.relative(src, file));
++
++    expect(offenders).toEqual([]);
++  });
++});
+diff --git a/mobile/src/theme/__tests__/theme.test.ts b/mobile/src/theme/__tests__/theme.test.ts
+new file mode 100644
+index 0000000..c1b723e
+--- /dev/null
++++ b/mobile/src/theme/__tests__/theme.test.ts
+@@ -0,0 +1,142 @@
++import { palette } from '../palette';
++import { theme } from '../theme';
++
++describe('tema v2', () => {
++  it('toda cor semântica vem da paleta', () => {
++    const allowed = new Set<string>([...Object.values(palette), 'transparent']);
++    for (const [name, value] of Object.entries(theme.colors)) {
++      expect({ name, ok: allowed.has(value) }).toEqual({ name, ok: true });
++    }
++  });
++
++  it('cores novas da v2 (1.2)', () => {
++    expect(theme.colors).toMatchObject({
++      background: '#000000',
++      surfaceSunken: '#0B0B0B',
++      surface: '#141414',
++      surfaceRaised: '#1E1E1E',
++      surfaceHigh: '#2A2A2A',
++      borderSubtle: '#262626',
++      borderStrong: '#3A3A3A',
++      borderInput: '#6E6E6E',
++      primary: '#29F4D5',
++      primaryMuted: '#17332F',
++      accent: '#ED145B',
++      accentMuted: '#37141F',
++      danger: '#FF5C8D',
++      warning: '#FFB547',
++      warningMuted: '#352B1B',
++      text: '#FFFFFF',
++      textSecondary: '#B3B3B3',
++      textTertiary: '#8C8C8C',
++      textDisabled: '#808080',
++      textOnPrimary: '#000000',
++    });
++  });
++
++  it('as cores com alfa ficam fora de `colors`', () => {
++    const values = Object.values(theme.colors) as string[];
++    for (const alpha of [palette.glowTeal, palette.shadowBlack]) {
++      expect(values).not.toContain(alpha);
++    }
++  });
++
++  it('raios (1.5) e o espaçamento xxs (1.4)', () => {
++    expect(theme.borderRadii).toEqual({
++      none: 0,
++      xs: 6,
++      s: 10,
++      m: 14,
++      l: 20,
++      xl: 28,
++      pill: 999,
++      round: 999,
++    });
++    expect(theme.spacing.xxs).toBe(2);
++  });
++
++  it('sombras são BoxShadowValue com as cores da paleta (1.6)', () => {
++    expect(theme.shadows.glowPrimary).toEqual({
++      offsetX: 0,
++      offsetY: 0,
++      blurRadius: 16,
++      spreadDistance: 0,
++      color: palette.glowTeal,
++    });
++    expect(theme.shadows.glowPrimarySoft).toEqual({
++      ...theme.shadows.glowPrimary,
++      blurRadius: 8,
++    });
++    expect(theme.shadows.floating).toEqual({
++      offsetX: 0,
++      offsetY: 8,
++      blurRadius: 24,
++      spreadDistance: 0,
++      color: palette.shadowBlack,
++    });
++  });
++
++  it('degradês (1.6) e opacidades (1.7)', () => {
++    // O `Stop` do react-native-svg ignora o alfa de um rgba no `stopColor`:
++    // cada parada leva a cor opaca e a opacidade separadas (`stopOpacity`).
++    expect(theme.gradients.tabBarFade).toEqual([
++      { color: palette.black, opacity: 0 },
++      { color: palette.black, opacity: 1 },
++    ]);
++    expect(theme.gradients.shimmer).toEqual([
++      { color: palette.white, opacity: 0 },
++      { color: palette.white, opacity: 0.07 },
++      { color: palette.white, opacity: 0 },
++    ]);
++    expect(theme.gradients.loginHalo).toEqual({
++      color: palette.teal,
++      centerOpacity: 0.1,
++      edgeOpacity: 0,
++    });
++    expect(theme.opacities).toEqual({
++      past: 0.72,
++      pressed: 0.6,
++      busy: 0.6,
++      hidden: 0,
++    });
++  });
++
++  it('tamanhos novos e alterados (1.9)', () => {
++    expect(theme.sizes).toMatchObject({
++      iconSmall: 20,
++      iconStroke: 1.9,
++      headerBar: 56,
++      logoHeader: { width: 80, height: 13 },
++      logoLoginV2: { width: 245, height: 39 },
++      formMaxWidth: 400,
++      avatar: { s: 28, m: 44, l: 56 },
++      pill: { md: 56, sm: 44, xs: 32 },
++      emptyIcon: { circle: 64, glyph: 28 },
++      skeleton: {
++        blockHeights: [60, 60, 60, 60],
++        subjectCards: 4,
++        shimmerWidth: 120,
++      },
++    });
++  });
++
++  it('movimento (1.10): adições e mudanças', () => {
++    expect(theme.motion).toMatchObject({
++      slower: 450,
++      pressScale: 0.97,
++      pressScaleSmall: 0.94,
++      cardStagger: 50,
++      stripStagger: 20,
++      spring: {
++        snappy: { damping: 22, stiffness: 320, mass: 1 },
++        gentle: { damping: 20, stiffness: 170, mass: 1 },
++        pop: { damping: 12, stiffness: 220, mass: 0.8 },
++      },
++      shimmer: { duration: 1200, reducedOpacity: 0.7 },
++      nowTick: 60_000,
++    });
++    // Razão entre o logo do login e o da splash (245 / 306).
++    expect(theme.motion.loginLogoScale).toBeCloseTo(0.8, 2);
++    expect(theme.motion.emphasized).toBe(theme.motion.splash.exitToLoginEasing);
++  });
++});
+diff --git a/mobile/src/theme/motion.ts b/mobile/src/theme/motion.ts
+index 6b60583..7f97816 100644
+--- a/mobile/src/theme/motion.ts
++++ b/mobile/src/theme/motion.ts
+@@ -1,46 +1,84 @@
+ import { Easing, FadeInDown, ReduceMotion } from 'react-native-reanimated';
+ 
+-/** Durações e curvas das animações (01-design.md, 1.8). */
++import { sizes } from './sizes';
++
++/** Curva das entradas de card e da saída da splash para o login. */
++const emphasized = Easing.bezier(0.2, 0, 0, 1);
++
++/**
++ * Durações, curvas e molas (01-design.md da v1, 1.8, com as adições e
++ * mudanças da v2, 1.10).
++ */
+ export const motion = {
+   /** Saída do texto do botão quando vira spinner (01-design.md, 4.2). */
+   instant: 100,
+   fast: 150,
+   base: 220,
+   slow: 320,
++  /** Barras de nota enchendo, halo do login. */
++  slower: 450,
+   stagger: 40,
+   /** Saídas curtas: lista do dropdown e troca de dia (01-design.md, 4.5). */
+   exitFast: 120,
+   /** Teto do stagger: no máximo 6 itens escalonados por lista (1.8). */
+   maxStaggered: 6,
+   /** Chevron aberto (4.5). */
+   chevronOpenDeg: 180,
+-  /** Pulso do skeleton: 0,5 ↔ 1 em 800 ms; parado em 0,7 com reduzir movimento (4.8). */
+-  skeleton: { duration: 800, min: 0.5, reduced: 0.7 },
++  /** Shimmer do skeleton: uma passada por `duration`; parado em 0,7 com reduzir movimento. */
++  shimmer: { duration: 1200, reducedOpacity: 0.7 },
++  /** Relógio da linha de agora. */
++  nowTick: 60_000,
++  /** Anel do ponto de agora. */
++  nowPulse: { duration: 2000, scaleTo: 2.2 },
++  /** Escala inicial dos selos. */
++  popFrom: 0.9,
++  /** Logo da splash ao chegar no login (0,8). */
++  loginLogoScale: sizes.logoLoginV2.width / sizes.logoLogin.width,
+   easeOut: Easing.out(Easing.cubic),
+   easeIn: Easing.in(Easing.cubic),
++  /** Entradas de card, troca de trimestre e saída da splash para o login. */
++  emphasized,
++  /** Linha de agora andando. */
++  standard: Easing.bezier(0.4, 0, 0.2, 1),
+   press: { damping: 18, stiffness: 260, mass: 1 },
++  spring: {
++    /** Indicadores (tab bar, segmento). */
++    snappy: { damping: 22, stiffness: 320, mass: 1 },
++    /** Tab bar entrando, card do login. */
++    gentle: { damping: 20, stiffness: 170, mass: 1 },
++    /** Selo "Agora", selo "Atual", ponto do rádio. */
++    pop: { damping: 12, stiffness: 220, mass: 0.8 },
++  },
+   /** Opacidade de ações de texto pressionadas (barra, dropdown, acordeão). */
+   pressedOpacity: 0.6,
+-  /** Escala do botão pressionado. */
+-  pressScale: 0.98,
++  /** Escala de pílulas, cards e linhas pressionados. */
++  pressScale: 0.97,
++  /** Escala dos chips de dia e do chip do aluno pressionados. */
++  pressScaleSmall: 0.94,
+   /** Deslocamento das entradas `FadeInDown` (campos do login e erro). */
+   enterOffset: 12,
+   enterOffsetSmall: 8,
++  /** Card do login e tab bar. */
++  enterOffsetCard: 16,
++  /** Troca de trimestre ou de ano (direção). */
++  slideOffset: 16,
+   /** Ilustração do estado vazio entra de 0,96 para 1 (01-design.md, 4.5). */
+   illustrationScaleFrom: 0.96,
+   /** Shake do formulário em erro (01-design.md, 4.2): 6 passos de 50 ms. */
+   shake: { offsets: [-10, 10, -8, 8, -4, 0], step: 50 },
+   /** Shake curto do estado de erro quando o retry falha de novo (4.8). */
+   shakeShort: { offsets: [-6, 6, -3, 0], step: 50 },
+   /** Seleção de aluno: o modal fecha 120 ms depois da borda acender (4.7). */
+   selectStudentBackDelay: 120,
+-  /** Atraso entre cards da seleção de aluno (4.7) e dos trimestres (4.6). */
+-  cardStagger: 60,
++  /** Atraso entre cards em cascata. */
++  cardStagger: 50,
++  /** Atraso entre os 7 chips da faixa semanal (120 ms no total). */
++  stripStagger: 20,
+   /** Atraso entre disciplinas na 1ª abertura do trimestre (4.6). */
+   subjectStagger: 20,
+   /** Ícone da aba que ficou ativa: 1 → 1.12 → 1 (4.4). */
+   tabIconPop: 1.12,
+   /** Splash animada (01-design.md, 3.1.3 a 3.1.6). */
+   splash: {
+     minDuration: 1200,
+     minDurationReduced: 600,
+@@ -59,18 +97,21 @@ export const motion = {
+     badgeSpring: { damping: 12, stiffness: 180, mass: 0.8 },
+     loopTrack: 1000,
+     loopTrackSegment: 0.25,
+     badgeBreath: 1600,
+     badgeBreathScale: 1.04,
+     fadeInReduced: 200,
+     exitScaleTo: 0.92,
+     exitDuration: 250,
+-    exitToLoginEasing: Easing.bezier(0.2, 0, 0, 1),
++    exitToLoginEasing: emphasized,
+   },
++  // Legado v1: sai na fatia 9.
++  /** Pulso do skeleton da v1: 0,5 ↔ 1 em 800 ms; parado em 0,7 com reduzir movimento. */
++  skeleton: { duration: 800, min: 0.5, reduced: 0.7 },
+ } as const;
+ 
+ /**
+  * Entrada padrão das telas (01-design.md, 4.x): fade de baixo para cima em
+  * `base`, `easeOut`, 8 pt, respeitando o reduzir movimento do sistema.
+  */
+ export function enterDown(
+   tokens: Pick<typeof motion, 'base' | 'easeOut' | 'enterOffsetSmall'>,
+diff --git a/mobile/src/theme/opacities.ts b/mobile/src/theme/opacities.ts
+new file mode 100644
+index 0000000..7597187
+--- /dev/null
++++ b/mobile/src/theme/opacities.ts
+@@ -0,0 +1,10 @@
++/** Opacidades com significado (01-design.md da v2, 1.7). */
++export const opacities = {
++  /** Aula que já terminou. Mínimo para AA (1.3): não baixe de 0,72. */
++  past: 0.72,
++  /** Ações de texto pressionadas (ghost, "Hoje"). */
++  pressed: 0.6,
++  /** Campos do login durante o envio. */
++  busy: 0.6,
++  hidden: 0,
++} as const;
+diff --git a/mobile/src/theme/palette.ts b/mobile/src/theme/palette.ts
+index 2f202ef..bf0d6c5 100644
+--- a/mobile/src/theme/palette.ts
++++ b/mobile/src/theme/palette.ts
+@@ -1,15 +1,40 @@
+ /**
+- * Únicos hexadecimais do app (01-design.md, 1.1). Componentes não usam a
+- * paleta direto: usam as cores semânticas de `theme.colors`.
++ * Únicos hexadecimais e rgba do app (01-design.md da v2, 1.1). Componentes não
++ * usam a paleta direto: usam `theme.colors`, `theme.shadows` e
++ * `theme.gradients`.
+  */
+ export const palette = {
+   black: '#000000',
+   white: '#FFFFFF',
+   teal: '#29F4D5',
+-  gray900: '#262626',
+-  gray700: '#4D4D4D',
+-  // Figma: #525252. Ajustado para 3,1:1 de contraste (01-design.md, 6.2).
+-  gray600: '#5C5C5C',
+-  gray500: '#777777',
+-  gray200: '#CCCCCC',
++  /** Superfície afundada (campos, calha do timetable). */
++  gray1000: '#0B0B0B',
++  /** Superfície 1 (cards). */
++  gray950: '#141414',
++  /** Superfície 2 (tab bar, blocos de aula, chips). */
++  gray900: '#1E1E1E',
++  /** Superfície 3 (indicador de segmento, trilho de barra, skeleton). */
++  gray850: '#2A2A2A',
++  /** Borda forte (decorativa). */
++  gray800: '#3A3A3A',
++  /** Borda sutil (decorativa). */
++  gray750: '#262626',
++  /** Borda de campo: ≥ 3 : 1 sobre as superfícies (1.3). */
++  gray600: '#6E6E6E',
++  gray500: '#808080',
++  gray400: '#8C8C8C',
++  gray300: '#B3B3B3',
++  /** Rosa do selo SCHOOL: só decorativo, nunca recebe texto (4,3 : 1). */
++  pink: '#ED145B',
++  /** Rosa para texto, barra e borda de erro (AA em todas as superfícies). */
++  pinkLight: '#FF5C8D',
++  amber: '#FFB547',
++  /** Teal a 14 % sobre `gray950`, pré-misturado. */
++  tealMuted: '#17332F',
++  /** Rosa a 16 % sobre `gray950`. */
++  pinkMuted: '#37141F',
++  /** Âmbar a 14 % sobre `gray950`. */
++  amberMuted: '#352B1B',
++  glowTeal: 'rgba(41, 244, 213, 0.35)',
++  shadowBlack: 'rgba(0, 0, 0, 0.6)',
+ } as const;
+diff --git a/mobile/src/theme/shadows.ts b/mobile/src/theme/shadows.ts
+new file mode 100644
+index 0000000..ca331a9
+--- /dev/null
++++ b/mobile/src/theme/shadows.ts
+@@ -0,0 +1,57 @@
++import type { BoxShadowValue } from 'react-native';
++
++import { palette } from './palette';
++
++const glowPrimary = {
++  offsetX: 0,
++  offsetY: 0,
++  blurRadius: 16,
++  spreadDistance: 0,
++  color: palette.glowTeal,
++} as const satisfies BoxShadowValue;
++
++/**
++ * Sombras e brilho (01-design.md da v2, 1.6), aplicados com
++ * `style={{ boxShadow: [theme.shadows.x] }}` (o Restyle não tem prop de
++ * sombra). Sem `elevation`: no preto, só o brilho dá profundidade. Toda
++ * superfície com sombra tem também uma borda, a pista que sempre aparece.
++ */
++export const shadows = {
++  /** Aula "Agora", botão primário, campo focado, aluno atual. */
++  glowPrimary,
++  /** Linha de agora e indicador da tab bar. */
++  glowPrimarySoft: { ...glowPrimary, blurRadius: 8 },
++  /** Tab bar. */
++  floating: {
++    offsetX: 0,
++    offsetY: 8,
++    blurRadius: 24,
++    spreadDistance: 0,
++    color: palette.shadowBlack,
++  },
++} as const satisfies Record<string, BoxShadowValue>;
++
++/** Parada de degradê: cor opaca + opacidade (vira `stopColor`/`stopOpacity`). */
++type GradientStop = { color: string; opacity: number };
++
++/**
++ * Degradês (1.6), desenhados com `react-native-svg` (`LinearGradient` e
++ * `RadialGradient`): sem dependência nativa nova. O `Stop` do svg ignora o
++ * alfa de um `rgba` no `stopColor`, então a transparência vai na opacidade
++ * de cada parada.
++ */
++export const gradients = {
++  /** De cima para baixo, atrás da tab bar: do transparente ao fundo. */
++  tabBarFade: [
++    { color: palette.black, opacity: 0 },
++    { color: palette.black, opacity: 1 },
++  ],
++  /** Horizontal, a faixa do shimmer do skeleton: branco a 7 % no meio. */
++  shimmer: [
++    { color: palette.white, opacity: 0 },
++    { color: palette.white, opacity: 0.07 },
++    { color: palette.white, opacity: 0 },
++  ],
++  /** Halo decorativo atrás do logo do login (`RadialGradient`). */
++  loginHalo: { color: palette.teal, centerOpacity: 0.1, edgeOpacity: 0 },
++} as const satisfies Record<string, readonly GradientStop[] | object>;
+diff --git a/mobile/src/theme/sizes.ts b/mobile/src/theme/sizes.ts
+index a38964f..3948972 100644
+--- a/mobile/src/theme/sizes.ts
++++ b/mobile/src/theme/sizes.ts
+@@ -1,41 +1,99 @@
+-/** Tamanhos fixos dos componentes (01-design.md, 1.4). */
++const logoLogin = { width: 306, height: 49 };
++const logoLoginV2 = { width: 245, height: 39 };
++
++/** Tamanhos fixos dos componentes (01-design.md da v2, 1.9). */
+ export const sizes = {
++  touchTarget: 44,
++  /** Ícones de aba; os de UI usam `iconSmall`. */
++  icon: 24,
++  /** Ícone do campo, do botão e do chip. */
++  iconSmall: 20,
++  /** Traço dos ícones novos (casa com o contorno de 1,91 do `AgendaIcon`). */
++  iconStroke: 1.9,
++  /** Linha do logo + chip do aluno. */
++  headerBar: 56,
++  /** V7: barra de logo menor (era 100 × 16). */
++  logoHeader: { width: 80, height: 13 },
++  /** Logo da splash (não muda). */
++  logoLogin,
++  /** Logo no login: escala 0,8 do da splash. */
++  logoLoginV2,
++  /** Altura de referência do bloco do login (logo + card + ajuda), para centralizar (3.2). */
++  loginStackHeight: 460,
++  /** Card do login. */
++  formMaxWidth: 400,
++  contentMaxWidth: 600,
++  studentChip: { height: 40, avatar: 28, maxWidth: 200 },
++  avatar: { s: 28, m: 44, l: 56 },
++  textField: 60,
++  /** Alturas do `PillButton`. */
++  pill: { md: 56, sm: 44, xs: 32 },
++  floatingTabBar: {
++    height: 64,
++    maxWidth: 420,
++    indicatorHeight: 48,
++    indicatorInset: 6,
++  },
++  /** Altura do degradê atrás da tab bar. */
++  tabBarFade: 96,
++  weekChip: { height: 64, dot: 5, gap: 4 },
++  segmented: { md: 44, sm: 36, padding: 4 },
++  timetable: {
++    hour: 80,
++    hourCompact: 64,
++    gutter: 48,
++    minGap: 15,
++    maxFontScale: 1.6,
++    nowDot: 10,
++    nowLine: 2,
++    nowLabel: 20,
++    autoScrollAnchor: 0.33,
++  },
++  /** Barra 0–10 e a marca do 7. */
++  gradeBar: { card: 6, summary: 8, tick: 1 },
++  /** Altura mínima do `NowBanner` e do banner de erro do login. */
++  banner: 48,
++  /** Ícone dos estados vazio e de erro. */
++  emptyIcon: { circle: 64, glyph: 28 },
++  skeleton: {
++    blockHeights: [60, 60, 60, 60],
++    subjectCards: 4,
++    shimmerWidth: 120,
++  },
++  /** Teto da fonte grande do sistema em elementos de altura fixa (1.8). */
++  fixedHeightFontScale: 1.3,
++
++  // Splash (fica na v2).
++  /** Selo SCHOOL dentro do PNG do logo, em proporção (vale em qualquer tamanho). */
++  logoBadge: { x: 0.672, y: 0.35, width: 0.328, height: 0.4 },
++  /** Sobra da capa do selo na splash (esconde o antialias da borda). */
++  logoBadgeBleed: 1,
++  /** Linha teal da splash: largura e quanto passa do logo em cima e embaixo. */
++  scanLine: { width: 2, overhang: 8 },
++  /** Espessura do trilho de espera da splash. */
++  splashTrack: 1,
++
++  // Legado v1: sai na fatia 9, junto com os componentes que usam.
+   actionBar: 48,
+   dropdown: 45,
+   termCard: 90,
+   studentCard: 90,
+   primaryButton: 60,
+   secondaryButton: 45,
+   /** Somar `insets.bottom`. */
+   tabBar: 64,
+-  touchTarget: 44,
+-  icon: 24,
+   chevron: 14,
+   logoutIcon: 10,
+   bullet: 6,
+   bulletSlot: 16,
+-  logoHeader: { width: 100, height: 16 },
+-  logoLogin: { width: 306, height: 49 },
+   illustration: { width: 328, height: 208 },
+-  /** Barras do skeleton da aula: horário e disciplina (01-design.md, 2.13). */
++  /** Barras do skeleton da aula: horário e disciplina. */
+   skeletonLessonTime: { width: 88, height: 12 },
+   skeletonLessonSubject: { width: 180, height: 16 },
+   /** Linhas de aula no skeleton da agenda. */
+   skeletonLessonRows: 4,
+-  /** Selo SCHOOL dentro do PNG do logo, em proporção (vale em qualquer tamanho). */
+-  logoBadge: { x: 0.672, y: 0.35, width: 0.328, height: 0.4 },
+-  /** Sobra da capa do selo na splash (esconde o antialias da borda). */
+-  logoBadgeBleed: 1,
+-  /** Linha teal da splash: largura e quanto passa do logo em cima e embaixo. */
+-  scanLine: { width: 2, overhang: 8 },
+   /** Espessura da linha do input do login. */
+   inputLine: 1,
+-  /** Espessura do trilho de espera da splash. */
+-  splashTrack: 1,
+-  /** Limite de altura do acordeão aberto e parado: "sem limite" (o corpo cresce com o conteúdo). */
++  /** Limite de altura do acordeão aberto e parado: "sem limite". */
+   accordionOpenMaxHeight: 100_000,
+-  /** Teto da fonte grande do sistema em elementos de altura fixa (1.6). */
+-  fixedHeightFontScale: 1.3,
+-  contentMaxWidth: 600,
+-  formMaxWidth: 318,
+ } as const;
+diff --git a/mobile/src/theme/theme.ts b/mobile/src/theme/theme.ts
+index 01ada67..c9f0073 100644
+--- a/mobile/src/theme/theme.ts
++++ b/mobile/src/theme/theme.ts
+@@ -1,69 +1,247 @@
+ import { createTheme } from '@shopify/restyle';
+ 
+ import { fonts } from './fonts';
+ import { motion } from './motion';
++import { opacities } from './opacities';
+ import { palette } from './palette';
++import { gradients, shadows } from './shadows';
+ import { sizes } from './sizes';
+ 
++/** Dígitos de largura fixa: horários e notas não "dançam" (1.8). */
++const tabular = ['tabular-nums'] as const;
++
+ /**
+- * Tema único do app (escuro, sem modo claro). Fonte: 01-design.md, seção 1,
+- * derivada de docs/figma/README.md.
++ * Base das pílulas: a borda de 1 existe sempre (transparente quando não
++ * aparece), para as variantes não mudarem de tamanho entre si.
++ */
++const pill = {
++  borderRadius: 'pill',
++  borderWidth: 1,
++  borderColor: 'transparent',
++  flexDirection: 'row',
++  alignItems: 'center',
++  justifyContent: 'center',
++} as const;
++
++/**
++ * Tema único do app (escuro, sem modo claro). Fonte: 01-design.md da v2,
++ * seção 1. Os nomes da v1 que a v2 não tem ficam nos blocos "legado v1", que
++ * saem na fatia 9 junto com as telas antigas.
+  */
+ export const theme = createTheme({
+   colors: {
+     background: palette.black,
++    /** Campos de texto, calha de horas do timetable. */
++    surfaceSunken: palette.gray1000,
++    /** Cards e o trilho do segmento. */
++    surface: palette.gray950,
++    /** Tab bar, blocos de aula, chips, linhas de aluno. */
++    surfaceRaised: palette.gray900,
++    /** Indicador do segmento, trilho da barra, skeleton, botão desabilitado. */
++    surfaceHigh: palette.gray850,
++    borderSubtle: palette.gray750,
++    borderStrong: palette.gray800,
++    /** Contorno do campo de texto em repouso (≥ 3 : 1). */
++    borderInput: palette.gray600,
+     primary: palette.teal,
+-    surface: palette.gray900,
+-    surfaceRaised: palette.gray700,
++    primaryMuted: palette.tealMuted,
++    /** Rosa do selo: só decoração (anel do avatar do responsável). */
++    accent: palette.pink,
++    accentMuted: palette.pinkMuted,
++    /** Texto e borda de erro, "Sair", faixa "Baixo". */
++    danger: palette.pinkLight,
++    warning: palette.amber,
++    warningMuted: palette.amberMuted,
+     text: palette.white,
+-    textOnPrimary: palette.black,
++    textSecondary: palette.gray300,
++    textTertiary: palette.gray400,
+     textDisabled: palette.gray500,
+-    inputLine: palette.gray600,
+-    bulletBorder: palette.gray200,
++    /** Texto sobre teal, âmbar ou rosa claro. */
++    textOnPrimary: palette.black,
+     transparent: 'transparent',
++
++    // Legado v1: sai na fatia 9.
++    inputLine: palette.gray600,
++    bulletBorder: palette.gray300,
+   },
+   spacing: {
+     none: 0,
++    xxs: 2,
+     xs: 4,
+     s: 8,
+     sm: 12,
+     m: 16,
+     l: 24,
+     xl: 28,
+     xxl: 32,
+     xxxl: 40,
+     huge: 48,
+     section: 64,
+     hero: 80,
+   },
+   borderRadii: {
+     none: 0,
+-    m: 8,
++    xs: 6,
++    s: 10,
++    m: 14,
++    l: 20,
++    xl: 28,
++    pill: 999,
++    /** Alias de `pill` para os componentes da v1 (sai na fatia 9). */
+     round: 999,
+   },
+   breakpoints: {
+     compact: 0,
+     phone: 375,
+     tablet: 768,
+   },
+   textVariants: {
+     defaults: {
+       fontFamily: fonts.regular,
+-      fontSize: 16,
+-      lineHeight: 20,
++      fontSize: 15,
++      lineHeight: 22,
++      color: 'text',
++    },
++    display: {
++      fontFamily: fonts.bold,
++      fontSize: 40,
++      lineHeight: 44,
++      color: 'text',
++      fontVariant: tabular,
++    },
++    /** Título da aba. */
++    headline: {
++      fontFamily: fonts.bold,
++      fontSize: { compact: 24, phone: 28 },
++      lineHeight: { compact: 30, phone: 34 },
++      color: 'text',
++    },
++    title: {
++      fontFamily: fonts.semiBold,
++      fontSize: 20,
++      lineHeight: 26,
++      color: 'text',
++    },
++    subtitle: {
++      fontFamily: fonts.semiBold,
++      fontSize: 17,
++      lineHeight: 22,
+       color: 'text',
+     },
+     body: {
+       fontFamily: fonts.regular,
++      fontSize: 15,
++      lineHeight: 22,
++      color: 'text',
++    },
++    bodyStrong: {
++      fontFamily: fonts.semiBold,
++      fontSize: 15,
++      lineHeight: 22,
++      color: 'text',
++    },
++    label: {
++      fontFamily: fonts.medium,
++      fontSize: 13,
++      lineHeight: 18,
++      color: 'textSecondary',
++    },
++    caption: {
++      fontFamily: fonts.medium,
++      fontSize: 12,
++      lineHeight: 16,
++      color: 'textSecondary',
++    },
++    /** Rótulos pequenos: a única variante em caixa alta (DV2). */
++    overline: {
++      fontFamily: fonts.semiBold,
++      fontSize: 11,
++      lineHeight: 14,
++      color: 'textTertiary',
++      textTransform: 'uppercase',
++      letterSpacing: 0.8,
++    },
++    tabLabel: {
++      fontFamily: fonts.semiBold,
++      fontSize: 11,
++      lineHeight: 14,
++      color: 'textSecondary',
++      textAlign: 'center',
++    },
++    button: {
++      fontFamily: fonts.semiBold,
+       fontSize: 16,
+       lineHeight: 20,
++      color: 'textOnPrimary',
++      textAlign: 'center',
++    },
++    buttonSmall: {
++      fontFamily: fonts.semiBold,
++      fontSize: 14,
++      lineHeight: 18,
++      color: 'textOnPrimary',
++      textAlign: 'center',
++    },
++    input: {
++      fontFamily: fonts.medium,
++      fontSize: 17,
++      lineHeight: 22,
++      color: 'text',
++    },
++    /** Rótulo do campo em repouso; flutuando, `scale 0.8` (2.5). */
++    inputLabel: {
++      fontFamily: fonts.medium,
++      fontSize: 15,
++      lineHeight: 20,
++      color: 'textSecondary',
++    },
++    /** Nota do card de disciplina. */
++    grade: {
++      fontFamily: fonts.bold,
++      fontSize: 24,
++      lineHeight: 28,
+       color: 'text',
++      fontVariant: tabular,
+     },
++    /** Números do resumo do trimestre. */
++    stat: {
++      fontFamily: fonts.bold,
++      fontSize: 20,
++      lineHeight: 26,
++      color: 'text',
++      fontVariant: tabular,
++    },
++    /** Horas da grade e marca de agora. */
++    time: {
++      fontFamily: fonts.semiBold,
++      fontSize: 11,
++      lineHeight: 14,
++      color: 'textTertiary',
++      fontVariant: tabular,
++    },
++    /** Número do chip de dia. */
++    dayNumber: {
++      fontFamily: fonts.bold,
++      fontSize: 18,
++      lineHeight: 22,
++      color: 'text',
++      fontVariant: tabular,
++    },
++    /** Erro inline de campo e banner. */
++    error: {
++      fontFamily: fonts.medium,
++      fontSize: 13,
++      lineHeight: 18,
++      color: 'danger',
++    },
++
++    // Legado v1: sai na fatia 9. Os nomes que a v2 reaproveita com outro
++    // sentido (`title`, `label`, `error`) ficaram com o sufixo V1.
+     bodyMedium: {
+       fontFamily: fonts.medium,
+       fontSize: 16,
+       lineHeight: 20,
+       color: 'text',
+     },
+     bodyBold: {
+       fontFamily: fonts.bold,
+@@ -80,54 +258,46 @@ export const theme = createTheme({
+     },
+     greetingName: {
+       fontFamily: fonts.bold,
+       fontSize: 24,
+       lineHeight: 29,
+       color: 'text',
+       textTransform: 'uppercase',
+     },
+-    title: {
++    titleV1: {
+       fontFamily: fonts.regular,
+       fontSize: 24,
+       lineHeight: 29,
+       color: 'text',
+       textAlign: 'center',
+     },
+     inputValue: {
+       fontFamily: fonts.regular,
+       fontSize: { compact: 28, phone: 32 },
+       lineHeight: { compact: 34, phone: 39 },
+       color: 'text',
+       textAlign: 'center',
+     },
+-    label: {
++    labelV1: {
+       fontFamily: fonts.regular,
+       fontSize: 20,
+       lineHeight: 24,
+       color: 'text',
+       textAlign: 'center',
+       textTransform: 'uppercase',
+     },
+     labelFocused: {
+       fontFamily: fonts.semiBold,
+       fontSize: 20,
+       lineHeight: 24,
+       color: 'text',
+       textAlign: 'center',
+       textTransform: 'uppercase',
+     },
+-    button: {
+-      fontFamily: fonts.medium,
+-      fontSize: 20,
+-      lineHeight: 24,
+-      color: 'textOnPrimary',
+-      textAlign: 'center',
+-      textTransform: 'uppercase',
+-    },
+     sectionTitle: {
+       fontFamily: fonts.bold,
+       fontSize: 20,
+       lineHeight: 24,
+       color: 'primary',
+       textAlign: 'center',
+       textTransform: 'uppercase',
+     },
+@@ -146,30 +316,23 @@ export const theme = createTheme({
+     },
+     termTitle: {
+       fontFamily: fonts.bold,
+       fontSize: 16,
+       lineHeight: 20,
+       color: 'primary',
+       textTransform: 'uppercase',
+     },
+-    error: {
++    errorV1: {
+       fontFamily: fonts.medium,
+       fontSize: 16,
+       lineHeight: 20,
+       color: 'primary',
+       textAlign: 'center',
+     },
+-    caption: {
+-      fontFamily: fonts.regular,
+-      fontSize: 12,
+-      lineHeight: 15,
+-      color: 'text',
+-      textTransform: 'uppercase',
+-    },
+     captionPlain: {
+       fontFamily: fonts.regular,
+       fontSize: 12,
+       lineHeight: 15,
+       color: 'text',
+     },
+     subject: {
+       fontFamily: fonts.medium,
+@@ -179,46 +342,98 @@ export const theme = createTheme({
+       textTransform: 'uppercase',
+     },
+     detail: {
+       fontFamily: fonts.medium,
+       fontSize: 12,
+       lineHeight: 15,
+       color: 'text',
+     },
+-    tabLabel: {
+-      fontFamily: fonts.bold,
+-      fontSize: 10,
+-      lineHeight: 12,
+-      color: 'text',
+-      textAlign: 'center',
+-      textTransform: 'uppercase',
+-    },
+   },
++  /** Fundo e borda do `PillButton` (2.3); a altura vem do `size`. */
+   buttonVariants: {
+     defaults: {},
+-    primary: {
++    primary: { ...pill, backgroundColor: 'primary' },
++    secondary: {
++      ...pill,
++      backgroundColor: 'surfaceRaised',
++      borderColor: 'borderStrong',
++    },
++    ghost: { ...pill, backgroundColor: 'transparent' },
++    danger: { ...pill, backgroundColor: 'danger' },
++    disabled: { ...pill, backgroundColor: 'surfaceHigh' },
++
++    // Legado v1: sai na fatia 9 (`PrimaryButton` e `SecondaryButton`).
++    primaryV1: {
+       backgroundColor: 'primary',
+       height: sizes.primaryButton,
+       borderRadius: 'none',
+       alignItems: 'center',
+       justifyContent: 'center',
+     },
+-    secondary: {
++    secondaryV1: {
+       borderWidth: 1,
+       borderColor: 'primary',
+       borderRadius: 'm',
+       height: sizes.secondaryButton,
+       paddingHorizontal: 'l',
+       alignItems: 'center',
+       justifyContent: 'center',
+     },
+   },
++  /**
++   * Todas as variantes da v2 têm `borderWidth: 1`: os estados trocam só a cor
++   * de uma camada sobreposta, sem pulo de layout (1.11).
++   */
+   cardVariants: {
+     defaults: {},
++    surface: {
++      backgroundColor: 'surface',
++      borderColor: 'borderSubtle',
++      borderWidth: 1,
++      borderRadius: 'l',
++      padding: 'l',
++    },
++    surfaceCompact: {
++      backgroundColor: 'surface',
++      borderColor: 'borderSubtle',
++      borderWidth: 1,
++      borderRadius: 'm',
++      padding: 'm',
++    },
++    raised: {
++      backgroundColor: 'surfaceRaised',
++      borderColor: 'borderSubtle',
++      borderWidth: 1,
++      borderRadius: 'm',
++      padding: 'sm',
++    },
++    lesson: {
++      backgroundColor: 'surfaceRaised',
++      borderColor: 'borderSubtle',
++      borderWidth: 1,
++      borderRadius: 's',
++      paddingHorizontal: 'sm',
++      paddingVertical: 's',
++    },
++    banner: {
++      backgroundColor: 'surface',
++      borderColor: 'borderSubtle',
++      borderWidth: 1,
++      borderRadius: 'm',
++      paddingHorizontal: 'm',
++    },
++    floating: {
++      backgroundColor: 'surfaceRaised',
++      borderColor: 'borderStrong',
++      borderWidth: 1,
++      borderRadius: 'pill',
++    },
++
++    // Legado v1: sai na fatia 9.
+     dropdown: {
+       backgroundColor: 'surface',
+       borderRadius: 'm',
+       height: sizes.dropdown,
+       paddingHorizontal: 'm',
+       flexDirection: 'row',
+       alignItems: 'center',
+       justifyContent: 'space-between',
+@@ -244,11 +459,14 @@ export const theme = createTheme({
+       padding: 'm',
+       borderWidth: 1,
+       borderColor: 'transparent',
+       justifyContent: 'space-between',
+     },
+   },
+   sizes,
+   motion,
++  shadows,
++  gradients,
++  opacities,
+ });
+ 
+ export type Theme = typeof theme;
+diff --git a/mobile/src/utils/__tests__/names.test.ts b/mobile/src/utils/__tests__/names.test.ts
+index 51f4341..c50fa1d 100644
+--- a/mobile/src/utils/__tests__/names.test.ts
++++ b/mobile/src/utils/__tests__/names.test.ts
+@@ -1,9 +1,9 @@
+-import { firstName, fullName } from '../names';
++import { firstName, fullName, initials } from '../names';
+ 
+ describe('firstName', () => {
+   it('pega a primeira palavra, sem espaços sobrando', () => {
+     expect(firstName('Gustavo da Silva')).toBe('Gustavo');
+     expect(firstName('  Rafael  ')).toBe('Rafael');
+     expect(firstName('Ana')).toBe('Ana');
+   });
+ 
+@@ -18,8 +18,34 @@ describe('fullName', () => {
+     expect(fullName('Rafael', 'da Silva')).toBe('Rafael da Silva');
+   });
+ 
+   it('não deixa espaço quando falta uma parte', () => {
+     expect(fullName('Rafael', '')).toBe('Rafael');
+     expect(fullName('', 'Silva')).toBe('Silva');
+   });
+ });
++
++describe('initials', () => {
++  it('1ª letra do nome + 1ª letra da última palavra do sobrenome', () => {
++    expect(initials('Rafael', 'da Silva')).toBe('RS');
++    expect(initials('Bianca', 'Silveira da Costa')).toBe('BC');
++    expect(initials('Gustavo', 'da Silva')).toBe('GS');
++  });
++
++  it('maiúsculas, com acento preservado', () => {
++    expect(initials('élida', 'ávila')).toBe('ÉÁ');
++  });
++
++  it('ignora espaços sobrando', () => {
++    expect(initials('  Joana ', ' da  Costa  ')).toBe('JC');
++  });
++
++  it('sobrenome vazio: só a 1ª letra do nome', () => {
++    expect(initials('Rafael', '')).toBe('R');
++    expect(initials('Rafael', '   ')).toBe('R');
++  });
++
++  it('nome vazio: só a do sobrenome; os dois vazios, vazio', () => {
++    expect(initials('', 'Silva')).toBe('S');
++    expect(initials('', '')).toBe('');
++  });
++});
+diff --git a/mobile/src/utils/names.ts b/mobile/src/utils/names.ts
+index 00afdac..6e31cf7 100644
+--- a/mobile/src/utils/names.ts
++++ b/mobile/src/utils/names.ts
+@@ -4,8 +4,18 @@ const WHITESPACE = /\s+/;
+ export function firstName(name: string): string {
+   return name.trim().split(WHITESPACE)[0] ?? '';
+ }
+ 
+ /** Nome e sobrenome com um espaço entre eles, sem sobras. */
+ export function fullName(first: string, last: string): string {
+   return [first.trim(), last.trim()].filter(Boolean).join(' ');
+ }
++
++/**
++ * Iniciais do avatar: 1ª letra do nome + 1ª letra da **última** palavra do
++ * sobrenome ("Bianca" + "Silveira da Costa" → "BC"), em maiúsculas e com o
++ * acento preservado. Sobrenome vazio: só a 1ª letra do nome.
++ */
++export function initials(first: string, last: string): string {
++  const lastWord = last.trim().split(WHITESPACE).pop() ?? '';
++  return (firstName(first).charAt(0) + lastWord.charAt(0)).toUpperCase();
++}

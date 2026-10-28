@@ -1,0 +1,3724 @@
+dbecb4f test(mobile): flows do Maestro com a aba Perfil
+a71cbe6 feat(mobile): tab bar flutuante e aba Perfil com troca de aluno e sair
+3ccfd1c refactor(mobile): entrada do ícone do EmptyState com mola e pressedOpacity no legado
+ mobile/.maestro/02-login-sucesso.yaml              |   5 +-
+ mobile/.maestro/04-aulas-navegar-dias.yaml         |   6 +
+ mobile/.maestro/07-trocar-aluno.yaml               |  14 +-
+ mobile/.maestro/08-um-aluno-sem-botao.yaml         |  12 +-
+ mobile/.maestro/10-logout.yaml                     |   3 +-
+ mobile/.maestro/README.md                          |  10 +-
+ mobile/.maestro/subflows/logout.yaml               |   8 +-
+ mobile/.maestro/subflows/select-student.yaml       |  19 +-
+ mobile/src/app/__tests__/App.test.tsx              |  65 +++++
+ mobile/src/components/EmptyState.tsx               |  30 ++-
+ mobile/src/components/FloatingTabBar.tsx           | 275 ++++++++++++++++++++
+ mobile/src/components/Header.tsx                   |  13 +-
+ mobile/src/components/PillButton.tsx               |  13 +-
+ mobile/src/components/TabBar.tsx                   | 179 -------------
+ .../src/components/__tests__/EmptyState.test.tsx   |  46 +++-
+ .../components/__tests__/FloatingTabBar.test.tsx   | 249 ++++++++++++++++++
+ mobile/src/components/__tests__/Header.test.tsx    |  35 +++
+ .../src/components/__tests__/PillButton.test.tsx   |  18 +-
+ mobile/src/components/__tests__/TabBar.test.tsx    | 109 --------
+ mobile/src/constants/strings.ts                    |  35 ++-
+ mobile/src/features/header/AppHeader.tsx           |   6 +-
+ .../lessons/__tests__/LessonsScreen.test.tsx       |  12 +
+ mobile/src/features/profile/ProfileScreen.tsx      | 189 ++++++++++++++
+ .../features/profile/__tests__/LogoutRow.test.tsx  | 132 ++++++++++
+ .../profile/__tests__/ProfileScreen.test.tsx       | 183 +++++++++++++
+ .../features/profile/__tests__/StudentRow.test.tsx | 241 +++++++++++++++++
+ .../profile/__tests__/useProfileViewModel.test.tsx | 286 +++++++++++++++++++++
+ .../src/features/profile/components/LogoutRow.tsx  | 196 ++++++++++++++
+ .../src/features/profile/components/StudentRow.tsx | 250 ++++++++++++++++++
+ mobile/src/features/profile/useProfileViewModel.ts |  84 ++++++
+ .../__tests__/useFloatingTabBarInset.test.tsx      |  60 +++++
+ mobile/src/hooks/useFloatingTabBarInset.ts         |  30 +++
+ mobile/src/navigation/AppTabs.tsx                  |  28 +-
+ mobile/src/navigation/types.ts                     |   1 +
+ mobile/src/theme/__tests__/theme.test.ts           |  12 +
+ mobile/src/theme/motion.ts                         |  11 +-
+ mobile/src/theme/sizes.ts                          |   9 +
+ 37 files changed, 2525 insertions(+), 349 deletions(-)
+diff --git a/mobile/.maestro/02-login-sucesso.yaml b/mobile/.maestro/02-login-sucesso.yaml
+index 830e4db..d552a11 100644
+--- a/mobile/.maestro/02-login-sucesso.yaml
++++ b/mobile/.maestro/02-login-sucesso.yaml
+@@ -1,9 +1,10 @@
+-# Login do Gustavo (2 alunos): abre a Agenda com o header completo.
++# Login do Gustavo (2 alunos): abre a Agenda com o header completo e a tab
++# bar flutuante com as 3 abas.
+ appId: br.com.fiap.school
+ name: 02 - Login com sucesso abre a Agenda
+ tags:
+   - login
+ ---
+ - runFlow: subflows/launch-clean.yaml
+ - runFlow:
+     file: subflows/login.yaml
+@@ -29,8 +30,10 @@ tags:
+ - extendedWaitUntil:
+     visible:
+       id: agenda-day-dropdown
+     timeout: 10000
+ - assertVisible:
+     id: tab-agenda
+ - assertVisible:
+     id: tab-boletim
++- assertVisible:
++    id: tab-perfil
+diff --git a/mobile/.maestro/04-aulas-navegar-dias.yaml b/mobile/.maestro/04-aulas-navegar-dias.yaml
+index 42dbc7e..3ac9b17 100644
+--- a/mobile/.maestro/04-aulas-navegar-dias.yaml
++++ b/mobile/.maestro/04-aulas-navegar-dias.yaml
+@@ -14,16 +14,22 @@ tags:
+ - extendedWaitUntil:
+     visible:
+       id: agenda-day-dropdown
+     timeout: 10000
+ - runFlow:
+     file: subflows/select-student.yaml
+     env:
+       RM: '12567'
++- tapOn:
++    id: tab-agenda
++- extendedWaitUntil:
++    visible:
++      id: agenda-day-dropdown
++    timeout: 10000
+ - assertVisible:
+     text: '(?i)aluno rafael,.*'
+ 
+ # Segunda, 17/03: começa com Matemática I às 07:15.
+ - tapOn:
+     id: agenda-day-dropdown
+ - tapOn:
+     id: agenda-day-dropdown-option-2025-03-17
+diff --git a/mobile/.maestro/07-trocar-aluno.yaml b/mobile/.maestro/07-trocar-aluno.yaml
+index ba86abb..63927d9 100644
+--- a/mobile/.maestro/07-trocar-aluno.yaml
++++ b/mobile/.maestro/07-trocar-aluno.yaml
+@@ -1,13 +1,13 @@
+-# Gustavo (2 alunos): troca de aluno a partir do Boletim e volta ao Boletim,
+-# já com os dados do aluno novo. Escolhe os dois alunos explicitamente, sem
+-# depender de qual é o inicial.
++# Gustavo (2 alunos): troca de aluno no Perfil e volta ao Boletim, já com os
++# dados do aluno novo. Escolhe os dois alunos explicitamente, sem depender de
++# qual é o inicial.
+ appId: br.com.fiap.school
+-name: 07 - Trocar aluno volta à aba de origem
++name: 07 - Trocar aluno no Perfil atualiza o Boletim
+ tags:
+   - alunos
+ ---
+ - runFlow: subflows/launch-clean.yaml
+ - runFlow:
+     file: subflows/login.yaml
+     env:
+       CPF: '96929456004'
+@@ -23,29 +23,33 @@ tags:
+       id: boletim-year-dropdown
+     timeout: 10000
+ 
+ # Rafael (7EF).
+ - runFlow:
+     file: subflows/select-student.yaml
+     env:
+       RM: '12567'
++- tapOn:
++    id: tab-boletim
+ - extendedWaitUntil:
+     visible:
+       id: boletim-year-dropdown
+       text: '.*7EF - 2025'
+     timeout: 10000
+ - assertVisible:
+     text: '(?i)aluno rafael,.*'
+ 
+-# Joana (2EM): continua no Boletim, com o boletim e o header dela.
++# Joana (2EM): de volta ao Boletim, com o boletim e o header dela.
+ - runFlow:
+     file: subflows/select-student.yaml
+     env:
+       RM: '12568'
++- tapOn:
++    id: tab-boletim
+ - extendedWaitUntil:
+     visible:
+       id: boletim-year-dropdown
+       text: '.*2EM - 2025'
+     timeout: 10000
+ - assertVisible:
+     text: '(?i)aluno joana,.*'
+ - assertVisible:
+diff --git a/mobile/.maestro/08-um-aluno-sem-botao.yaml b/mobile/.maestro/08-um-aluno-sem-botao.yaml
+index 72ad902..3931294 100644
+--- a/mobile/.maestro/08-um-aluno-sem-botao.yaml
++++ b/mobile/.maestro/08-um-aluno-sem-botao.yaml
+@@ -1,9 +1,10 @@
+-# Adelaide (1 aluna, Bianca): sem TROCAR PERFIL, nas duas abas.
++# Adelaide (1 aluna, Bianca): sem TROCAR PERFIL nas abas e, no Perfil, a
++# Bianca como atual e sem a dica de troca.
+ appId: br.com.fiap.school
+ name: 08 - Responsável com 1 aluno não vê TROCAR PERFIL
+ tags:
+   - alunos
+ ---
+ - runFlow: subflows/launch-clean.yaml
+ - runFlow:
+     file: subflows/login.yaml
+@@ -18,16 +19,25 @@ tags:
+     id: header-greeting
+     text: '(?i)olá, adelaide'
+ - assertVisible:
+     text: '(?i)aluno bianca,.*'
+ - assertVisible:
+     id: header-logout-button
+ - assertNotVisible:
+     id: header-switch-student-button
++- tapOn:
++    id: tab-perfil
++- extendedWaitUntil:
++    visible:
++      id: profile-student-13752
++      selected: true
++    timeout: 5000
++- assertNotVisible:
++    id: profile-students-hint
+ - tapOn:
+     id: tab-boletim
+ - extendedWaitUntil:
+     visible:
+       id: boletim-year-dropdown
+       text: '.*1EF - 2025'
+     timeout: 10000
+ - assertNotVisible:
+diff --git a/mobile/.maestro/10-logout.yaml b/mobile/.maestro/10-logout.yaml
+index e557523..f3af62f 100644
+--- a/mobile/.maestro/10-logout.yaml
++++ b/mobile/.maestro/10-logout.yaml
+@@ -1,9 +1,10 @@
+-# SAIR volta ao Login; fechar e abrir o app continua no Login.
++# Sair no Perfil (com confirmação) volta ao Login; fechar e abrir o app
++# continua no Login.
+ appId: br.com.fiap.school
+ name: 10 - Logout
+ tags:
+   - login
+ ---
+ - runFlow: subflows/launch-clean.yaml
+ - runFlow:
+     file: subflows/login.yaml
+diff --git a/mobile/.maestro/README.md b/mobile/.maestro/README.md
+index 5b2238c..a4b865f 100644
+--- a/mobile/.maestro/README.md
++++ b/mobile/.maestro/README.md
+@@ -5,32 +5,32 @@
+ > (`yarn maestro:check`). A primeira execução real é o `maestro.yml` no CI.
+ 
+ Um flow por caso de uso (brief, seção 6), usando `testID` e os responsáveis do
+ seed da API.
+ 
+ | Flow                              | Caso de uso                                                    |
+ | --------------------------------- | -------------------------------------------------------------- |
+ | `01-login-invalido.yaml`          | senha errada → mensagem de erro, continua no Login             |
+-| `02-login-sucesso.yaml`           | login → Agenda com o header (saudação, aluno, TROCAR PERFIL)   |
++| `02-login-sucesso.yaml`           | login → Agenda com o header e a tab bar com as 3 abas          |
+ | `03-sessao-persistida.yaml`       | login → `stopApp` → `launchApp` → Agenda sem login             |
+ | `04-aulas-navegar-dias.yaml`      | dropdown de dias: segunda, terça e domingo (vazio)             |
+ | `05-boletim-2025.yaml`            | "7EF - 2025", 1º trimestre com nota e faltas, 2º trimestre `-` |
+ | `06-boletim-anos-anteriores.yaml` | troca para "6EF - 2024"                                        |
+-| `07-trocar-aluno.yaml`            | troca de aluno a partir do Boletim e continua no Boletim       |
+-| `08-um-aluno-sem-botao.yaml`      | responsável com 1 aluno não vê TROCAR PERFIL                   |
++| `07-trocar-aluno.yaml`            | troca de aluno no Perfil e volta ao Boletim com o aluno novo   |
++| `08-um-aluno-sem-botao.yaml`      | 1 aluno: sem TROCAR PERFIL; no Perfil, atual e sem dica        |
+ | `09-sem-aluno.yaml`               | responsável sem aluno vê o estado vazio                        |
+-| `10-logout.yaml`                  | SAIR → Login; reabrir o app continua no Login                  |
++| `10-logout.yaml`                  | Perfil → Sair → confirmar → Login; reabrir continua no Login   |
+ 
+ `subflows/` tem os passos repetidos (abrir o app limpo, login, trocar aluno,
+ sair). Eles só rodam chamados pelos flows (`config.yaml` pega só a raiz).
+ 
+ Contas usadas (seed): Gustavo `96929456004` / `123456` (Rafael e Joana),
+ Adelaide `50879567007` / `987654` (Bianca) e Carlos `31415926590` / `111111`
+-(sem aluno). Os flows escolhem o aluno pelo TROCAR PERFIL quando o dado
++(sem aluno). Os flows escolhem o aluno pela aba Perfil quando o dado
+ importa, então não dependem de qual aluno o `/me` traz primeiro, nem do dia de
+ hoje (o dia da Agenda é escolhido no dropdown).
+ 
+ ## Pré-requisitos
+ 
+ - [Maestro CLI](https://docs.maestro.dev/getting-started/installing-maestro)
+   (o CI usa a 2.11.0):
+   `curl -fsSL "https://get.maestro.mobile.dev" | MAESTRO_VERSION=2.11.0 bash`.
+diff --git a/mobile/.maestro/subflows/logout.yaml b/mobile/.maestro/subflows/logout.yaml
+index 3753f6c..04db819 100644
+--- a/mobile/.maestro/subflows/logout.yaml
++++ b/mobile/.maestro/subflows/logout.yaml
+@@ -1,9 +1,13 @@
+-# SAIR (sem confirmação) e espera o Login.
++# Sai pela aba Perfil, com a confirmação inline (DV7), e espera o Login.
+ appId: br.com.fiap.school
+ ---
+ - tapOn:
+-    id: header-logout-button
++    id: tab-perfil
++- tapOn:
++    id: profile-logout-button
++- tapOn:
++    id: profile-logout-confirm
+ - extendedWaitUntil:
+     visible:
+       id: login-screen
+     timeout: 5000
+diff --git a/mobile/.maestro/subflows/select-student.yaml b/mobile/.maestro/subflows/select-student.yaml
+index 39d17c7..b7a1a8d 100644
+--- a/mobile/.maestro/subflows/select-student.yaml
++++ b/mobile/.maestro/subflows/select-student.yaml
+@@ -1,16 +1,21 @@
+-# Troca o aluno pelo TROCAR PERFIL. Parâmetro: RM do aluno.
+-# Escolher o aluno já selecionado também fecha a seleção.
++# Troca o aluno pela aba Perfil (DV8: a troca é na hora, sem sair do Perfil).
++# Parâmetro: RM do aluno. Escolher o aluno já atual não muda nada.
++# Não volta à aba de antes: quem chama toca na aba que quer.
+ appId: br.com.fiap.school
+ ---
+ - tapOn:
+-    id: header-switch-student-button
++    id: tab-perfil
+ - extendedWaitUntil:
+     visible:
+-      id: select-student-card-${RM}
++      id: profile-student-${RM}
+     timeout: 5000
+ - tapOn:
+-    id: select-student-card-${RM}
++    id: profile-student-${RM}
++# A linha é um elemento só para o leitor de tela: no iOS o selo "Atual"
++# (`-current`) fica dentro dela e não aparece na hierarquia. O estado
++# `selected` da linha vale nas duas plataformas.
+ - extendedWaitUntil:
+-    notVisible:
+-      id: select-student-screen
++    visible:
++      id: profile-student-${RM}
++      selected: true
+     timeout: 5000
+diff --git a/mobile/src/app/__tests__/App.test.tsx b/mobile/src/app/__tests__/App.test.tsx
+index dbb520d..71d6391 100644
+--- a/mobile/src/app/__tests__/App.test.tsx
++++ b/mobile/src/app/__tests__/App.test.tsx
+@@ -185,16 +185,81 @@ describe('App', () => {
+     ).toBeOnTheScreen();
+ 
+     await act(() => useSessionStore.getState().signOut('expired'));
+ 
+     expect(await screen.findByTestId('login-screen')).toBeOnTheScreen();
+     expect(screen.queryByTestId('splash-screen')).toBeNull();
+   });
+ 
++  it('tab bar flutuante com Agenda, Boletim e Perfil; tocar em Perfil abre o Perfil', async () => {
++    await createSecureStorage().setToken('jwt-salvo');
++    await render(<App />);
++    expect(
++      await screen.findByTestId('agenda-screen', {}, AFTER_SPLASH),
++    ).toBeOnTheScreen();
++
++    for (const id of ['tab-agenda', 'tab-boletim', 'tab-perfil']) {
++      expect(screen.getByTestId(id)).toHaveProp('accessibilityRole', 'tab');
++    }
++    expect(screen.getByTestId('tab-bar-container')).toHaveStyle({
++      position: 'absolute',
++    });
++
++    await act(() => fireEvent.press(screen.getByTestId('tab-perfil')));
++
++    expect(await screen.findByTestId('profile-screen')).toBeOnTheScreen();
++    expect(screen.getByTestId('tab-perfil')).toBeSelected();
++  });
++
++  it('trocar de aluno no Perfil atualiza as outras abas, sem sair do Perfil (N5)', async () => {
++    await createSecureStorage().setToken('jwt-salvo');
++    await render(<App />);
++    expect(
++      await screen.findByTestId('agenda-screen', {}, AFTER_SPLASH),
++    ).toBeOnTheScreen();
++    expect(screen.getByTestId('header-student-name')).toHaveTextContent(
++      'Rafael',
++    );
++
++    await act(() => fireEvent.press(screen.getByTestId('tab-perfil')));
++    await act(() =>
++      fireEvent.press(screen.getByTestId('profile-student-12568')),
++    );
++    expect(screen.getByTestId('profile-screen')).toBeOnTheScreen();
++    expect(screen.getByTestId('profile-student-12568')).toBeSelected();
++
++    await act(() => fireEvent.press(screen.getByTestId('tab-agenda')));
++    await waitFor(() =>
++      expect(screen.getByTestId('header-student-name')).toHaveTextContent(
++        'Marina',
++      ),
++    );
++    expect(useSessionStore.getState().selectedStudentId).toBe('s2');
++  });
++
++  it('Sair no Perfil, depois de confirmar, apaga o token e volta ao Login (N5)', async () => {
++    await createSecureStorage().setToken('jwt-salvo');
++    await render(<App />);
++    expect(
++      await screen.findByTestId('agenda-screen', {}, AFTER_SPLASH),
++    ).toBeOnTheScreen();
++
++    await act(() => fireEvent.press(screen.getByTestId('tab-perfil')));
++    await act(() =>
++      fireEvent.press(screen.getByTestId('profile-logout-button')),
++    );
++    await act(() =>
++      fireEvent.press(screen.getByTestId('profile-logout-confirm')),
++    );
++
++    expect(await screen.findByTestId('login-screen')).toBeOnTheScreen();
++    expect(await createSecureStorage().getToken()).toBeNull();
++  });
++
+   it('SAIR no Boletim apaga o token e volta ao Login', async () => {
+     await createSecureStorage().setToken('jwt-salvo');
+     await render(<App />);
+     expect(
+       await screen.findByTestId('agenda-screen', {}, AFTER_SPLASH),
+     ).toBeOnTheScreen();
+ 
+     await act(() => fireEvent.press(screen.getByTestId('tab-boletim')));
+diff --git a/mobile/src/components/EmptyState.tsx b/mobile/src/components/EmptyState.tsx
+index 293ea2e..7f89a0d 100644
+--- a/mobile/src/components/EmptyState.tsx
++++ b/mobile/src/components/EmptyState.tsx
+@@ -1,14 +1,16 @@
+ import type { ComponentType, ReactNode } from 'react';
+ import Animated, {
+   FadeIn,
+-  Keyframe,
+   ReduceMotion,
+   useReducedMotion,
++  withSpring,
++  withTiming,
++  type LayoutAnimation,
+ } from 'react-native-reanimated';
+ 
+ import { Box, enterDown, Text, useTheme, type Theme } from '../theme';
+ import type { IconProps } from './icons/StrokeIcon';
+ 
+ type EmptyStateProps = {
+   /** Ícone de traço (`components/icons`), desenhado no círculo. */
+   icon: ComponentType<IconProps>;
+@@ -20,39 +22,45 @@ type EmptyStateProps = {
+   tone?: 'neutral' | 'danger';
+   /** Filhos: `X-icon` (o círculo). */
+   testID: string;
+ };
+ 
+ type Motion = Theme['motion'];
+ 
+ /**
+- * Entradas (01-design.md da v2, 4.7): o ícone cresce de 0,96 para 1 enquanto
+- * aparece e o resto vem em cascata depois dele. Com reduzir movimento, tudo
+- * só aparece em fade: opacidade não é movimento, então o sistema não pode
+- * pular (`ReduceMotion.Never`).
++ * Entradas (01-design.md da v2, 4.7): o ícone aparece em `base` e cresce de
++ * `popFrom` para 1 com a mola `gentle`; o resto vem em cascata depois dele.
++ * Com reduzir movimento, tudo só aparece em fade: opacidade não é
++ * movimento, então o sistema não pode pular (`ReduceMotion.Never`).
+  */
+ function entrances(motion: Motion, reduced: boolean) {
+   if (reduced) {
+     const fade = (delay: number) =>
+       FadeIn.duration(motion.base)
+         .delay(delay)
+         .reduceMotion(ReduceMotion.Never);
+     return {
+       icon: fade(0),
+       item: (index: number) => fade(index * motion.stagger),
+     };
+   }
++  const { base, easeOut, popFrom, spring } = motion;
++  const icon = (): LayoutAnimation => {
++    'worklet';
++    return {
++      initialValues: { opacity: 0, transform: [{ scale: popFrom }] },
++      animations: {
++        opacity: withTiming(1, { duration: base, easing: easeOut }),
++        transform: [{ scale: withSpring(1, spring.gentle) }],
++      },
++    };
++  };
+   return {
+-    icon: new Keyframe({
+-      0: { opacity: 0, transform: [{ scale: motion.illustrationScaleFrom }] },
+-      100: { opacity: 1, transform: [{ scale: 1 }], easing: motion.easeOut },
+-    })
+-      .duration(motion.base)
+-      .reduceMotion(ReduceMotion.System),
++    icon,
+     item: (index: number) => enterDown(motion, index * motion.stagger),
+   };
+ }
+ 
+ /**
+  * Estado vazio da v2 (01-design.md da v2, 2.16, DV9): ícone em SVG num
+  * círculo (nítido em qualquer densidade, no lugar da ilustração PNG),
+  * título, descrição e uma ação opcional, centralizados.
+diff --git a/mobile/src/components/FloatingTabBar.tsx b/mobile/src/components/FloatingTabBar.tsx
+new file mode 100644
+index 0000000..b2518b4
+--- /dev/null
++++ b/mobile/src/components/FloatingTabBar.tsx
+@@ -0,0 +1,275 @@
++import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
++import { useEffect, useRef, useState, type ReactNode } from 'react';
++import { Pressable, StyleSheet, type LayoutChangeEvent } from 'react-native';
++import Animated, {
++  Easing,
++  useAnimatedStyle,
++  useReducedMotion,
++  useSharedValue,
++  withSequence,
++  withTiming,
++} from 'react-native-reanimated';
++import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
++
++import {
++  proximityOpacity,
++  useActiveLayerStyle,
++  useSlidingIndicator,
++  type SlidingIndicator,
++} from '../hooks/useSlidingIndicator';
++import { floatingTabBarBottom } from '../hooks/useFloatingTabBarInset';
++import { Box, Card, Text, useTheme } from '../theme';
++
++const FADE_GRADIENT_ID = 'tabBarFade';
++
++type TabItemProps = {
++  indicator: SlidingIndicator;
++  index: number;
++  focused: boolean;
++  label: string;
++  accessibilityLabel?: string;
++  testID?: string;
++  renderIcon: (color: string) => ReactNode;
++  onPress: () => void;
++};
++
++/**
++ * Um item da tab bar. Ícone e rótulo existem em duas camadas
++ * (`textSecondary` e `primary`), e a opacidade de cada uma vem da distância
++ * até o indicador (2.4): a cor acompanha o indicador no meio do caminho, sem
++ * animar cor nem fazer `setState`. O ícone que acabou de ficar ativo faz
++ * 1 → `tabIconPop` → 1 (4.1).
++ */
++function TabItem({
++  indicator,
++  index,
++  focused,
++  label,
++  accessibilityLabel,
++  testID,
++  renderIcon,
++  onPress,
++}: TabItemProps) {
++  const { colors, motion, sizes } = useTheme();
++  const reducedMotion = useReducedMotion();
++  const iconScale = useSharedValue(1);
++  const wasFocused = useRef(focused);
++
++  useEffect(() => {
++    if (focused && !wasFocused.current && !reducedMotion) {
++      iconScale.set(
++        withSequence(
++          withTiming(motion.tabIconPop, {
++            duration: motion.fast,
++            easing: Easing.out(Easing.cubic),
++          }),
++          withTiming(1, { duration: motion.fast }),
++        ),
++      );
++    }
++    wasFocused.current = focused;
++  }, [focused, reducedMotion, iconScale, motion]);
++
++  const activeLayer = useActiveLayerStyle(indicator, index);
++  const { position, itemWidth, gap } = indicator;
++  const inactiveLayer = useAnimatedStyle(() => ({
++    opacity: 1 - proximityOpacity(position.get(), index, itemWidth, gap),
++  }));
++  const iconStyle = useAnimatedStyle(() => ({
++    transform: [{ scale: iconScale.get() }],
++  }));
++
++  const layerContent = (colorName: 'textSecondary' | 'primary') => (
++    <Box alignItems="center" gap="xxs">
++      <Animated.View style={iconStyle}>
++        <Box height={sizes.icon} justifyContent="center">
++          {renderIcon(colors[colorName])}
++        </Box>
++      </Animated.View>
++      <Text
++        variant="tabLabel"
++        color={colorName}
++        numberOfLines={1}
++        maxFontSizeMultiplier={sizes.fixedHeightFontScale}
++      >
++        {label}
++      </Text>
++    </Box>
++  );
++
++  return (
++    <Pressable
++      testID={testID}
++      accessibilityRole="tab"
++      accessibilityLabel={accessibilityLabel ?? label}
++      accessibilityState={{ selected: focused }}
++      onPress={onPress}
++      style={styles.item}
++    >
++      <Animated.View
++        testID={testID ? `${testID}-inactive-layer` : undefined}
++        style={[styles.layer, inactiveLayer]}
++      >
++        {layerContent('textSecondary')}
++      </Animated.View>
++      <Animated.View
++        testID={testID ? `${testID}-active-layer` : undefined}
++        style={[styles.layer, activeLayer]}
++      >
++        {layerContent('primary')}
++      </Animated.View>
++    </Pressable>
++  );
++}
++
++/**
++ * Tab bar flutuante da v2 (01-design.md da v2, 2.4, V6): cápsula de raio
++ * total acima da área segura, com um indicador teal que desliza até a aba
++ * ativa (`useSlidingIndicator`). O conteúdo das abas rola por baixo dela
++ * (padding de `useFloatingTabBarInset`) e esmaece num degradê, em vez de ser
++ * cortado em seco. Ícone e rótulo vêm das options de cada aba.
++ */
++export function FloatingTabBar({
++  state,
++  descriptors,
++  navigation,
++  insets,
++}: BottomTabBarProps) {
++  const { borderRadii, colors, gradients, shadows, sizes, spacing } =
++    useTheme();
++  const [itemWidth, setItemWidth] = useState(0);
++  const count = state.routes.length;
++  const indicator = useSlidingIndicator({
++    count,
++    itemWidth,
++    index: state.index,
++  });
++  const { height, maxWidth, indicatorHeight, indicatorInset } =
++    sizes.floatingTabBar;
++
++  const onItemsLayout = (event: LayoutChangeEvent) =>
++    setItemWidth(event.nativeEvent.layout.width / count);
++
++  return (
++    <Box
++      testID="tab-bar-container"
++      pointerEvents="box-none"
++      position="absolute"
++      left={0}
++      right={0}
++      bottom={0}
++      paddingHorizontal={{ compact: 's', phone: 'm' }}
++    >
++      <Box
++        testID="tab-bar-fade"
++        pointerEvents="none"
++        position="absolute"
++        left={0}
++        right={0}
++        bottom={0}
++        height={sizes.tabBarFade}
++      >
++        <Svg width="100%" height="100%">
++          <Defs>
++            <LinearGradient id={FADE_GRADIENT_ID} x1="0" y1="0" x2="0" y2="1">
++              {gradients.tabBarFade.map((stop, index, stops) => (
++                <Stop
++                  key={index}
++                  offset={index / (stops.length - 1)}
++                  stopColor={stop.color}
++                  stopOpacity={stop.opacity}
++                />
++              ))}
++            </LinearGradient>
++          </Defs>
++          <Rect width="100%" height="100%" fill={`url(#${FADE_GRADIENT_ID})`} />
++        </Svg>
++      </Box>
++      <Card
++        testID="tab-bar"
++        variant="floating"
++        accessibilityRole="tablist"
++        width="100%"
++        alignSelf="center"
++        height={height}
++        maxWidth={maxWidth}
++        style={{
++          marginBottom: floatingTabBarBottom(insets.bottom, spacing),
++          boxShadow: [shadows.floating],
++        }}
++      >
++        <Box
++          style={StyleSheet.absoluteFill}
++          justifyContent="center"
++          pointerEvents="none"
++        >
++          <Animated.View
++            testID="tab-bar-indicator"
++            style={[
++              {
++                width: Math.max(itemWidth - 2 * indicatorInset, 0),
++                height: indicatorHeight,
++                marginLeft: indicatorInset,
++                borderRadius: borderRadii.pill,
++                backgroundColor: colors.primaryMuted,
++                boxShadow: [shadows.glowPrimarySoft],
++              },
++              indicator.indicatorStyle,
++            ]}
++          />
++        </Box>
++        <Box
++          testID="tab-bar-items"
++          flex={1}
++          flexDirection="row"
++          onLayout={onItemsLayout}
++        >
++          {state.routes.map((route, index) => {
++            const { options } = descriptors[route.key];
++            const focused = state.index === index;
++            const label =
++              typeof options.tabBarLabel === 'string'
++                ? options.tabBarLabel
++                : options.title ?? route.name;
++
++            const onPress = () => {
++              const event = navigation.emit({
++                type: 'tabPress',
++                target: route.key,
++                canPreventDefault: true,
++              });
++              if (!focused && !event.defaultPrevented) {
++                navigation.navigate(route.name, route.params);
++              }
++            };
++
++            return (
++              <TabItem
++                key={route.key}
++                indicator={indicator}
++                index={index}
++                focused={focused}
++                label={label}
++                accessibilityLabel={options.tabBarAccessibilityLabel}
++                testID={options.tabBarButtonTestID}
++                onPress={onPress}
++                renderIcon={color =>
++                  options.tabBarIcon?.({ focused, color, size: sizes.icon })
++                }
++              />
++            );
++          })}
++        </Box>
++      </Card>
++    </Box>
++  );
++}
++
++const styles = StyleSheet.create({
++  item: { flex: 1 },
++  layer: {
++    ...StyleSheet.absoluteFill,
++    alignItems: 'center',
++    justifyContent: 'center',
++  },
++});
+diff --git a/mobile/src/components/Header.tsx b/mobile/src/components/Header.tsx
+index 7419809..41c19e6 100644
+--- a/mobile/src/components/Header.tsx
++++ b/mobile/src/components/Header.tsx
+@@ -21,16 +21,21 @@ export type HeaderStudent = {
+ type HeaderProps = {
+   guardianFirstName: string;
+   /** Sem aluno (tela "sem aluno"): só a saudação. */
+   student?: HeaderStudent | null;
+   canSwitchStudent: boolean;
+   onSwitchStudent: () => void;
+   onLogout: () => void;
+   logoutDisabled?: boolean;
++  /**
++   * Padding de baixo da rolagem: nas abas, `useFloatingTabBarInset()`, para
++   * o fim do conteúdo não ficar atrás da tab bar flutuante.
++   */
++  contentInsetBottom?: number;
+   /** Conteúdo da tela, que rola junto com a saudação. */
+   children?: ReactNode;
+ };
+ 
+ /**
+  * Header das telas autenticadas (R5, 01-design.md 2.2): a barra de ações
+  * fica fixa; saudação, bloco do aluno e o conteúdo da tela rolam juntos.
+  * Entrada (4.3) só na montagem; trocar de aluno faz crossfade do bloco do
+@@ -38,16 +43,17 @@ type HeaderProps = {
+  */
+ export function Header({
+   guardianFirstName,
+   student,
+   canSwitchStudent,
+   onSwitchStudent,
+   onLogout,
+   logoutDisabled,
++  contentInsetBottom = 0,
+   children,
+ }: HeaderProps) {
+   const { motion, spacing } = useTheme();
+   const studentId = student?.id ?? null;
+   // O 1º aluno entra com a entrada da tela; os seguintes, com crossfade.
+   const [firstStudentId] = useState(studentId);
+   const [switched, setSwitched] = useState(false);
+   if (!switched && studentId !== firstStudentId) setSwitched(true);
+@@ -56,18 +62,23 @@ export function Header({
+     <Box testID="header" flex={1}>
+       <ActionBar
+         canSwitchStudent={canSwitchStudent}
+         onSwitchStudent={onSwitchStudent}
+         onLogout={onLogout}
+         logoutDisabled={logoutDisabled}
+       />
+       <ScrollView
++        testID="header-scroll"
+         style={styles.fill}
+-        contentContainerStyle={styles.grow}
++        contentContainerStyle={[
++          styles.grow,
++          { paddingBottom: contentInsetBottom },
++        ]}
++        scrollIndicatorInsets={{ bottom: contentInsetBottom }}
+         showsVerticalScrollIndicator={false}
+       >
+         <Animated.View
+           entering={enterDown(motion, 0)}
+           style={{ marginTop: spacing.m }}
+         >
+           <Text
+             testID="header-greeting"
+diff --git a/mobile/src/components/PillButton.tsx b/mobile/src/components/PillButton.tsx
+index b5628fe..1ea64ae 100644
+--- a/mobile/src/components/PillButton.tsx
++++ b/mobile/src/components/PillButton.tsx
+@@ -1,10 +1,15 @@
+-import type { ReactNode } from 'react';
+-import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
++import type { ComponentRef, ReactNode, Ref } from 'react';
++import {
++  ActivityIndicator,
++  Pressable,
++  StyleSheet,
++  type View,
++} from 'react-native';
+ import Animated, {
+   useAnimatedStyle,
+   useReducedMotion,
+   useSharedValue,
+   withSpring,
+   withTiming,
+ } from 'react-native-reanimated';
+ 
+@@ -26,16 +31,18 @@ type PillButtonProps = {
+   fullWidth?: boolean;
+   /** Os filhos derivam dele: `X-surface`, `X-label` e `X-loading` (spinner). */
+   testID: string;
+   /** Padrão: o próprio `label`. */
+   accessibilityLabel?: string;
+   /** Lido enquanto carrega (ex.: "Entrando…"). */
+   loadingAccessibilityLabel?: string;
+   accessibilityHint?: string;
++  /** Do pressionável: para mover o foco do leitor de tela até o botão. */
++  ref?: Ref<ComponentRef<typeof View>>;
+ };
+ 
+ type Color = keyof Theme['colors'];
+ 
+ /** Cor do texto e do ícone por variante (01-design.md da v2, 2.3). */
+ const contentColor: Record<Variant, { text: Color; icon: Color }> = {
+   primary: { text: 'textOnPrimary', icon: 'textOnPrimary' },
+   secondary: { text: 'text', icon: 'primary' },
+@@ -61,16 +68,17 @@ export function PillButton({
+   iconPosition = 'start',
+   disabled = false,
+   loading = false,
+   fullWidth = false,
+   testID,
+   accessibilityLabel,
+   loadingAccessibilityLabel,
+   accessibilityHint,
++  ref,
+ }: PillButtonProps) {
+   const { colors, motion, opacities, shadows, sizes, spacing } = useTheme();
+   const reducedMotion = useReducedMotion();
+   const scale = useSharedValue(1);
+   const pressOpacity = useSharedValue(1);
+   const inactive = disabled || loading;
+   const height = sizes.pill[size];
+   // Alvo mínimo de 44: o que falta vira área de toque invisível.
+@@ -105,16 +113,17 @@ export function PillButton({
+     if (!reducedMotion) scale.set(withSpring(1, motion.press));
+     pressOpacity.set(withTiming(1, { duration: motion.fast }));
+   };
+ 
+   const iconNode = icon ? icon(iconColor) : null;
+ 
+   return (
+     <Pressable
++      ref={ref}
+       testID={testID}
+       accessibilityRole="button"
+       accessibilityLabel={
+         loading && loadingAccessibilityLabel
+           ? loadingAccessibilityLabel
+           : accessibilityLabel ?? label
+       }
+       accessibilityHint={accessibilityHint}
+diff --git a/mobile/src/components/TabBar.tsx b/mobile/src/components/TabBar.tsx
+deleted file mode 100644
+index 957c3b9..0000000
+--- a/mobile/src/components/TabBar.tsx
++++ /dev/null
+@@ -1,179 +0,0 @@
+-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+-import { useEffect, useRef, type ReactNode } from 'react';
+-import { Pressable, StyleSheet } from 'react-native';
+-import Animated, {
+-  Easing,
+-  useAnimatedStyle,
+-  useReducedMotion,
+-  useSharedValue,
+-  withSequence,
+-  withTiming,
+-} from 'react-native-reanimated';
+-
+-import { Box, Text, useTheme } from '../theme';
+-
+-type TabItemProps = {
+-  label: string;
+-  accessibilityLabel?: string;
+-  testID?: string;
+-  focused: boolean;
+-  renderIcon: (color: string) => ReactNode;
+-  onPress: () => void;
+-};
+-
+-/**
+- * Um item da tab bar. Ícone e rótulo existem em duas camadas sobrepostas
+- * (`text` e `primary`) e a ativa aparece por crossfade de opacidade (4.4):
+- * assim não se anima a cor do SVG, que não roda na UI thread. O ícone que
+- * acabou de ficar ativo faz 1 → 1,12 → 1.
+- */
+-function TabItem({
+-  label,
+-  accessibilityLabel,
+-  testID,
+-  focused,
+-  renderIcon,
+-  onPress,
+-}: TabItemProps) {
+-  const { colors, motion, sizes } = useTheme();
+-  const reducedMotion = useReducedMotion();
+-  const active = useSharedValue(focused ? 1 : 0);
+-  const iconScale = useSharedValue(1);
+-  const wasFocused = useRef(focused);
+-
+-  useEffect(() => {
+-    const target = focused ? 1 : 0;
+-    if (reducedMotion) {
+-      active.set(target);
+-    } else {
+-      active.set(
+-        withTiming(target, { duration: motion.base, easing: motion.easeOut }),
+-      );
+-      if (focused && !wasFocused.current) {
+-        iconScale.set(
+-          withSequence(
+-            withTiming(motion.tabIconPop, {
+-              duration: motion.fast,
+-              easing: Easing.out(Easing.cubic),
+-            }),
+-            withTiming(1, { duration: motion.fast }),
+-          ),
+-        );
+-      }
+-    }
+-    wasFocused.current = focused;
+-  }, [focused, reducedMotion, active, iconScale, motion]);
+-
+-  const activeLayer = useAnimatedStyle(() => ({ opacity: active.get() }));
+-  const inactiveLayer = useAnimatedStyle(() => ({
+-    opacity: 1 - active.get(),
+-  }));
+-  const iconStyle = useAnimatedStyle(() => ({
+-    transform: [{ scale: iconScale.get() }],
+-  }));
+-
+-  const layer = (color: string, colorName: 'text' | 'primary') => (
+-    <Box alignItems="center" gap="xs">
+-      <Box height={sizes.icon} justifyContent="center">
+-        {renderIcon(color)}
+-      </Box>
+-      <Text
+-        variant="tabLabel"
+-        color={colorName}
+-        maxFontSizeMultiplier={sizes.fixedHeightFontScale}
+-      >
+-        {label}
+-      </Text>
+-    </Box>
+-  );
+-
+-  return (
+-    <Pressable
+-      testID={testID}
+-      accessibilityRole="tab"
+-      accessibilityLabel={accessibilityLabel}
+-      accessibilityState={{ selected: focused }}
+-      onPress={onPress}
+-      style={styles.item}
+-    >
+-      <Box paddingTop="sm" alignItems="center">
+-        <Animated.View style={iconStyle}>
+-          <Animated.View style={inactiveLayer}>
+-            {layer(colors.text, 'text')}
+-          </Animated.View>
+-          <Animated.View
+-            testID={testID ? `${testID}-active-layer` : undefined}
+-            style={[StyleSheet.absoluteFill, activeLayer]}
+-          >
+-            {layer(colors.primary, 'primary')}
+-          </Animated.View>
+-        </Animated.View>
+-      </Box>
+-    </Pressable>
+-  );
+-}
+-
+-/**
+- * Tab bar do Figma (01-design.md, 2.4): fundo `surface`, altura
+- * `sizes.tabBar` + inset de baixo, duas colunas iguais; aba ativa em
+- * `primary`. Ícone e rótulo vêm das options de cada aba.
+- */
+-export function TabBar({
+-  state,
+-  descriptors,
+-  navigation,
+-  insets,
+-}: BottomTabBarProps) {
+-  const { sizes } = useTheme();
+-
+-  return (
+-    <Box
+-      testID="tab-bar"
+-      accessibilityRole="tablist"
+-      flexDirection="row"
+-      backgroundColor="surface"
+-      style={{
+-        height: sizes.tabBar + insets.bottom,
+-        paddingBottom: insets.bottom,
+-      }}
+-    >
+-      {state.routes.map((route, index) => {
+-        const { options } = descriptors[route.key];
+-        const focused = state.index === index;
+-        const label =
+-          typeof options.tabBarLabel === 'string'
+-            ? options.tabBarLabel
+-            : options.title ?? route.name;
+-
+-        const onPress = () => {
+-          const event = navigation.emit({
+-            type: 'tabPress',
+-            target: route.key,
+-            canPreventDefault: true,
+-          });
+-          if (!focused && !event.defaultPrevented) {
+-            navigation.navigate(route.name, route.params);
+-          }
+-        };
+-
+-        return (
+-          <TabItem
+-            key={route.key}
+-            label={label}
+-            accessibilityLabel={options.tabBarAccessibilityLabel}
+-            testID={options.tabBarButtonTestID}
+-            focused={focused}
+-            onPress={onPress}
+-            renderIcon={color =>
+-              options.tabBarIcon?.({ focused, color, size: sizes.icon })
+-            }
+-          />
+-        );
+-      })}
+-    </Box>
+-  );
+-}
+-
+-const styles = StyleSheet.create({
+-  item: { flex: 1 },
+-});
+diff --git a/mobile/src/components/__tests__/EmptyState.test.tsx b/mobile/src/components/__tests__/EmptyState.test.tsx
+index b8f074e..21f8d01 100644
+--- a/mobile/src/components/__tests__/EmptyState.test.tsx
++++ b/mobile/src/components/__tests__/EmptyState.test.tsx
+@@ -1,23 +1,35 @@
+ import { screen } from '@testing-library/react-native';
+ import { Text } from 'react-native';
+-import { ReduceMotion, useReducedMotion } from 'react-native-reanimated';
++import {
++  ReduceMotion,
++  useReducedMotion,
++  withSpring,
++  withTiming,
++} from 'react-native-reanimated';
+ 
+ import type { RecordedAnimation } from '../../test/recordingAnimations';
+ import { renderWithTheme } from '../../test/renderWithTheme';
+ import { theme } from '../../theme';
+ import { EmptyState } from '../EmptyState';
+ import type { IconProps } from '../icons/StrokeIcon';
+ 
+-jest.mock('react-native-reanimated', () => ({
+-  ...jest.requireActual('react-native-reanimated/mock'),
+-  ...jest.requireActual('../../test/recordingAnimations').recordingAnimations(),
+-  useReducedMotion: jest.fn(() => false),
+-}));
++jest.mock('react-native-reanimated', () => {
++  const actual = jest.requireActual('react-native-reanimated/mock');
++  return {
++    ...actual,
++    ...jest
++      .requireActual('../../test/recordingAnimations')
++      .recordingAnimations(),
++    useReducedMotion: jest.fn(() => false),
++    withSpring: jest.fn(actual.withSpring),
++    withTiming: jest.fn(actual.withTiming),
++  };
++});
+ 
+ const { colors, motion, sizes } = theme;
+ 
+ /** Ícone falso que mostra a cor e o tamanho recebidos. */
+ const FakeIcon = jest.fn(({ color, size }: IconProps) => (
+   <Text>{`ícone ${color} ${size}`}</Text>
+ ));
+ 
+@@ -109,29 +121,35 @@ describe('EmptyState', () => {
+       />,
+     );
+ 
+     expect(screen.getByText('Ação')).toBeOnTheScreen();
+     expect(screen.queryByTestId('vazio-description')).toBeNull();
+   });
+ 
+   describe('entrada', () => {
+-    it('ícone: opacidade 0 → 1 e escala 0,96 → 1 em `base`', async () => {
++    it('ícone: opacidade 0 → 1 em `base` e escala popFrom → 1 com a mola gentle', async () => {
+       await renderWithTheme(
+         <EmptyState testID="vazio" icon={FakeIcon} title="Sem aulas" />,
+       );
+ 
+-      const entering = enteringOf(iconCircle());
+-      expect(entering.name).toBe('Keyframe');
+-      expect(entering.keyframes).toEqual({
+-        0: { opacity: 0, transform: [{ scale: motion.illustrationScaleFrom }] },
+-        100: { opacity: 1, transform: [{ scale: 1 }], easing: motion.easeOut },
++      const entering = enteringOf(iconCircle()) as unknown as (
++        values: unknown,
++      ) => { initialValues: unknown; animations: unknown };
++      expect(typeof entering).toBe('function');
++      const animation = entering({});
++      expect(animation.initialValues).toEqual({
++        opacity: 0,
++        transform: [{ scale: motion.popFrom }],
++      });
++      expect(withTiming).toHaveBeenCalledWith(1, {
++        duration: motion.base,
++        easing: motion.easeOut,
+       });
+-      expect(entering.calls.duration).toBe(motion.base);
+-      expect(entering.calls.reduceMotion).toBe(ReduceMotion.System);
++      expect(withSpring).toHaveBeenCalledWith(1, motion.spring.gentle);
+     });
+ 
+     it('título, descrição e ação entram em cascata depois do ícone', async () => {
+       await renderWithTheme(
+         <EmptyState
+           testID="vazio"
+           icon={FakeIcon}
+           title="Sem aulas"
+diff --git a/mobile/src/components/__tests__/FloatingTabBar.test.tsx b/mobile/src/components/__tests__/FloatingTabBar.test.tsx
+new file mode 100644
+index 0000000..89b3ec6
+--- /dev/null
++++ b/mobile/src/components/__tests__/FloatingTabBar.test.tsx
+@@ -0,0 +1,249 @@
++import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
++import { fireEvent, screen } from '@testing-library/react-native';
++import { Text } from 'react-native';
++import {
++  useReducedMotion,
++  withSequence,
++  withSpring,
++} from 'react-native-reanimated';
++
++import { renderWithTheme } from '../../test/renderWithTheme';
++import { theme } from '../../theme';
++import { FloatingTabBar } from '../FloatingTabBar';
++
++jest.mock('react-native-reanimated', () => {
++  const actual = jest.requireActual('react-native-reanimated/mock');
++  return {
++    ...actual,
++    useReducedMotion: jest.fn(() => false),
++    withSpring: jest.fn(actual.withSpring),
++    withSequence: jest.fn(actual.withSequence),
++  };
++});
++
++const { colors, motion, shadows, sizes, spacing } = theme;
++const reducedMotionMock = useReducedMotion as jest.Mock;
++
++const routes = [
++  { key: 'agenda-1', name: 'Agenda' },
++  { key: 'boletim-1', name: 'Boletim' },
++  { key: 'perfil-1', name: 'Perfil' },
++];
++
++/** Ícone falso que mostra a cor recebida (a camada em que está). */
++const icon =
++  (name: string) =>
++  ({ color, size }: { color: string; size: number }) =>
++    <Text>{`${name} ${color} ${size}`}</Text>;
++
++const option = (name: string, testID: string) => ({
++  options: {
++    title: name,
++    tabBarAccessibilityLabel: name,
++    tabBarButtonTestID: testID,
++    tabBarIcon: icon(name),
++  },
++});
++
++const navigation = {
++  emit: jest.fn(() => ({ defaultPrevented: false })),
++  navigate: jest.fn(),
++};
++
++function tabBarProps(index: number, bottom = 0) {
++  return {
++    state: {
++      index,
++      routes,
++      key: 'tabs',
++      routeNames: routes.map(route => route.name),
++    },
++    descriptors: {
++      'agenda-1': option('Agenda', 'tab-agenda'),
++      'boletim-1': option('Boletim', 'tab-boletim'),
++      'perfil-1': option('Perfil', 'tab-perfil'),
++    },
++    navigation,
++    insets: { top: 0, left: 0, right: 0, bottom },
++  } as unknown as BottomTabBarProps;
++}
++
++const hidden = { includeHiddenElements: true };
++const layer = (testID: string) => screen.getByTestId(testID, hidden);
++
++/** O `onLayout` da linha de itens: a largura de cada um sai daqui. */
++const layoutItems = async (width: number) =>
++  fireEvent(screen.getByTestId('tab-bar-items'), 'layout', {
++    nativeEvent: { layout: { x: 0, y: 0, width, height: 62 } },
++  });
++
++beforeEach(() => {
++  jest.clearAllMocks();
++  reducedMotionMock.mockReturnValue(false);
++});
++
++describe('FloatingTabBar', () => {
++  it('lista de 3 abas com a ativa selecionada e os rótulos', async () => {
++    await renderWithTheme(<FloatingTabBar {...tabBarProps(0)} />);
++
++    expect(screen.getByTestId('tab-bar')).toHaveProp(
++      'accessibilityRole',
++      'tablist',
++    );
++    for (const [testID, name] of [
++      ['tab-agenda', 'Agenda'],
++      ['tab-boletim', 'Boletim'],
++      ['tab-perfil', 'Perfil'],
++    ]) {
++      const tab = screen.getByTestId(testID);
++      expect(tab).toHaveProp('accessibilityRole', 'tab');
++      expect(tab).toHaveAccessibleName(name);
++      expect(screen.getAllByText(name, hidden).length).toBeGreaterThan(0);
++    }
++    expect(screen.getByTestId('tab-agenda')).toBeSelected();
++    expect(screen.getByTestId('tab-perfil')).not.toBeSelected();
++  });
++
++  it('cápsula flutuante: 64 de altura, raio pill, borda e sombra floating', async () => {
++    await renderWithTheme(<FloatingTabBar {...tabBarProps(0)} />);
++
++    expect(screen.getByTestId('tab-bar')).toHaveStyle({
++      height: sizes.floatingTabBar.height,
++      maxWidth: sizes.floatingTabBar.maxWidth,
++      borderRadius: theme.borderRadii.pill,
++      borderWidth: 1,
++      borderColor: colors.borderStrong,
++      backgroundColor: colors.surfaceRaised,
++      boxShadow: [shadows.floating],
++    });
++    expect(screen.getByTestId('tab-bar-container')).toHaveStyle({
++      position: 'absolute',
++      left: 0,
++      right: 0,
++      bottom: 0,
++      paddingHorizontal: spacing.m,
++    });
++  });
++
++  it('flutua acima da área segura: `m` sem home indicator, inset − `s` com ele', async () => {
++    const { rerender } = await renderWithTheme(
++      <FloatingTabBar {...tabBarProps(0)} />,
++    );
++    expect(screen.getByTestId('tab-bar')).toHaveStyle({
++      marginBottom: spacing.m,
++    });
++
++    await rerender(<FloatingTabBar {...tabBarProps(0, 34)} />);
++    expect(screen.getByTestId('tab-bar')).toHaveStyle({ marginBottom: 26 });
++  });
++
++  it('degradê atrás da barra, que não pega toque', async () => {
++    await renderWithTheme(<FloatingTabBar {...tabBarProps(0)} />);
++
++    const fade = screen.getByTestId('tab-bar-fade', hidden);
++    expect(fade).toHaveProp('pointerEvents', 'none');
++    expect(fade).toHaveStyle({ height: sizes.tabBarFade });
++  });
++
++  it('indicador do tamanho de um item menos o inset, na aba ativa', async () => {
++    await renderWithTheme(<FloatingTabBar {...tabBarProps(2)} />);
++    await layoutItems(381);
++
++    const indicator = screen.getByTestId('tab-bar-indicator', hidden);
++    const { indicatorInset, indicatorHeight } = sizes.floatingTabBar;
++    expect(indicator).toHaveStyle({
++      width: 127 - 2 * indicatorInset,
++      height: indicatorHeight,
++      marginLeft: indicatorInset,
++      borderRadius: theme.borderRadii.pill,
++      backgroundColor: colors.primaryMuted,
++      boxShadow: [shadows.glowPrimarySoft],
++      transform: [{ translateX: 2 * 127 }],
++    });
++  });
++
++  it('trocar de aba desliza o indicador com a mola snappy', async () => {
++    const { rerender } = await renderWithTheme(
++      <FloatingTabBar {...tabBarProps(0)} />,
++    );
++    await layoutItems(381);
++
++    await rerender(<FloatingTabBar {...tabBarProps(1)} />);
++
++    expect(withSpring).toHaveBeenCalledWith(1, motion.spring.snappy);
++  });
++
++  it('a camada primary acende na aba do indicador; a outra fica na textSecondary', async () => {
++    await renderWithTheme(<FloatingTabBar {...tabBarProps(2)} />);
++    await layoutItems(381);
++
++    expect(layer('tab-perfil-active-layer')).toHaveStyle({ opacity: 1 });
++    expect(layer('tab-perfil-inactive-layer')).toHaveStyle({ opacity: 0 });
++    expect(layer('tab-agenda-active-layer')).toHaveStyle({ opacity: 0 });
++    expect(layer('tab-agenda-inactive-layer')).toHaveStyle({ opacity: 1 });
++    expect(
++      screen.getByText(`Perfil ${colors.primary} ${sizes.icon}`, hidden),
++    ).toBeTruthy();
++    expect(
++      screen.getByText(`Perfil ${colors.textSecondary} ${sizes.icon}`, hidden),
++    ).toBeTruthy();
++  });
++
++  it('rótulos com teto de fonte grande (altura fixa)', async () => {
++    await renderWithTheme(<FloatingTabBar {...tabBarProps(0)} />);
++
++    for (const label of screen.getAllByText('Boletim', hidden)) {
++      expect(label).toHaveProp(
++        'maxFontSizeMultiplier',
++        sizes.fixedHeightFontScale,
++      );
++    }
++  });
++
++  it('tocar na aba inativa navega; na ativa, não', async () => {
++    await renderWithTheme(<FloatingTabBar {...tabBarProps(0)} />);
++
++    await fireEvent.press(screen.getByTestId('tab-agenda'));
++    expect(navigation.navigate).not.toHaveBeenCalled();
++
++    await fireEvent.press(screen.getByTestId('tab-perfil'));
++    expect(navigation.emit).toHaveBeenCalledWith(
++      expect.objectContaining({ type: 'tabPress', target: 'perfil-1' }),
++    );
++    expect(navigation.navigate).toHaveBeenCalledWith('Perfil', undefined);
++  });
++
++  it('não navega quando o tabPress foi cancelado', async () => {
++    navigation.emit.mockReturnValueOnce({ defaultPrevented: true });
++    await renderWithTheme(<FloatingTabBar {...tabBarProps(0)} />);
++
++    await fireEvent.press(screen.getByTestId('tab-boletim'));
++
++    expect(navigation.navigate).not.toHaveBeenCalled();
++  });
++
++  describe('pop do ícone', () => {
++    it('o ícone que fica ativo faz 1 → tabIconPop → 1; na montagem, não', async () => {
++      const { rerender } = await renderWithTheme(
++        <FloatingTabBar {...tabBarProps(0)} />,
++      );
++      expect(withSequence).not.toHaveBeenCalled();
++
++      await rerender(<FloatingTabBar {...tabBarProps(2)} />);
++
++      expect(withSequence).toHaveBeenCalledTimes(1);
++    });
++
++    it('com reduzir movimento: sem pop e o indicador vai direto', async () => {
++      reducedMotionMock.mockReturnValue(true);
++      const { rerender } = await renderWithTheme(
++        <FloatingTabBar {...tabBarProps(0)} />,
++      );
++
++      await rerender(<FloatingTabBar {...tabBarProps(2)} />);
++
++      expect(withSequence).not.toHaveBeenCalled();
++      expect(withSpring).not.toHaveBeenCalled();
++    });
++  });
++});
+diff --git a/mobile/src/components/__tests__/Header.test.tsx b/mobile/src/components/__tests__/Header.test.tsx
+index 4c3ab91..153fe97 100644
+--- a/mobile/src/components/__tests__/Header.test.tsx
++++ b/mobile/src/components/__tests__/Header.test.tsx
+@@ -165,9 +165,44 @@ describe('Header', () => {
+       expect(screen.getByTestId(id)).toHaveStyle({
+         height: theme.sizes.actionBar,
+       });
+     }
+     expect(theme.sizes.actionBar).toBeGreaterThanOrEqual(
+       theme.sizes.touchTarget,
+     );
+   });
++
++  it('contentInsetBottom: a rolagem termina acima da tab bar flutuante', async () => {
++    await renderWithTheme(
++      <Header
++        guardianFirstName="Gustavo"
++        student={rafael}
++        canSwitchStudent
++        onSwitchStudent={onSwitchStudent}
++        onLogout={onLogout}
++        contentInsetBottom={96}
++      />,
++    );
++
++    const scroll = screen.getByTestId('header-scroll');
++    expect(scroll.props.contentContainerStyle).toEqual(
++      expect.arrayContaining([{ paddingBottom: 96 }]),
++    );
++    expect(scroll).toHaveProp('scrollIndicatorInsets', { bottom: 96 });
++  });
++
++  it('sem contentInsetBottom (tela sem tab bar), sem padding extra', async () => {
++    await renderWithTheme(
++      <Header
++        guardianFirstName="Carlos"
++        canSwitchStudent={false}
++        onSwitchStudent={onSwitchStudent}
++        onLogout={onLogout}
++      />,
++    );
++
++    const scroll = screen.getByTestId('header-scroll');
++    expect(scroll.props.contentContainerStyle).toEqual(
++      expect.arrayContaining([{ paddingBottom: 0 }]),
++    );
++  });
+ });
+diff --git a/mobile/src/components/__tests__/PillButton.test.tsx b/mobile/src/components/__tests__/PillButton.test.tsx
+index 45971e1..c3c2899 100644
+--- a/mobile/src/components/__tests__/PillButton.test.tsx
++++ b/mobile/src/components/__tests__/PillButton.test.tsx
+@@ -1,10 +1,11 @@
+ import { fireEvent, screen } from '@testing-library/react-native';
+-import { StyleSheet, Text } from 'react-native';
++import { createRef, type ComponentRef } from 'react';
++import { StyleSheet, Text, type View } from 'react-native';
+ 
+ import { renderWithTheme } from '../../test/renderWithTheme';
+ import { theme } from '../../theme';
+ import { PillButton } from '../PillButton';
+ 
+ const { colors, shadows, sizes } = theme;
+ 
+ const surface = () => screen.getByTestId('btn-surface');
+@@ -237,9 +238,24 @@ describe('PillButton', () => {
+       />,
+     );
+ 
+     expect(screen.getByTestId('btn')).toHaveProp(
+       'accessibilityHint',
+       'Encerra a sessão',
+     );
+   });
++
++  it('repassa o `ref` ao pressionável (para mover o foco do leitor até ele)', async () => {
++    const ref = createRef<ComponentRef<typeof View>>();
++    await renderWithTheme(
++      <PillButton
++        testID="btn"
++        label="Cancelar"
++        onPress={jest.fn()}
++        ref={ref}
++      />,
++    );
++
++    // A instância é a do próprio pressionável (o que tem o testID do botão).
++    expect(ref.current).toHaveProperty('props.testID', 'btn');
++  });
+ });
+diff --git a/mobile/src/components/__tests__/TabBar.test.tsx b/mobile/src/components/__tests__/TabBar.test.tsx
+deleted file mode 100644
+index 0a6a3b2..0000000
+--- a/mobile/src/components/__tests__/TabBar.test.tsx
++++ /dev/null
+@@ -1,109 +0,0 @@
+-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+-import { fireEvent, screen } from '@testing-library/react-native';
+-
+-import { renderWithTheme } from '../../test/renderWithTheme';
+-import { theme } from '../../theme';
+-import { TabBar } from '../TabBar';
+-
+-const routes = [
+-  { key: 'agenda-1', name: 'Agenda' },
+-  { key: 'boletim-1', name: 'Boletim' },
+-];
+-
+-function tabBarProps(index: number) {
+-  const navigation = {
+-    emit: jest.fn(() => ({ defaultPrevented: false })),
+-    navigate: jest.fn(),
+-  };
+-  const icon = () => null;
+-  const descriptors = {
+-    'agenda-1': {
+-      options: {
+-        title: 'AGENDA',
+-        tabBarAccessibilityLabel: 'Agenda',
+-        tabBarButtonTestID: 'tab-agenda',
+-        tabBarIcon: icon,
+-      },
+-    },
+-    'boletim-1': {
+-      options: {
+-        title: 'BOLETIM',
+-        tabBarAccessibilityLabel: 'Boletim',
+-        tabBarButtonTestID: 'tab-boletim',
+-        tabBarIcon: icon,
+-      },
+-    },
+-  };
+-  const props = {
+-    state: { index, routes, key: 'tabs', routeNames: ['Agenda', 'Boletim'] },
+-    descriptors,
+-    navigation,
+-    insets: { top: 0, bottom: 0, left: 0, right: 0 },
+-  } as unknown as BottomTabBarProps;
+-  return { props, navigation };
+-}
+-
+-describe('TabBar', () => {
+-  it('lista de abas com a ativa selecionada e os rótulos', async () => {
+-    const { props } = tabBarProps(0);
+-    await renderWithTheme(<TabBar {...props} />);
+-
+-    expect(screen.getByTestId('tab-bar')).toHaveProp(
+-      'accessibilityRole',
+-      'tablist',
+-    );
+-    const agenda = screen.getByTestId('tab-agenda');
+-    expect(agenda).toHaveProp('accessibilityRole', 'tab');
+-    expect(agenda).toBeSelected();
+-    expect(agenda).toHaveAccessibleName('Agenda');
+-    expect(screen.getByTestId('tab-boletim')).not.toBeSelected();
+-    expect(screen.getAllByText('AGENDA').length).toBeGreaterThan(0);
+-  });
+-
+-  it('aba ativa mostra a camada primary; a inativa, a camada text', async () => {
+-    const { props } = tabBarProps(1);
+-    await renderWithTheme(<TabBar {...props} />);
+-
+-    expect(screen.getByTestId('tab-boletim-active-layer')).toHaveStyle({
+-      opacity: 1,
+-    });
+-    expect(screen.getByTestId('tab-agenda-active-layer')).toHaveStyle({
+-      opacity: 0,
+-    });
+-    expect(
+-      screen.getAllByText('BOLETIM').map(node => node.props.style),
+-    ).toEqual(
+-      expect.arrayContaining([
+-        expect.arrayContaining([
+-          expect.objectContaining({ color: theme.colors.primary }),
+-        ]),
+-      ]),
+-    );
+-  });
+-
+-  it('tocar na aba inativa navega; na ativa, não', async () => {
+-    const { props, navigation } = tabBarProps(0);
+-    await renderWithTheme(<TabBar {...props} />);
+-
+-    await fireEvent.press(screen.getByTestId('tab-agenda'));
+-    expect(navigation.navigate).not.toHaveBeenCalled();
+-
+-    await fireEvent.press(screen.getByTestId('tab-boletim'));
+-    expect(navigation.emit).toHaveBeenCalledWith(
+-      expect.objectContaining({ type: 'tabPress', target: 'boletim-1' }),
+-    );
+-    expect(navigation.navigate).toHaveBeenCalledWith('Boletim', undefined);
+-  });
+-
+-  it('altura da tab bar = tabBar + inset de baixo', async () => {
+-    const { props } = tabBarProps(0);
+-    await renderWithTheme(
+-      <TabBar {...props} insets={{ top: 0, left: 0, right: 0, bottom: 34 }} />,
+-    );
+-
+-    expect(screen.getByTestId('tab-bar')).toHaveStyle({
+-      height: theme.sizes.tabBar + 34,
+-      paddingBottom: 34,
+-    });
+-  });
+-});
+diff --git a/mobile/src/constants/strings.ts b/mobile/src/constants/strings.ts
+index ac73d2a..767dabe 100644
+--- a/mobile/src/constants/strings.ts
++++ b/mobile/src/constants/strings.ts
+@@ -36,20 +36,22 @@ export const strings = {
+     ) => `Aluno ${name}, turma ${className}, RM ${rm}, período ${period}`,
+     switchStudent: 'TROCAR PERFIL',
+     switchStudentAccessibilityLabel: 'Trocar aluno',
+     switchStudentHint: 'Abre a lista de alunos',
+     logout: 'SAIR',
+     logoutAccessibilityLabel: 'Sair da conta',
+   },
+   tabs: {
+-    agenda: 'AGENDA',
++    agenda: 'Agenda',
+     agendaAccessibilityLabel: 'Agenda',
+-    boletim: 'BOLETIM',
++    boletim: 'Boletim',
+     boletimAccessibilityLabel: 'Boletim',
++    perfil: 'Perfil',
++    perfilAccessibilityLabel: 'Perfil',
+   },
+   agenda: {
+     title: 'AGENDA',
+     titleAccessibilityLabel: 'Agenda',
+     dayAccessibilityPrefix: 'Dia',
+     dayHint: 'Toque para escolher outro dia',
+     /** `07:15 - 08:00`. */
+     lessonTime: (start: string, end: string) => `${start} - ${end}`,
+@@ -90,16 +92,45 @@ export const strings = {
+     title: 'Escolha o perfil\nque você quer visualizar',
+     cardAccessibilityLabel: (
+       fullName: string,
+       className: string,
+       rm: number,
+       period: string,
+     ) => `${fullName}, turma ${className}, RM ${rm}, ${period}`,
+   },
++  profile: {
++    title: 'Perfil',
++    guardianRole: 'Responsável',
++    cpfLabel: 'CPF',
++    /** O leitor lê o card do responsável num elemento só (6.4). */
++    guardianAccessibilityLabel: (fullName: string, cpf: string) =>
++      `${fullName}, responsável. CPF ${cpf}`,
++    /** Maiúsculas pela variante `overline`. */
++    studentsHeader: 'Alunos',
++    studentsHint: 'Toque em um aluno para ver as aulas e o boletim dele.',
++    /** `7EF · RM 12567 · Matutino`. */
++    studentInfo: (className: string, rm: number, period: string) =>
++      `${className} · RM ${rm} · ${period}`,
++    current: 'Atual',
++    studentAccessibilityLabel: (
++      fullName: string,
++      className: string,
++      rm: number,
++      period: string,
++    ) => `${fullName}, turma ${className}, RM ${rm}, ${period}`,
++    studentHint: 'Mostra as aulas e o boletim deste aluno',
++    switchedAnnouncement: (fullName: string) => `Agora mostrando ${fullName}.`,
++    accountHeader: 'Conta',
++    logout: 'Sair da conta',
++    logoutConfirmQuestion: 'Sair deste aparelho?',
++    logoutCancel: 'Cancelar',
++    logoutConfirm: 'Sair',
++    loggingOutAccessibilityLabel: 'Saindo…',
++  },
+   noStudent: {
+     title: 'Nenhum aluno vinculado',
+     description:
+       'Não encontramos alunos ligados ao seu CPF. Fale com a secretaria da FIAP School para fazer o vínculo.',
+   },
+   splash: {
+     loadingAccessibilityLabel: 'Carregando',
+   },
+diff --git a/mobile/src/features/header/AppHeader.tsx b/mobile/src/features/header/AppHeader.tsx
+index 1e0b765..947af0b 100644
+--- a/mobile/src/features/header/AppHeader.tsx
++++ b/mobile/src/features/header/AppHeader.tsx
+@@ -1,27 +1,31 @@
+ import { useNavigation } from '@react-navigation/native';
+ import type { ReactNode } from 'react';
+ 
+ import { Header } from '../../components/Header';
++import { useFloatingTabBarInset } from '../../hooks/useFloatingTabBarInset';
+ import { useHeaderViewModel } from './useHeaderViewModel';
+ 
+ /**
+  * Header das abas Agenda e Boletim, ligado ao ViewModel. A tela passa o
+- * conteúdo dela como `children` (rola junto com a saudação).
++ * conteúdo dela como `children` (rola junto com a saudação), que termina
++ * acima da tab bar flutuante (V6/N1).
+  */
+ export function AppHeader({ children }: { children?: ReactNode }) {
+   const navigation = useNavigation();
+   const vm = useHeaderViewModel(navigation);
++  const contentInsetBottom = useFloatingTabBarInset();
+ 
+   return (
+     <Header
+       guardianFirstName={vm.guardianFirstName}
+       student={vm.student}
+       canSwitchStudent={vm.canSwitchStudent}
+       onSwitchStudent={vm.onSwitchStudent}
+       onLogout={vm.onLogout}
+       logoutDisabled={vm.logoutDisabled}
++      contentInsetBottom={contentInsetBottom}
+     >
+       {children}
+     </Header>
+   );
+ }
+diff --git a/mobile/src/features/lessons/__tests__/LessonsScreen.test.tsx b/mobile/src/features/lessons/__tests__/LessonsScreen.test.tsx
+index 84d0bb2..f7b4f5e 100644
+--- a/mobile/src/features/lessons/__tests__/LessonsScreen.test.tsx
++++ b/mobile/src/features/lessons/__tests__/LessonsScreen.test.tsx
+@@ -59,16 +59,28 @@ describe('LessonsScreen', () => {
+ 
+   const chooseDay = async (date: string) => {
+     await fireEvent.press(await screen.findByTestId('agenda-day-dropdown'));
+     await fireEvent.press(
+       screen.getByTestId(`agenda-day-dropdown-option-${date}`),
+     );
+   };
+ 
++  it('o fim da rolagem fica acima da tab bar flutuante (N1)', async () => {
++    await renderScreen();
++
++    const { floatingTabBar } = theme.sizes;
++    // Sem home indicator: barra (64) + `m` da borda + `m` de folga.
++    const inset = floatingTabBar.height + 2 * theme.spacing.m;
++    expect(
++      screen.getByTestId('header-scroll').props.contentContainerStyle,
++    ).toEqual(expect.arrayContaining([{ paddingBottom: inset }]));
++    await screen.findByTestId('agenda-day-dropdown');
++  });
++
+   it('título AGENDA e skeleton enquanto a agenda carrega', async () => {
+     const gate = deferred();
+     server.use(
+       http.get(`${API_URL}/students/:id/agenda`, async () => {
+         await gate.promise;
+         return HttpResponse.json(agendaResponse);
+       }),
+     );
+diff --git a/mobile/src/features/profile/ProfileScreen.tsx b/mobile/src/features/profile/ProfileScreen.tsx
+new file mode 100644
+index 0000000..2c83179
+--- /dev/null
++++ b/mobile/src/features/profile/ProfileScreen.tsx
+@@ -0,0 +1,189 @@
++import { useIsFocused } from '@react-navigation/native';
++import { RefreshControl, ScrollView, StyleSheet } from 'react-native';
++import Animated, {
++  FadeIn,
++  FadeInDown,
++  ReduceMotion,
++  useReducedMotion,
++} from 'react-native-reanimated';
++
++import { Avatar } from '../../components/Avatar';
++import { Screen } from '../../components/Screen';
++import { strings } from '../../constants/strings';
++import { useFloatingTabBarInset } from '../../hooks/useFloatingTabBarInset';
++import { Box, Card, Text, useTheme, type Theme } from '../../theme';
++import { LogoutRow } from './components/LogoutRow';
++import { StudentRow } from './components/StudentRow';
++import { useProfileViewModel } from './useProfileViewModel';
++
++type Motion = Theme['motion'];
++
++/**
++ * Entrada em cascata da 1ª visita (4.6): o card do responsável, as linhas
++ * de aluno e a "Conta", de 12 para cima, até o teto do stagger. Com reduzir
++ * movimento, só o fade (opacidade não é movimento).
++ */
++function entering(motion: Motion, reduced: boolean, index: number) {
++  if (reduced) {
++    return FadeIn.duration(motion.fast).reduceMotion(ReduceMotion.Never);
++  }
++  return FadeInDown.duration(motion.base)
++    .delay(Math.min(index, motion.maxStaggered - 1) * motion.cardStagger)
++    .easing(motion.easeOut)
++    .withInitialValues({ transform: [{ translateY: motion.enterOffset }] })
++    .reduceMotion(ReduceMotion.System);
++}
++
++/**
++ * Aba Perfil (V3, 01-design.md da v2 3.5): o responsável (nome e CPF
++ * mascarado, como a API manda), os alunos com o atual em destaque e a troca
++ * num toque (DV8), e "Sair da conta" com confirmação inline (DV7). O
++ * conteúdo rola por baixo da tab bar flutuante.
++ */
++export function ProfileScreen() {
++  const vm = useProfileViewModel({ focused: useIsFocused() });
++  const { colors, motion, sizes, spacing } = useTheme();
++  const reducedMotion = useReducedMotion();
++  const insetBottom = useFloatingTabBarInset();
++  const enter = (index: number) => entering(motion, reducedMotion, index);
++  const accountIndex = 1 + vm.students.length;
++
++  return (
++    <Screen testID="profile-screen">
++      <ScrollView
++        testID="profile-scroll"
++        style={styles.fill}
++        contentContainerStyle={{
++          paddingHorizontal: spacing.m,
++          paddingBottom: insetBottom,
++        }}
++        scrollIndicatorInsets={{ bottom: insetBottom }}
++        showsVerticalScrollIndicator={false}
++        refreshControl={
++          <RefreshControl
++            refreshing={vm.refreshing}
++            onRefresh={vm.onRefresh}
++            tintColor={colors.primary}
++            colors={[colors.primary]}
++            progressBackgroundColor={colors.surfaceRaised}
++          />
++        }
++      >
++        <Text
++          testID="profile-title"
++          variant="headline"
++          accessibilityRole="header"
++          marginTop="m"
++        >
++          {strings.profile.title}
++        </Text>
++
++        {vm.guardian ? (
++          <Animated.View entering={enter(0)} style={{ marginTop: spacing.sm }}>
++            <Card
++              testID="profile-guardian-card"
++              variant="surface"
++              accessible
++              accessibilityLabel={strings.profile.guardianAccessibilityLabel(
++                vm.guardian.fullName,
++                vm.guardian.cpfMasked,
++              )}
++            >
++              <Box flexDirection="row" alignItems="center" gap="m">
++                <Avatar
++                  firstName={vm.guardian.firstName}
++                  lastName={vm.guardian.lastName}
++                  size="l"
++                  tone="guardian"
++                />
++                <Box flex={1} gap="xxs">
++                  <Text testID="profile-guardian-name" variant="title">
++                    {vm.guardian.fullName}
++                  </Text>
++                  <Text variant="caption">{strings.profile.guardianRole}</Text>
++                </Box>
++              </Box>
++              <Box
++                height={StyleSheet.hairlineWidth}
++                backgroundColor="borderSubtle"
++                marginVertical="m"
++              />
++              <Box
++                flexDirection="row"
++                alignItems="center"
++                justifyContent="space-between"
++                gap="m"
++              >
++                <Text variant="label">{strings.profile.cpfLabel}</Text>
++                <Text
++                  testID="profile-guardian-cpf"
++                  variant="body"
++                  style={styles.tabular}
++                >
++                  {vm.guardian.cpfMasked}
++                </Text>
++              </Box>
++            </Card>
++          </Animated.View>
++        ) : null}
++
++        <Box marginTop="l">
++          <Text variant="overline" accessibilityRole="header">
++            {strings.profile.studentsHeader}
++          </Text>
++          {vm.canSwitch ? (
++            <Text
++              testID="profile-students-hint"
++              variant="caption"
++              marginTop="xxs"
++            >
++              {strings.profile.studentsHint}
++            </Text>
++          ) : null}
++        </Box>
++        <Box gap="s" marginTop="sm">
++          {vm.students.map((student, index) => (
++            <Animated.View key={student.id} entering={enter(1 + index)}>
++              <StudentRow
++                testID={`profile-student-${student.rm}`}
++                firstName={student.firstName}
++                lastName={student.lastName}
++                fullName={student.fullName}
++                rm={student.rm}
++                className={student.className}
++                period={student.period}
++                selected={student.selected}
++                pressable={vm.canSwitch}
++                onPress={() => vm.onSelectStudent(student.id)}
++              />
++            </Animated.View>
++          ))}
++        </Box>
++
++        <Animated.View
++          entering={enter(accountIndex)}
++          style={{ marginTop: spacing.l }}
++        >
++          <Text variant="overline" accessibilityRole="header">
++            {strings.profile.accountHeader}
++          </Text>
++          <Box marginTop="sm" minHeight={sizes.profile.logoutRow}>
++            <LogoutRow
++              testID="profile-logout"
++              confirming={vm.confirmingLogout}
++              loggingOut={vm.loggingOut}
++              onAsk={vm.onAskLogout}
++              onCancel={vm.onCancelLogout}
++              onConfirm={vm.onConfirmLogout}
++            />
++          </Box>
++        </Animated.View>
++      </ScrollView>
++    </Screen>
++  );
++}
++
++const styles = StyleSheet.create({
++  fill: { flex: 1 },
++  tabular: { fontVariant: ['tabular-nums'] },
++});
+diff --git a/mobile/src/features/profile/__tests__/LogoutRow.test.tsx b/mobile/src/features/profile/__tests__/LogoutRow.test.tsx
+new file mode 100644
+index 0000000..8dfdbdb
+--- /dev/null
++++ b/mobile/src/features/profile/__tests__/LogoutRow.test.tsx
+@@ -0,0 +1,132 @@
++import { fireEvent, screen } from '@testing-library/react-native';
++import type { ComponentProps } from 'react';
++import { AccessibilityInfo } from 'react-native';
++
++import { renderWithTheme } from '../../../test/renderWithTheme';
++import { theme } from '../../../theme';
++import { LogoutRow } from '../components/LogoutRow';
++
++const { borderRadii, colors, sizes } = theme;
++
++type Props = ComponentProps<typeof LogoutRow>;
++
++const props = (overrides: Partial<Props> = {}): Props => ({
++  testID: 'profile-logout',
++  confirming: false,
++  loggingOut: false,
++  onAsk: jest.fn(),
++  onCancel: jest.fn(),
++  onConfirm: jest.fn(),
++  ...overrides,
++});
++
++let focusEvent: jest.SpyInstance;
++
++beforeEach(() => {
++  focusEvent = jest
++    .spyOn(AccessibilityInfo, 'sendAccessibilityEvent')
++    .mockImplementation(() => {});
++  // O preset do RN já mocka o AccessibilityInfo: o spyOn devolve o mesmo
++  // jest.fn, então as chamadas de um teste passariam ao próximo.
++  focusEvent.mockClear();
++});
++
++afterEach(() => jest.restoreAllMocks());
++
++describe('LogoutRow', () => {
++  it('em repouso: "Sair da conta" em danger, numa linha de 56', async () => {
++    await renderWithTheme(<LogoutRow {...props()} />);
++
++    const button = screen.getByTestId('profile-logout-button');
++    expect(button).toHaveProp('accessibilityRole', 'button');
++    expect(button).toHaveAccessibleName('Sair da conta');
++    expect(screen.getByText('Sair da conta')).toHaveStyle({
++      color: colors.danger,
++      fontFamily: 'Montserrat-SemiBold',
++    });
++    expect(screen.getByTestId('profile-logout')).toHaveStyle({
++      height: sizes.profile.logoutRow,
++    });
++    expect(screen.getByTestId('profile-logout-button-surface')).toHaveStyle({
++      backgroundColor: colors.surface,
++      borderRadius: borderRadii.m,
++      borderColor: colors.borderSubtle,
++    });
++    expect(screen.queryByTestId('profile-logout-confirm')).toBeNull();
++    expect(screen.queryByTestId('profile-logout-cancel')).toBeNull();
++  });
++
++  it('tocar em "Sair da conta" pede confirmação', async () => {
++    const onAsk = jest.fn();
++    await renderWithTheme(<LogoutRow {...props({ onAsk })} />);
++
++    await fireEvent.press(screen.getByTestId('profile-logout-button'));
++
++    expect(onAsk).toHaveBeenCalledTimes(1);
++  });
++
++  it('confirmando: pergunta, Cancelar e Sair no mesmo lugar', async () => {
++    const onCancel = jest.fn();
++    const onConfirm = jest.fn();
++    await renderWithTheme(
++      <LogoutRow {...props({ confirming: true, onCancel, onConfirm })} />,
++    );
++
++    expect(screen.getByText('Sair deste aparelho?')).toBeOnTheScreen();
++    expect(screen.queryByTestId('profile-logout-button')).toBeNull();
++    expect(screen.getByTestId('profile-logout-cancel-surface')).toHaveStyle({
++      height: sizes.pill.xs,
++      backgroundColor: colors.surfaceRaised,
++    });
++    expect(screen.getByTestId('profile-logout-confirm-surface')).toHaveStyle({
++      height: sizes.pill.xs,
++      backgroundColor: colors.danger,
++    });
++    expect(screen.getByTestId('profile-logout')).toHaveStyle({
++      height: sizes.profile.logoutRow,
++    });
++
++    await fireEvent.press(screen.getByTestId('profile-logout-cancel'));
++    expect(onCancel).toHaveBeenCalledTimes(1);
++    await fireEvent.press(screen.getByTestId('profile-logout-confirm'));
++    expect(onConfirm).toHaveBeenCalledTimes(1);
++  });
++
++  it('saindo: Sair carregando e Cancelar desabilitado', async () => {
++    await renderWithTheme(
++      <LogoutRow {...props({ confirming: true, loggingOut: true })} />,
++    );
++
++    expect(screen.getByTestId('profile-logout-confirm-loading')).toBeTruthy();
++    expect(screen.getByTestId('profile-logout-confirm')).toBeBusy();
++    expect(screen.getByTestId('profile-logout-cancel')).toBeDisabled();
++  });
++
++  describe('foco do leitor de tela (6.4)', () => {
++    it('na montagem, não mexe no foco', async () => {
++      await renderWithTheme(<LogoutRow {...props()} />);
++
++      expect(focusEvent).not.toHaveBeenCalled();
++    });
++
++    it('ao pedir confirmação o foco vai para Cancelar e, ao cancelar, volta para Sair da conta', async () => {
++      const { rerender } = await renderWithTheme(<LogoutRow {...props()} />);
++
++      await rerender(<LogoutRow {...props({ confirming: true })} />);
++      expect(focusEvent).toHaveBeenLastCalledWith(
++        expect.objectContaining({
++          props: expect.objectContaining({ testID: 'profile-logout-cancel' }),
++        }),
++        'focus',
++      );
++
++      await rerender(<LogoutRow {...props()} />);
++      expect(focusEvent).toHaveBeenLastCalledWith(
++        expect.objectContaining({
++          props: expect.objectContaining({ testID: 'profile-logout-button' }),
++        }),
++        'focus',
++      );
++    });
++  });
++});
+diff --git a/mobile/src/features/profile/__tests__/ProfileScreen.test.tsx b/mobile/src/features/profile/__tests__/ProfileScreen.test.tsx
+new file mode 100644
+index 0000000..ce92025
+--- /dev/null
++++ b/mobile/src/features/profile/__tests__/ProfileScreen.test.tsx
+@@ -0,0 +1,183 @@
++import { ThemeProvider } from '@shopify/restyle';
++import { useIsFocused } from '@react-navigation/native';
++import { fireEvent, render, screen } from '@testing-library/react-native';
++import { AccessibilityInfo } from 'react-native';
++
++import { queryClient, queryKeys } from '../../../app/queryClient';
++import { createSecureStorage } from '../../../services/storage/secureStorage';
++import { useSessionStore } from '../../../stores/session.store';
++import { meResponse } from '../../../test/fixtures';
++import { QueryWrapper } from '../../../test/queryWrapper';
++import { theme } from '../../../theme';
++import { ProfileScreen } from '../ProfileScreen';
++
++jest.mock('@react-navigation/native', () => ({
++  ...jest.requireActual('@react-navigation/native'),
++  useIsFocused: jest.fn(() => true),
++}));
++
++const focusedMock = useIsFocused as jest.Mock;
++const hidden = { includeHiddenElements: true };
++const { colors, sizes, spacing } = theme;
++
++const renderScreen = () =>
++  render(
++    <QueryWrapper>
++      <ThemeProvider theme={theme}>
++        <ProfileScreen />
++      </ThemeProvider>
++    </QueryWrapper>,
++  );
++
++describe('ProfileScreen', () => {
++  beforeEach(async () => {
++    focusedMock.mockReturnValue(true);
++    await createSecureStorage().setToken('jwt-salvo');
++    useSessionStore.setState({
++      status: 'signedIn',
++      selectedStudentId: 's1',
++      signOutReason: null,
++    });
++    queryClient.clear();
++    queryClient.setQueryData(queryKeys.me(), meResponse);
++    jest
++      .spyOn(AccessibilityInfo, 'announceForAccessibility')
++      .mockImplementation(() => {});
++  });
++
++  afterEach(() => jest.restoreAllMocks());
++
++  it('título Perfil e o card do responsável com nome, papel e CPF mascarado', async () => {
++    await renderScreen();
++
++    expect(screen.getByTestId('profile-screen')).toBeOnTheScreen();
++    expect(screen.getByTestId('profile-title')).toHaveTextContent('Perfil');
++    expect(screen.getByTestId('profile-title')).toHaveProp(
++      'accessibilityRole',
++      'header',
++    );
++    const card = screen.getByTestId('profile-guardian-card');
++    expect(card).toHaveAccessibleName(
++      'Gustavo da Silva, responsável. CPF ***.294.560-**',
++    );
++    expect(
++      screen.getByTestId('profile-guardian-name', hidden),
++    ).toHaveTextContent('Gustavo da Silva');
++    expect(
++      screen.getByTestId('profile-guardian-cpf', hidden),
++    ).toHaveTextContent('***.294.560-**');
++    expect(screen.getByText('Responsável', hidden)).toBeTruthy();
++    expect(screen.getByText('GS', hidden)).toBeTruthy();
++  });
++
++  it('lista os alunos com o atual destacado e a dica (2+ alunos)', async () => {
++    await renderScreen();
++
++    expect(screen.getByText('Alunos')).toHaveProp(
++      'accessibilityRole',
++      'header',
++    );
++    expect(screen.getByTestId('profile-students-hint')).toHaveTextContent(
++      'Toque em um aluno para ver as aulas e o boletim dele.',
++    );
++    expect(screen.getByTestId('profile-student-12567')).toBeSelected();
++    expect(screen.getByTestId('profile-student-12568')).not.toBeSelected();
++    expect(
++      screen.getByTestId('profile-student-12567-current', hidden),
++    ).toBeTruthy();
++    expect(
++      screen.queryByTestId('profile-student-12568-current', hidden),
++    ).toBeNull();
++  });
++
++  it('tocar em outro aluno troca na hora, sem sair do Perfil', async () => {
++    await renderScreen();
++
++    await fireEvent.press(screen.getByTestId('profile-student-12568'));
++
++    expect(useSessionStore.getState().selectedStudentId).toBe('s2');
++    expect(screen.getByTestId('profile-screen')).toBeOnTheScreen();
++    expect(screen.getByTestId('profile-student-12568')).toBeSelected();
++    expect(
++      screen.getByTestId('profile-student-12568-current', hidden),
++    ).toBeTruthy();
++    expect(
++      screen.queryByTestId('profile-student-12567-current', hidden),
++    ).toBeNull();
++  });
++
++  it('com 1 aluno: a linha é o atual, sem dica e sem troca', async () => {
++    queryClient.setQueryData(queryKeys.me(), {
++      ...meResponse,
++      students: [meResponse.students[0]],
++    });
++    await renderScreen();
++
++    expect(screen.queryByTestId('profile-students-hint')).toBeNull();
++    expect(screen.getByTestId('profile-student-12567')).toHaveProp(
++      'accessibilityRole',
++      'text',
++    );
++    expect(
++      screen.getByTestId('profile-student-12567-current', hidden),
++    ).toBeTruthy();
++  });
++
++  it('Sair pede confirmação e Sair confirmado faz o logout completo', async () => {
++    await renderScreen();
++    expect(screen.getByText('Conta')).toHaveProp('accessibilityRole', 'header');
++
++    await fireEvent.press(screen.getByTestId('profile-logout-button'));
++    expect(screen.getByText('Sair deste aparelho?')).toBeOnTheScreen();
++    expect(useSessionStore.getState().status).toBe('signedIn');
++
++    await fireEvent.press(screen.getByTestId('profile-logout-confirm'));
++
++    expect(useSessionStore.getState()).toMatchObject({
++      status: 'signedOut',
++      selectedStudentId: null,
++      signOutReason: 'manual',
++    });
++    expect(await createSecureStorage().getToken()).toBeNull();
++  });
++
++  it('Cancelar volta para "Sair da conta"', async () => {
++    await renderScreen();
++
++    await fireEvent.press(screen.getByTestId('profile-logout-button'));
++    await fireEvent.press(screen.getByTestId('profile-logout-cancel'));
++
++    expect(screen.getByTestId('profile-logout-button')).toBeOnTheScreen();
++    expect(useSessionStore.getState().status).toBe('signedIn');
++  });
++
++  it('sair da aba desfaz a confirmação', async () => {
++    const { rerender } = await renderScreen();
++    await fireEvent.press(screen.getByTestId('profile-logout-button'));
++
++    focusedMock.mockReturnValue(false);
++    await rerender(
++      <QueryWrapper>
++        <ThemeProvider theme={theme}>
++          <ProfileScreen />
++        </ThemeProvider>
++      </QueryWrapper>,
++    );
++
++    expect(screen.getByTestId('profile-logout-button')).toBeOnTheScreen();
++  });
++
++  it('a rolagem termina acima da tab bar flutuante e puxa para atualizar em teal', async () => {
++    await renderScreen();
++
++    const scroll = screen.getByTestId('profile-scroll');
++    const inset = sizes.floatingTabBar.height + 2 * spacing.m;
++    expect(scroll.props.contentContainerStyle).toEqual(
++      expect.objectContaining({ paddingBottom: inset }),
++    );
++    expect(scroll).toHaveProp('scrollIndicatorInsets', { bottom: inset });
++    const refresh = scroll.props.refreshControl;
++    expect(refresh.props.tintColor).toBe(colors.primary);
++    expect(refresh.props.refreshing).toBe(false);
++  });
++});
+diff --git a/mobile/src/features/profile/__tests__/StudentRow.test.tsx b/mobile/src/features/profile/__tests__/StudentRow.test.tsx
+new file mode 100644
+index 0000000..7d3f335
+--- /dev/null
++++ b/mobile/src/features/profile/__tests__/StudentRow.test.tsx
+@@ -0,0 +1,241 @@
++import { fireEvent, screen } from '@testing-library/react-native';
++import type { ComponentProps } from 'react';
++import {
++  useReducedMotion,
++  withSpring,
++  withTiming,
++} from 'react-native-reanimated';
++
++import { renderWithTheme } from '../../../test/renderWithTheme';
++import { theme } from '../../../theme';
++import { StudentRow } from '../components/StudentRow';
++
++jest.mock('react-native-reanimated', () => {
++  const actual = jest.requireActual('react-native-reanimated/mock');
++  return {
++    ...actual,
++    useReducedMotion: jest.fn(() => false),
++    withSpring: jest.fn(actual.withSpring),
++    withTiming: jest.fn(actual.withTiming),
++  };
++});
++
++const { borderRadii, colors, motion, shadows, sizes, spacing } = theme;
++const reducedMotionMock = useReducedMotion as jest.Mock;
++const hidden = { includeHiddenElements: true };
++
++type Props = ComponentProps<typeof StudentRow>;
++
++const marina: Props = {
++  testID: 'profile-student-12568',
++  firstName: 'Marina',
++  lastName: 'da Silva',
++  fullName: 'Marina da Silva',
++  rm: 12568,
++  className: '3EF',
++  period: 'Vespertino',
++  selected: false,
++  pressable: true,
++  onPress: jest.fn(),
++};
++
++const row = () => screen.getByTestId('profile-student-12568');
++
++beforeEach(() => {
++  jest.clearAllMocks();
++  reducedMotionMock.mockReturnValue(false);
++});
++
++describe('StudentRow', () => {
++  it('avatar com as iniciais, nome e turma · RM · período', async () => {
++    await renderWithTheme(<StudentRow {...marina} />);
++
++    expect(screen.getByText('MS', hidden)).toBeTruthy();
++    expect(
++      screen.getByTestId('profile-student-12568-avatar', hidden),
++    ).toHaveStyle({
++      width: sizes.avatar.m,
++      backgroundColor: colors.primaryMuted,
++    });
++    const name = screen.getByText('Marina da Silva', hidden);
++    expect(name).toHaveProp('numberOfLines', 1);
++    expect(name).toHaveStyle({
++      fontFamily: 'Montserrat-SemiBold',
++      fontSize: 17,
++    });
++    expect(screen.getByText('3EF · RM 12568 · Vespertino', hidden)).toHaveStyle(
++      {
++        fontSize: 12,
++        color: colors.textSecondary,
++      },
++    );
++  });
++
++  it('linha de 72 em surfaceRaised, raio m e borda sutil', async () => {
++    await renderWithTheme(<StudentRow {...marina} />);
++
++    expect(
++      screen.getByTestId('profile-student-12568-surface', hidden),
++    ).toHaveStyle({
++      minHeight: sizes.profile.studentRow,
++      borderRadius: borderRadii.m,
++      backgroundColor: colors.surfaceRaised,
++      borderWidth: 1,
++      borderColor: colors.borderSubtle,
++      paddingHorizontal: spacing.m,
++    });
++  });
++
++  it('leitor de tela: um botão com o rótulo do aluno, o estado e a dica', async () => {
++    await renderWithTheme(<StudentRow {...marina} />);
++
++    expect(row()).toHaveProp('accessibilityRole', 'button');
++    expect(row()).toHaveAccessibleName(
++      'Marina da Silva, turma 3EF, RM 12568, Vespertino',
++    );
++    expect(row()).not.toBeSelected();
++    expect(row()).toHaveProp(
++      'accessibilityHint',
++      'Mostra as aulas e o boletim deste aluno',
++    );
++  });
++
++  it('outro aluno: rádio vazio de 22, sem selo e sem destaque', async () => {
++    await renderWithTheme(<StudentRow {...marina} />);
++
++    expect(
++      screen.getByTestId('profile-student-12568-radio', hidden),
++    ).toHaveStyle({
++      width: sizes.profile.radio,
++      height: sizes.profile.radio,
++      borderRadius: borderRadii.pill,
++      borderWidth: sizes.profile.radioBorder,
++      borderColor: colors.borderInput,
++    });
++    expect(
++      screen.queryByTestId('profile-student-12568-current', hidden),
++    ).toBeNull();
++    expect(
++      screen.getByTestId('profile-student-12568-highlight', hidden),
++    ).toHaveStyle({
++      opacity: 0,
++    });
++  });
++
++  it('aluno atual: selo "Atual" e camada de borda primary com brilho, sem rádio', async () => {
++    await renderWithTheme(<StudentRow {...marina} selected />);
++
++    expect(row()).toBeSelected();
++    expect(row()).not.toHaveProp('accessibilityHint');
++    const badge = screen.getByTestId('profile-student-12568-current', hidden);
++    expect(badge).toHaveStyle({
++      height: sizes.profile.currentBadge,
++      borderRadius: borderRadii.pill,
++      backgroundColor: colors.primaryMuted,
++    });
++    expect(screen.getByText('Atual', hidden)).toHaveStyle({
++      color: colors.primary,
++    });
++    expect(
++      screen.getByTestId('profile-student-12568-highlight', hidden),
++    ).toHaveStyle({
++      opacity: 1,
++      borderColor: colors.primary,
++      borderRadius: borderRadii.m,
++      boxShadow: [shadows.glowPrimary],
++    });
++    expect(
++      screen.queryByTestId('profile-student-12568-radio', hidden),
++    ).toBeNull();
++  });
++
++  it('tocar chama onPress', async () => {
++    await renderWithTheme(<StudentRow {...marina} />);
++
++    await fireEvent.press(row());
++
++    expect(marina.onPress).toHaveBeenCalledTimes(1);
++  });
++
++  it('com 1 aluno: não é pressionável, sem rádio e sem dica, e fica como atual', async () => {
++    await renderWithTheme(
++      <StudentRow {...marina} selected pressable={false} />,
++    );
++
++    expect(row()).toHaveProp('accessibilityRole', 'text');
++    expect(row()).toBeSelected();
++    expect(row()).not.toHaveProp('accessibilityHint');
++    expect(
++      screen.getByTestId('profile-student-12568-current', hidden),
++    ).toBeTruthy();
++    await fireEvent.press(row());
++    expect(marina.onPress).not.toHaveBeenCalled();
++  });
++
++  describe('troca de aluno (4.6)', () => {
++    it('ficar atual: a camada acende em `base` e a linha vai de 0,98 a 1 com a mola pop', async () => {
++      const { rerender } = await renderWithTheme(<StudentRow {...marina} />);
++      expect(withSpring).not.toHaveBeenCalled();
++
++      await rerender(<StudentRow {...marina} selected />);
++
++      expect(withTiming).toHaveBeenCalledWith(1, { duration: motion.base });
++      expect(withSpring).toHaveBeenCalledWith(1, motion.spring.pop);
++      expect(
++        screen.getByTestId('profile-student-12568-highlight', hidden),
++      ).toHaveStyle({
++        opacity: 1,
++      });
++    });
++
++    it('o selo só anima numa troca: na 1ª visita entra com a tela', async () => {
++      const enteringOfBadge = () =>
++        (
++          screen.getByTestId('profile-student-12568-current', hidden)
++            .parent as unknown as { props: { entering?: unknown } }
++        ).props.entering;
++      const { rerender } = await renderWithTheme(
++        <StudentRow {...marina} selected />,
++      );
++      expect(enteringOfBadge()).toBeUndefined();
++
++      await rerender(<StudentRow {...marina} />);
++      await rerender(<StudentRow {...marina} selected />);
++
++      expect(typeof enteringOfBadge()).toBe('function');
++    });
++
++    it('o selo anima já na 1ª troca', async () => {
++      const { rerender } = await renderWithTheme(<StudentRow {...marina} />);
++
++      await rerender(<StudentRow {...marina} selected />);
++
++      const badge = screen.getByTestId('profile-student-12568-current', hidden);
++      expect(
++        typeof (badge.parent as unknown as { props: { entering?: unknown } })
++          .props.entering,
++      ).toBe('function');
++    });
++
++    it('deixar de ser atual: a camada apaga em `fast`, sem mola', async () => {
++      const { rerender } = await renderWithTheme(
++        <StudentRow {...marina} selected />,
++      );
++
++      await rerender(<StudentRow {...marina} />);
++
++      expect(withTiming).toHaveBeenCalledWith(0, { duration: motion.fast });
++      expect(withSpring).not.toHaveBeenCalled();
++    });
++
++    it('com reduzir movimento: a camada ainda faz o fade, mas sem escala', async () => {
++      reducedMotionMock.mockReturnValue(true);
++      const { rerender } = await renderWithTheme(<StudentRow {...marina} />);
++
++      await rerender(<StudentRow {...marina} selected />);
++
++      expect(withTiming).toHaveBeenCalledWith(1, { duration: motion.base });
++      expect(withSpring).not.toHaveBeenCalled();
++    });
++  });
++});
+diff --git a/mobile/src/features/profile/__tests__/useProfileViewModel.test.tsx b/mobile/src/features/profile/__tests__/useProfileViewModel.test.tsx
+new file mode 100644
+index 0000000..ad84901
+--- /dev/null
++++ b/mobile/src/features/profile/__tests__/useProfileViewModel.test.tsx
+@@ -0,0 +1,286 @@
++import { act, renderHook, waitFor } from '@testing-library/react-native';
++import { http, HttpResponse } from 'msw';
++import { AccessibilityInfo } from 'react-native';
++
++import { queryClient, queryKeys } from '../../../app/queryClient';
++import { createSecureStorage } from '../../../services/storage/secureStorage';
++import { useSessionStore } from '../../../stores/session.store';
++import { API_URL, meResponse } from '../../../test/fixtures';
++import { server } from '../../../test/msw/server';
++import { QueryWrapper } from '../../../test/queryWrapper';
++import { useProfileViewModel } from '../useProfileViewModel';
++
++type Props = { focused: boolean };
++
++const renderProfile = (focused = true) =>
++  renderHook(
++    ({ focused: isFocused }: Props) =>
++      useProfileViewModel({ focused: isFocused }),
++    {
++      initialProps: { focused },
++      wrapper: QueryWrapper,
++    },
++  );
++
++const onlyRafael = { ...meResponse, students: [meResponse.students[0]] };
++
++const { selectStudent: realSelectStudent, signOut: realSignOut } =
++  useSessionStore.getState();
++
++describe('useProfileViewModel', () => {
++  let announce: jest.SpyInstance;
++
++  beforeAll(() => {
++    queryClient.setQueryDefaults(queryKeys.me(), { retryDelay: 0 });
++  });
++
++  afterAll(() => {
++    queryClient.setQueryDefaults(queryKeys.me(), {});
++  });
++
++  beforeEach(async () => {
++    await createSecureStorage().setToken('jwt-salvo');
++    useSessionStore.setState({
++      status: 'signedIn',
++      selectedStudentId: 's1',
++      signOutReason: null,
++    });
++    queryClient.clear();
++    queryClient.setQueryData(queryKeys.me(), meResponse);
++    announce = jest
++      .spyOn(AccessibilityInfo, 'announceForAccessibility')
++      .mockImplementation(() => {});
++    // O preset do RN já mocka o AccessibilityInfo com jest.fn: o spyOn
++    // devolve o mesmo mock, e as chamadas de um teste passariam ao próximo.
++    announce.mockClear();
++  });
++
++  afterEach(async () => {
++    jest.restoreAllMocks();
++    // O hook do teste ainda está montado: a troca no store re-renderiza.
++    await act(async () =>
++      useSessionStore.setState({
++        selectStudent: realSelectStudent,
++        signOut: realSignOut,
++      }),
++    );
++  });
++
++  it('responsável com nome completo e o CPF como a API manda (já mascarado)', async () => {
++    const { result } = await renderProfile();
++
++    expect(result.current.guardian).toEqual({
++      fullName: 'Gustavo da Silva',
++      firstName: 'Gustavo',
++      lastName: 'da Silva',
++      cpfMasked: '***.294.560-**',
++    });
++  });
++
++  it('lista os alunos com os dados da linha, marcando o atual', async () => {
++    const { result } = await renderProfile();
++
++    expect(result.current.students).toEqual([
++      {
++        id: 's1',
++        fullName: 'Rafael da Silva',
++        firstName: 'Rafael',
++        lastName: 'da Silva',
++        rm: 12567,
++        className: '7EF',
++        period: 'Matutino',
++        selected: true,
++      },
++      {
++        id: 's2',
++        fullName: 'Marina da Silva',
++        firstName: 'Marina',
++        lastName: 'da Silva',
++        rm: 12568,
++        className: '3EF',
++        period: 'Vespertino',
++        selected: false,
++      },
++    ]);
++    expect(result.current.canSwitch).toBe(true);
++  });
++
++  it('com 1 aluno, ele é o atual e não há troca', async () => {
++    queryClient.setQueryData(queryKeys.me(), onlyRafael);
++    const { result } = await renderProfile();
++
++    expect(result.current.students.map(s => [s.id, s.selected])).toEqual([
++      ['s1', true],
++    ]);
++    expect(result.current.canSwitch).toBe(false);
++  });
++
++  it('sem o /me no cache ainda: sem responsável e sem alunos', async () => {
++    queryClient.clear();
++    server.use(http.get(`${API_URL}/me`, () => new Promise<never>(() => {})));
++    const { result } = await renderProfile();
++
++    expect(result.current.guardian).toBeNull();
++    expect(result.current.students).toEqual([]);
++    expect(result.current.canSwitch).toBe(false);
++  });
++
++  describe('trocar de aluno (DV8)', () => {
++    it('troca no store na hora, sem navegar, e o destaque muda de linha', async () => {
++      const { result } = await renderProfile();
++
++      await act(async () => result.current.onSelectStudent('s2'));
++
++      expect(useSessionStore.getState().selectedStudentId).toBe('s2');
++      expect(result.current.students.map(s => s.selected)).toEqual([
++        false,
++        true,
++      ]);
++    });
++
++    it('anuncia ao leitor de tela quem está sendo mostrado', async () => {
++      const { result } = await renderProfile();
++
++      await act(async () => result.current.onSelectStudent('s2'));
++
++      expect(announce).toHaveBeenCalledWith('Agora mostrando Marina da Silva.');
++    });
++
++    it('tocar no aluno atual não faz nada (sem troca e sem anúncio)', async () => {
++      const selectStudent = jest.fn();
++      useSessionStore.setState({ selectStudent });
++      const { result } = await renderProfile();
++
++      await act(async () => result.current.onSelectStudent('s1'));
++
++      expect(selectStudent).not.toHaveBeenCalled();
++      expect(announce).not.toHaveBeenCalled();
++    });
++
++    it('aluno que não é deste responsável é ignorado', async () => {
++      const { result } = await renderProfile();
++
++      await act(async () => result.current.onSelectStudent('s99'));
++
++      expect(useSessionStore.getState().selectedStudentId).toBe('s1');
++      expect(announce).not.toHaveBeenCalled();
++    });
++
++    it('trocar de aluno desfaz a confirmação de saída', async () => {
++      const { result } = await renderProfile();
++
++      await act(async () => result.current.onAskLogout());
++      await act(async () => result.current.onSelectStudent('s2'));
++
++      expect(result.current.confirmingLogout).toBe(false);
++    });
++  });
++
++  describe('sair com confirmação inline (DV7)', () => {
++    it('o 1º toque só pede confirmação, sem sair', async () => {
++      const { result } = await renderProfile();
++      expect(result.current.confirmingLogout).toBe(false);
++
++      await act(async () => result.current.onAskLogout());
++
++      expect(result.current.confirmingLogout).toBe(true);
++      expect(useSessionStore.getState().status).toBe('signedIn');
++    });
++
++    it('Cancelar volta ao normal', async () => {
++      const { result } = await renderProfile();
++
++      await act(async () => result.current.onAskLogout());
++      await act(async () => result.current.onCancelLogout());
++
++      expect(result.current.confirmingLogout).toBe(false);
++      expect(useSessionStore.getState().status).toBe('signedIn');
++    });
++
++    it('Sair faz o logout completo (token, aluno salvo e cache)', async () => {
++      const { result } = await renderProfile();
++
++      await act(async () => result.current.onAskLogout());
++      await act(async () => result.current.onConfirmLogout());
++
++      expect(await createSecureStorage().getToken()).toBeNull();
++      expect(queryClient.getQueryData(queryKeys.me())).toBeUndefined();
++      expect(useSessionStore.getState()).toMatchObject({
++        status: 'signedOut',
++        selectedStudentId: null,
++        signOutReason: 'manual',
++      });
++    });
++
++    it('fica carregando enquanto sai e não sai duas vezes', async () => {
++      const signOut = jest.fn(() => new Promise<void>(() => {}));
++      useSessionStore.setState({ signOut });
++      const { result } = await renderProfile();
++
++      await act(async () => result.current.onAskLogout());
++      await act(async () => {
++        result.current.onConfirmLogout();
++      });
++      expect(result.current.loggingOut).toBe(true);
++      await act(async () => {
++        result.current.onConfirmLogout();
++      });
++
++      expect(signOut).toHaveBeenCalledTimes(1);
++    });
++
++    it('sair da aba (blur) desfaz a confirmação', async () => {
++      const { result, rerender } = await renderProfile(true);
++
++      await act(async () => result.current.onAskLogout());
++      await rerender({ focused: false });
++
++      expect(result.current.confirmingLogout).toBe(false);
++    });
++  });
++
++  describe('puxar para atualizar', () => {
++    it('busca o /me de novo e mostra o indicador até terminar', async () => {
++      let release = () => {};
++      const gate = new Promise<void>(resolve => {
++        release = resolve;
++      });
++      const renamed = { ...meResponse, firstName: 'Gustavo Henrique' };
++      server.use(
++        http.get(`${API_URL}/me`, async () => {
++          await gate;
++          return HttpResponse.json(renamed);
++        }),
++      );
++      const { result } = await renderProfile();
++      expect(result.current.refreshing).toBe(false);
++
++      await act(async () => {
++        result.current.onRefresh();
++      });
++      expect(result.current.refreshing).toBe(true);
++
++      await act(async () => release());
++      await waitFor(() => expect(result.current.refreshing).toBe(false));
++      expect(result.current.guardian?.fullName).toBe(
++        'Gustavo Henrique da Silva',
++      );
++    });
++
++    it('falha no refresh: o indicador some e os dados ficam', async () => {
++      server.use(
++        http.get(`${API_URL}/me`, () =>
++          HttpResponse.json({ statusCode: 500 }, { status: 500 }),
++        ),
++      );
++      const { result } = await renderProfile();
++
++      await act(async () => {
++        await result.current.onRefresh();
++      });
++
++      expect(result.current.refreshing).toBe(false);
++      expect(result.current.guardian?.fullName).toBe('Gustavo da Silva');
++    });
++  });
++});
+diff --git a/mobile/src/features/profile/components/LogoutRow.tsx b/mobile/src/features/profile/components/LogoutRow.tsx
+new file mode 100644
+index 0000000..2f2d9e9
+--- /dev/null
++++ b/mobile/src/features/profile/components/LogoutRow.tsx
+@@ -0,0 +1,196 @@
++import { useEffect, useRef, useState, type ComponentRef } from 'react';
++import {
++  AccessibilityInfo,
++  Pressable,
++  StyleSheet,
++  useWindowDimensions,
++  type View,
++} from 'react-native';
++import Animated, {
++  FadeIn,
++  FadeOut,
++  ReduceMotion,
++  useAnimatedStyle,
++  useReducedMotion,
++  useSharedValue,
++  withSpring,
++} from 'react-native-reanimated';
++
++import { LogoutIcon } from '../../../components/icons/LogoutIcon';
++import { PillButton } from '../../../components/PillButton';
++import { strings } from '../../../constants/strings';
++import { Box, Text, useTheme } from '../../../theme';
++
++type LogoutRowProps = {
++  /** `profile-logout`; filhos: `-button`, `-cancel` e `-confirm`. */
++  testID: string;
++  /** Pediu para sair: a linha vira "Sair deste aparelho?" + Cancelar + Sair. */
++  confirming: boolean;
++  loggingOut: boolean;
++  onAsk: () => void;
++  onCancel: () => void;
++  onConfirm: () => void;
++};
++
++type HostRef = ComponentRef<typeof View>;
++
++/**
++ * "Sair da conta" com confirmação leve no mesmo lugar (01-design.md da v2,
++ * 3.5, DV7): o 1º toque troca a linha por "Sair deste aparelho?" + Cancelar
++ * + Sair, em crossfade e na mesma altura, sem modal. O foco do leitor de
++ * tela acompanha a troca (6.4). Na tela estreita a pergunta some e os dois
++ * botões dividem a largura.
++ */
++export function LogoutRow({
++  testID,
++  confirming,
++  loggingOut,
++  onAsk,
++  onCancel,
++  onConfirm,
++}: LogoutRowProps) {
++  const { breakpoints, colors, motion, sizes } = useTheme();
++  const reducedMotion = useReducedMotion();
++  const compact = useWindowDimensions().width < breakpoints.phone;
++  const scale = useSharedValue(1);
++  const buttonRef = useRef<HostRef>(null);
++  const cancelRef = useRef<HostRef>(null);
++  // Na 1ª visita a linha entra com a tela; o crossfade é só na troca.
++  const [initialConfirming] = useState(confirming);
++  const [toggled, setToggled] = useState(false);
++  if (!toggled && confirming !== initialConfirming) setToggled(true);
++  const previousConfirming = useRef(confirming);
++
++  useEffect(() => {
++    if (previousConfirming.current === confirming) return;
++    previousConfirming.current = confirming;
++    const target = confirming ? cancelRef.current : buttonRef.current;
++    if (target) AccessibilityInfo.sendAccessibilityEvent(target, 'focus');
++  }, [confirming]);
++
++  const scaleStyle = useAnimatedStyle(() => ({
++    transform: [{ scale: scale.get() }],
++  }));
++  const pressIn = () => {
++    if (!reducedMotion) scale.set(withSpring(motion.pressScale, motion.press));
++  };
++  const pressOut = () => {
++    if (!reducedMotion) scale.set(withSpring(1, motion.press));
++  };
++
++  // Opacidade não é movimento: o crossfade fica com reduzir movimento.
++  const entering = toggled
++    ? FadeIn.duration(motion.base).reduceMotion(ReduceMotion.Never)
++    : undefined;
++  const exiting = FadeOut.duration(motion.base).reduceMotion(
++    ReduceMotion.Never,
++  );
++
++  return (
++    <Box testID={testID} height={sizes.profile.logoutRow}>
++      {confirming ? (
++        <Animated.View
++          key="confirm"
++          entering={entering}
++          exiting={exiting}
++          style={StyleSheet.absoluteFill}
++        >
++          <Box
++            flex={1}
++            flexDirection="row"
++            alignItems="center"
++            gap="s"
++            paddingHorizontal="m"
++            borderRadius="m"
++            borderWidth={1}
++            borderColor="borderSubtle"
++            backgroundColor="surface"
++          >
++            {compact ? null : (
++              <Text
++                variant="bodyStrong"
++                flex={1}
++                numberOfLines={1}
++                maxFontSizeMultiplier={sizes.fixedHeightFontScale}
++              >
++                {strings.profile.logoutConfirmQuestion}
++              </Text>
++            )}
++            <Box flex={compact ? 1 : undefined}>
++              <PillButton
++                ref={cancelRef}
++                testID={`${testID}-cancel`}
++                label={strings.profile.logoutCancel}
++                variant="secondary"
++                size="xs"
++                fullWidth={compact}
++                disabled={loggingOut}
++                onPress={onCancel}
++              />
++            </Box>
++            <Box flex={compact ? 1 : undefined}>
++              <PillButton
++                testID={`${testID}-confirm`}
++                label={strings.profile.logoutConfirm}
++                variant="danger"
++                size="xs"
++                fullWidth={compact}
++                loading={loggingOut}
++                loadingAccessibilityLabel={
++                  strings.profile.loggingOutAccessibilityLabel
++                }
++                onPress={onConfirm}
++              />
++            </Box>
++          </Box>
++        </Animated.View>
++      ) : (
++        <Animated.View
++          key="ask"
++          entering={entering}
++          exiting={exiting}
++          style={StyleSheet.absoluteFill}
++        >
++          <Pressable
++            ref={buttonRef}
++            testID={`${testID}-button`}
++            accessibilityRole="button"
++            accessibilityLabel={strings.profile.logout}
++            onPress={onAsk}
++            onPressIn={pressIn}
++            onPressOut={pressOut}
++            style={styles.fill}
++          >
++            <Animated.View style={[styles.fill, scaleStyle]}>
++              <Box
++                testID={`${testID}-button-surface`}
++                flex={1}
++                flexDirection="row"
++                alignItems="center"
++                gap="sm"
++                paddingHorizontal="m"
++                borderRadius="m"
++                borderWidth={1}
++                borderColor="borderSubtle"
++                backgroundColor="surface"
++              >
++                <LogoutIcon color={colors.danger} size={sizes.iconSmall} />
++                <Text
++                  variant="bodyStrong"
++                  color="danger"
++                  maxFontSizeMultiplier={sizes.fixedHeightFontScale}
++                >
++                  {strings.profile.logout}
++                </Text>
++              </Box>
++            </Animated.View>
++          </Pressable>
++        </Animated.View>
++      )}
++    </Box>
++  );
++}
++
++const styles = StyleSheet.create({
++  fill: { flex: 1 },
++});
+diff --git a/mobile/src/features/profile/components/StudentRow.tsx b/mobile/src/features/profile/components/StudentRow.tsx
+new file mode 100644
+index 0000000..3c2baf3
+--- /dev/null
++++ b/mobile/src/features/profile/components/StudentRow.tsx
+@@ -0,0 +1,250 @@
++import { useEffect, useRef, useState } from 'react';
++import { Pressable, StyleSheet } from 'react-native';
++import Animated, {
++  FadeIn,
++  FadeOut,
++  ReduceMotion,
++  useAnimatedStyle,
++  useReducedMotion,
++  useSharedValue,
++  withSequence,
++  withSpring,
++  withTiming,
++  type LayoutAnimation,
++} from 'react-native-reanimated';
++
++import { Avatar } from '../../../components/Avatar';
++import { CheckIcon } from '../../../components/icons/CheckIcon';
++import { strings } from '../../../constants/strings';
++import { Box, Text, useTheme, type Theme } from '../../../theme';
++
++type StudentRowProps = {
++  /** `profile-student-<rm>`; filhos: `-surface`, `-avatar`, `-highlight`, `-current`, `-radio`. */
++  testID: string;
++  firstName: string;
++  lastName: string;
++  fullName: string;
++  rm: number;
++  className: string;
++  period: string;
++  /** É o aluno em uso: selo "Atual" e borda teal com brilho. */
++  selected: boolean;
++  /** Há outro aluno para trocar. Com 1 aluno a linha é só informação. */
++  pressable: boolean;
++  onPress: () => void;
++};
++
++/** Espessura da borda da linha: a camada de destaque cobre a borda. */
++const ROW_BORDER = 1;
++
++type Motion = Theme['motion'];
++
++/**
++ * Selo "Atual" entrando quando o aluno acaba de ser escolhido (4.6): fade e
++ * escala `popFrom` → 1 com a mola `pop`; com reduzir movimento, só o fade.
++ */
++function badgeEntering(motion: Motion, reduced: boolean) {
++  if (reduced) return FadeIn.duration(motion.fast);
++  const { fast, popFrom, spring } = motion;
++  return (): LayoutAnimation => {
++    'worklet';
++    return {
++      initialValues: { opacity: 0, transform: [{ scale: popFrom }] },
++      animations: {
++        opacity: withTiming(1, { duration: fast }),
++        transform: [{ scale: withSpring(1, spring.pop) }],
++      },
++    };
++  };
++}
++
++/**
++ * Linha de um aluno no Perfil (01-design.md da v2, 3.5): avatar, nome e
++ * turma · RM · período. O atual tem o selo "Atual" e uma camada de borda
++ * teal com brilho; os outros, um rádio vazio. A troca é um crossfade da
++ * camada (sem animar cor) e, na linha nova, um "pop" de escala (4.6). Para o
++ * leitor de tela é um elemento só, com `selected`.
++ */
++export function StudentRow({
++  testID,
++  firstName,
++  lastName,
++  fullName,
++  rm,
++  className,
++  period,
++  selected,
++  pressable,
++  onPress,
++}: StudentRowProps) {
++  const { borderRadii, colors, motion, shadows, sizes } = useTheme();
++  const reducedMotion = useReducedMotion();
++  const highlight = useSharedValue(selected ? 1 : 0);
++  const scale = useSharedValue(1);
++  const previousSelected = useRef(selected);
++  // O selo e o rádio só animam depois de uma troca; na 1ª visita a linha
++  // inteira já entra com a tela. Derivado no render, para valer já no render
++  // em que o selo monta.
++  const [initialSelected] = useState(selected);
++  const [toggled, setToggled] = useState(false);
++  if (!toggled && selected !== initialSelected) setToggled(true);
++
++  useEffect(() => {
++    if (previousSelected.current === selected) return;
++    previousSelected.current = selected;
++    highlight.set(
++      withTiming(selected ? 1 : 0, {
++        duration: selected ? motion.base : motion.fast,
++      }),
++    );
++    if (selected && !reducedMotion) {
++      scale.set(
++        withSequence(
++          withTiming(motion.rowSelectFrom, { duration: 0 }),
++          withSpring(1, motion.spring.pop),
++        ),
++      );
++    }
++  }, [selected, reducedMotion, highlight, scale, motion]);
++
++  const highlightStyle = useAnimatedStyle(() => ({
++    opacity: highlight.get(),
++  }));
++  const scaleStyle = useAnimatedStyle(() => ({
++    transform: [{ scale: scale.get() }],
++  }));
++
++  const pressIn = () => {
++    if (!reducedMotion) scale.set(withSpring(motion.pressScale, motion.press));
++  };
++  const pressOut = () => {
++    if (!reducedMotion) scale.set(withSpring(1, motion.press));
++  };
++
++  const fadeOut = FadeOut.duration(motion.fast).reduceMotion(
++    ReduceMotion.Never,
++  );
++
++  return (
++    <Pressable
++      testID={testID}
++      accessibilityRole={pressable ? 'button' : 'text'}
++      accessibilityLabel={strings.profile.studentAccessibilityLabel(
++        fullName,
++        className,
++        rm,
++        period,
++      )}
++      accessibilityHint={
++        pressable && !selected ? strings.profile.studentHint : undefined
++      }
++      accessibilityState={{ selected }}
++      disabled={!pressable}
++      onPress={onPress}
++      onPressIn={pressIn}
++      onPressOut={pressOut}
++    >
++      <Animated.View style={scaleStyle}>
++        <Box
++          testID={`${testID}-surface`}
++          flexDirection="row"
++          alignItems="center"
++          gap="sm"
++          minHeight={sizes.profile.studentRow}
++          paddingHorizontal="m"
++          paddingVertical="sm"
++          borderRadius="m"
++          borderWidth={ROW_BORDER}
++          borderColor="borderSubtle"
++          backgroundColor="surfaceRaised"
++        >
++          <Animated.View
++            testID={`${testID}-highlight`}
++            pointerEvents="none"
++            style={[
++              styles.highlight,
++              {
++                borderRadius: borderRadii.m,
++                borderColor: colors.primary,
++                boxShadow: [shadows.glowPrimary],
++              },
++              highlightStyle,
++            ]}
++          />
++          <Avatar
++            testID={`${testID}-avatar`}
++            firstName={firstName}
++            lastName={lastName}
++            size="m"
++            tone="student"
++          />
++          <Box flex={1} gap="xxs">
++            <Text variant="subtitle" numberOfLines={1}>
++              {fullName}
++            </Text>
++            <Text variant="caption">
++              {strings.profile.studentInfo(className, rm, period)}
++            </Text>
++          </Box>
++          {selected ? (
++            <Animated.View
++              entering={
++                toggled ? badgeEntering(motion, reducedMotion) : undefined
++              }
++              exiting={fadeOut}
++            >
++              <Box
++                testID={`${testID}-current`}
++                flexDirection="row"
++                alignItems="center"
++                gap="xs"
++                height={sizes.profile.currentBadge}
++                paddingHorizontal="s"
++                borderRadius="pill"
++                backgroundColor="primaryMuted"
++              >
++                <CheckIcon
++                  color={colors.primary}
++                  size={sizes.profile.currentBadgeIcon}
++                />
++                <Text
++                  variant="label"
++                  color="primary"
++                  maxFontSizeMultiplier={sizes.fixedHeightFontScale}
++                >
++                  {strings.profile.current}
++                </Text>
++              </Box>
++            </Animated.View>
++          ) : null}
++          {!selected && pressable ? (
++            <Animated.View
++              entering={toggled ? FadeIn.duration(motion.fast) : undefined}
++              exiting={fadeOut}
++            >
++              <Box
++                testID={`${testID}-radio`}
++                width={sizes.profile.radio}
++                height={sizes.profile.radio}
++                borderRadius="pill"
++                borderColor="borderInput"
++                style={{ borderWidth: sizes.profile.radioBorder }}
++              />
++            </Animated.View>
++          ) : null}
++        </Box>
++      </Animated.View>
++    </Pressable>
++  );
++}
++
++const styles = StyleSheet.create({
++  highlight: {
++    position: 'absolute',
++    top: -ROW_BORDER,
++    left: -ROW_BORDER,
++    right: -ROW_BORDER,
++    bottom: -ROW_BORDER,
++    borderWidth: ROW_BORDER,
++  },
++});
+diff --git a/mobile/src/features/profile/useProfileViewModel.ts b/mobile/src/features/profile/useProfileViewModel.ts
+new file mode 100644
+index 0000000..7630d26
+--- /dev/null
++++ b/mobile/src/features/profile/useProfileViewModel.ts
+@@ -0,0 +1,84 @@
++import { useEffect, useState } from 'react';
++import { AccessibilityInfo } from 'react-native';
++
++import { strings } from '../../constants/strings';
++import { useSessionStore } from '../../stores/session.store';
++import { fullName } from '../../utils/names';
++import { useMeQuery } from '../auth/api/useMeQuery';
++import { useLogout } from '../auth/useLogout';
++import { useSessionStudent } from '../students/useSessionStudent';
++
++type ProfileViewModelInput = {
++  /** A aba está visível. Sair dela desfaz a confirmação de saída. */
++  focused: boolean;
++};
++
++/**
++ * Aba Perfil (V3, 01-design.md da v2 3.5): dados do `/me` (nome completo e
++ * CPF, que já vem mascarado), os alunos com o atual em destaque e a troca na
++ * hora, sem mudar de tela (DV8). Sair pede confirmação inline (DV7) e faz o
++ * logout completo do `useLogout`.
++ */
++export function useProfileViewModel({ focused }: ProfileViewModelInput) {
++  const { data: me, refetch } = useMeQuery();
++  const { students, student } = useSessionStudent();
++  const selectStudent = useSessionStore(state => state.selectStudent);
++  const { logout, loggingOut } = useLogout();
++  const [confirmingLogout, setConfirmingLogout] = useState(false);
++  const [refreshing, setRefreshing] = useState(false);
++
++  useEffect(() => {
++    if (!focused) setConfirmingLogout(false);
++  }, [focused]);
++
++  const onSelectStudent = (id: string) => {
++    const chosen = students.find(item => item.id === id);
++    if (!chosen || id === student?.id) return;
++    setConfirmingLogout(false);
++    selectStudent(id);
++    AccessibilityInfo.announceForAccessibility(
++      strings.profile.switchedAnnouncement(
++        fullName(chosen.firstName, chosen.lastName),
++      ),
++    );
++  };
++
++  const onRefresh = async () => {
++    setRefreshing(true);
++    try {
++      await refetch();
++    } finally {
++      setRefreshing(false);
++    }
++  };
++
++  return {
++    guardian: me
++      ? {
++          fullName: fullName(me.firstName, me.lastName),
++          firstName: me.firstName,
++          lastName: me.lastName,
++          cpfMasked: me.cpf,
++        }
++      : null,
++    students: students.map(item => ({
++      id: item.id,
++      fullName: fullName(item.firstName, item.lastName),
++      firstName: item.firstName,
++      lastName: item.lastName,
++      rm: item.rm,
++      className: item.className,
++      period: item.period,
++      selected: item.id === student?.id,
++    })),
++    canSwitch: students.length > 1,
++    onSelectStudent,
++    confirmingLogout,
++    onAskLogout: () => setConfirmingLogout(true),
++    onCancelLogout: () => setConfirmingLogout(false),
++    onConfirmLogout: logout,
++    loggingOut,
++    refreshing,
++    onRefresh,
++  };
++}
+diff --git a/mobile/src/hooks/__tests__/useFloatingTabBarInset.test.tsx b/mobile/src/hooks/__tests__/useFloatingTabBarInset.test.tsx
+new file mode 100644
+index 0000000..875c454
+--- /dev/null
++++ b/mobile/src/hooks/__tests__/useFloatingTabBarInset.test.tsx
+@@ -0,0 +1,60 @@
++import { ThemeProvider } from '@shopify/restyle';
++import { renderHook } from '@testing-library/react-native';
++import type { PropsWithChildren } from 'react';
++import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
++
++import { theme } from '../../theme';
++import {
++  floatingTabBarBottom,
++  useFloatingTabBarInset,
++} from '../useFloatingTabBarInset';
++
++const { sizes, spacing } = theme;
++
++const withBottomInset =
++  (bottom: number) =>
++  ({ children }: PropsWithChildren) =>
++    (
++      <ThemeProvider theme={theme}>
++        <SafeAreaInsetsContext.Provider
++          value={{ top: 0, left: 0, right: 0, bottom }}
++        >
++          {children}
++        </SafeAreaInsetsContext.Provider>
++      </ThemeProvider>
++    );
++
++describe('floatingTabBarBottom', () => {
++  it('sem home indicator, a tab bar flutua a `m` da borda', () => {
++    expect(floatingTabBarBottom(0, spacing)).toBe(spacing.m);
++  });
++
++  it('com home indicator, fica `s` acima do fim da área segura', () => {
++    // 393 × 852: inset 34 → o fundo da barra a 26 da borda (2.4).
++    expect(floatingTabBarBottom(34, spacing)).toBe(26);
++  });
++
++  it('nunca fica a menos de `m` da borda', () => {
++    expect(floatingTabBarBottom(20, spacing)).toBe(spacing.m);
++  });
++});
++
++describe('useFloatingTabBarInset', () => {
++  it('altura da barra + distância da borda + `m` (sem home indicator)', async () => {
++    const { result } = await renderHook(() => useFloatingTabBarInset(), {
++      wrapper: withBottomInset(0),
++    });
++
++    expect(result.current).toBe(
++      sizes.floatingTabBar.height + spacing.m + spacing.m,
++    );
++  });
++
++  it('com home indicator, conta o inset de baixo', async () => {
++    const { result } = await renderHook(() => useFloatingTabBarInset(), {
++      wrapper: withBottomInset(34),
++    });
++
++    expect(result.current).toBe(sizes.floatingTabBar.height + 26 + spacing.m);
++  });
++});
+diff --git a/mobile/src/hooks/useFloatingTabBarInset.ts b/mobile/src/hooks/useFloatingTabBarInset.ts
+new file mode 100644
+index 0000000..bfc9dc7
+--- /dev/null
++++ b/mobile/src/hooks/useFloatingTabBarInset.ts
+@@ -0,0 +1,30 @@
++import { useSafeAreaInsets } from 'react-native-safe-area-context';
++
++import { useTheme, type Theme } from '../theme';
++
++/**
++ * Distância entre o fundo da tab bar flutuante e a borda da tela
++ * (01-design.md da v2, 2.4): `s` acima do fim da área segura, e nunca menos
++ * que `m`.
++ */
++export function floatingTabBarBottom(
++  insetBottom: number,
++  spacing: Pick<Theme['spacing'], 's' | 'm'>,
++): number {
++  return Math.max(insetBottom - spacing.s, spacing.m);
++}
++
++/**
++ * Padding de baixo de toda rolagem das abas (V6/N1): o último item para
++ * acima da tab bar flutuante, em vez de ficar coberto por ela. Use também
++ * em `scrollIndicatorInsets.bottom`.
++ */
++export function useFloatingTabBarInset(): number {
++  const { bottom } = useSafeAreaInsets();
++  const { sizes, spacing } = useTheme();
++  return (
++    sizes.floatingTabBar.height +
++    floatingTabBarBottom(bottom, spacing) +
++    spacing.m
++  );
++}
+diff --git a/mobile/src/navigation/AppTabs.tsx b/mobile/src/navigation/AppTabs.tsx
+index c82fad4..8eec0b5 100644
+--- a/mobile/src/navigation/AppTabs.tsx
++++ b/mobile/src/navigation/AppTabs.tsx
+@@ -1,39 +1,51 @@
+ import {
+   createBottomTabNavigator,
+   type BottomTabBarProps,
+ } from '@react-navigation/bottom-tabs';
+ 
++import { FloatingTabBar } from '../components/FloatingTabBar';
+ import { AgendaIcon } from '../components/icons/AgendaIcon';
+ import { BoletimIcon } from '../components/icons/BoletimIcon';
+-import { TabBar } from '../components/TabBar';
++import { ProfileIcon } from '../components/icons/ProfileIcon';
+ import { strings } from '../constants/strings';
+ import { LessonsScreen } from '../features/lessons/LessonsScreen';
++import { ProfileScreen } from '../features/profile/ProfileScreen';
+ import { ReportCardScreen } from '../features/report-card/ReportCardScreen';
+ import type { AppTabsParamList } from './types';
+ 
+ const Tab = createBottomTabNavigator<AppTabsParamList>();
+ 
+-const renderTabBar = (props: BottomTabBarProps) => <TabBar {...props} />;
++const renderTabBar = (props: BottomTabBarProps) => (
++  <FloatingTabBar {...props} />
++);
+ 
+ type TabIconProps = { color: string; size: number };
+ 
+ const agendaIcon = ({ color, size }: TabIconProps) => (
+   <AgendaIcon color={color} size={size} />
+ );
+ const boletimIcon = ({ color, size }: TabIconProps) => (
+   <BoletimIcon color={color} size={size} />
+ );
++const profileIcon = ({ color, size }: TabIconProps) => (
++  <ProfileIcon color={color} size={size} />
++);
+ 
+-/** Abas Agenda e Boletim com a tab bar do Figma (01-design.md, 2.4 e 4.4). */
++/**
++ * Abas Agenda, Boletim e Perfil com a tab bar flutuante (01-design.md da
++ * v2, 2.4 e 3.0). O voltar do Android numa aba que não é a Agenda volta para
++ * ela (`firstRoute`).
++ */
+ export function AppTabs() {
+   return (
+     <Tab.Navigator
+       tabBar={renderTabBar}
++      backBehavior="firstRoute"
+       screenOptions={{ headerShown: false, animation: 'fade' }}
+     >
+       <Tab.Screen
+         name="Agenda"
+         component={LessonsScreen}
+         options={{
+           title: strings.tabs.agenda,
+           tabBarAccessibilityLabel: strings.tabs.agendaAccessibilityLabel,
+@@ -46,11 +58,21 @@ export function AppTabs() {
+         component={ReportCardScreen}
+         options={{
+           title: strings.tabs.boletim,
+           tabBarAccessibilityLabel: strings.tabs.boletimAccessibilityLabel,
+           tabBarButtonTestID: 'tab-boletim',
+           tabBarIcon: boletimIcon,
+         }}
+       />
++      <Tab.Screen
++        name="Perfil"
++        component={ProfileScreen}
++        options={{
++          title: strings.tabs.perfil,
++          tabBarAccessibilityLabel: strings.tabs.perfilAccessibilityLabel,
++          tabBarButtonTestID: 'tab-perfil',
++          tabBarIcon: profileIcon,
++        }}
++      />
+     </Tab.Navigator>
+   );
+ }
+diff --git a/mobile/src/navigation/types.ts b/mobile/src/navigation/types.ts
+index e89b259..dc41a10 100644
+--- a/mobile/src/navigation/types.ts
++++ b/mobile/src/navigation/types.ts
+@@ -3,16 +3,17 @@ import type {
+   CompositeScreenProps,
+   NavigatorScreenParams,
+ } from '@react-navigation/native';
+ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+ 
+ export type AppTabsParamList = {
+   Agenda: undefined;
+   Boletim: undefined;
++  Perfil: undefined;
+ };
+ 
+ /**
+  * `fromSplash`: a tela veio do fim da splash. Ela entra sem a animação do
+  * stack (a splash já fez a saída) e o Login não mexe no logo no 1º frame.
+  */
+ export type FromSplashParams = { fromSplash?: boolean } | undefined;
+ 
+diff --git a/mobile/src/theme/__tests__/theme.test.ts b/mobile/src/theme/__tests__/theme.test.ts
+index c1b723e..74d66b1 100644
+--- a/mobile/src/theme/__tests__/theme.test.ts
++++ b/mobile/src/theme/__tests__/theme.test.ts
+@@ -134,9 +134,21 @@ describe('tema v2', () => {
+       },
+       shimmer: { duration: 1200, reducedOpacity: 0.7 },
+       nowTick: 60_000,
+     });
+     // Razão entre o logo do login e o da splash (245 / 306).
+     expect(theme.motion.loginLogoScale).toBeCloseTo(0.8, 2);
+     expect(theme.motion.emphasized).toBe(theme.motion.splash.exitToLoginEasing);
+   });
++
++  it('Perfil (3.5 e 4.6): linhas, rádio, selo e a escala da linha escolhida', () => {
++    expect(theme.sizes.profile).toEqual({
++      studentRow: 72,
++      logoutRow: 56,
++      radio: 22,
++      radioBorder: 1.5,
++      currentBadge: 28,
++      currentBadgeIcon: 16,
++    });
++    expect(theme.motion.rowSelectFrom).toBe(0.98);
++  });
+ });
+diff --git a/mobile/src/theme/motion.ts b/mobile/src/theme/motion.ts
+index 7f97816..855eeb1 100644
+--- a/mobile/src/theme/motion.ts
++++ b/mobile/src/theme/motion.ts
+@@ -27,16 +27,18 @@ export const motion = {
+   /** Shimmer do skeleton: uma passada por `duration`; parado em 0,7 com reduzir movimento. */
+   shimmer: { duration: 1200, reducedOpacity: 0.7 },
+   /** Relógio da linha de agora. */
+   nowTick: 60_000,
+   /** Anel do ponto de agora. */
+   nowPulse: { duration: 2000, scaleTo: 2.2 },
+   /** Escala inicial dos selos. */
+   popFrom: 0.9,
++  /** Linha do aluno que acabou de ser escolhido no Perfil: 0,98 → 1 (4.6). */
++  rowSelectFrom: 0.98,
+   /** Logo da splash ao chegar no login (0,8). */
+   loginLogoScale: sizes.logoLoginV2.width / sizes.logoLogin.width,
+   easeOut: Easing.out(Easing.cubic),
+   easeIn: Easing.in(Easing.cubic),
+   /** Entradas de card, troca de trimestre e saída da splash para o login. */
+   emphasized,
+   /** Linha de agora andando. */
+   standard: Easing.bezier(0.4, 0, 0.2, 1),
+@@ -44,31 +46,27 @@ export const motion = {
+   spring: {
+     /** Indicadores (tab bar, segmento). */
+     snappy: { damping: 22, stiffness: 320, mass: 1 },
+     /** Tab bar entrando, card do login. */
+     gentle: { damping: 20, stiffness: 170, mass: 1 },
+     /** Selo "Agora", selo "Atual", ponto do rádio. */
+     pop: { damping: 12, stiffness: 220, mass: 0.8 },
+   },
+-  /** Opacidade de ações de texto pressionadas (barra, dropdown, acordeão). */
+-  pressedOpacity: 0.6,
+   /** Escala de pílulas, cards e linhas pressionados. */
+   pressScale: 0.97,
+   /** Escala dos chips de dia e do chip do aluno pressionados. */
+   pressScaleSmall: 0.94,
+   /** Deslocamento das entradas `FadeInDown` (campos do login e erro). */
+   enterOffset: 12,
+   enterOffsetSmall: 8,
+   /** Card do login e tab bar. */
+   enterOffsetCard: 16,
+   /** Troca de trimestre ou de ano (direção). */
+   slideOffset: 16,
+-  /** Ilustração do estado vazio entra de 0,96 para 1 (01-design.md, 4.5). */
+-  illustrationScaleFrom: 0.96,
+   /** Shake do formulário em erro (01-design.md, 4.2): 6 passos de 50 ms. */
+   shake: { offsets: [-10, 10, -8, 8, -4, 0], step: 50 },
+   /** Shake curto do estado de erro quando o retry falha de novo (4.8). */
+   shakeShort: { offsets: [-6, 6, -3, 0], step: 50 },
+   /** Seleção de aluno: o modal fecha 120 ms depois da borda acender (4.7). */
+   selectStudentBackDelay: 120,
+   /** Atraso entre cards em cascata. */
+   cardStagger: 50,
+@@ -100,16 +98,21 @@ export const motion = {
+     badgeBreath: 1600,
+     badgeBreathScale: 1.04,
+     fadeInReduced: 200,
+     exitScaleTo: 0.92,
+     exitDuration: 250,
+     exitToLoginEasing: emphasized,
+   },
+   // Legado v1: sai na fatia 9.
++  /**
++   * Opacidade de ações de texto pressionadas da v1 (barra, dropdown,
++   * acordeão). Componente novo usa `opacities.pressed`.
++   */
++  pressedOpacity: 0.6,
+   /** Pulso do skeleton da v1: 0,5 ↔ 1 em 800 ms; parado em 0,7 com reduzir movimento. */
+   skeleton: { duration: 800, min: 0.5, reduced: 0.7 },
+ } as const;
+ 
+ /**
+  * Entrada padrão das telas (01-design.md, 4.x): fade de baixo para cima em
+  * `base`, `easeOut`, 8 pt, respeitando o reduzir movimento do sistema.
+  */
+diff --git a/mobile/src/theme/sizes.ts b/mobile/src/theme/sizes.ts
+index 3948972..11e3530 100644
+--- a/mobile/src/theme/sizes.ts
++++ b/mobile/src/theme/sizes.ts
+@@ -55,16 +55,25 @@ export const sizes = {
+   banner: 48,
+   /** Ícone dos estados vazio e de erro. */
+   emptyIcon: { circle: 64, glyph: 28 },
+   skeleton: {
+     blockHeights: [60, 60, 60, 60],
+     subjectCards: 4,
+     shimmerWidth: 120,
+   },
++  /** Perfil (3.5): linha do aluno, linha de sair, rádio e selo "Atual". */
++  profile: {
++    studentRow: 72,
++    logoutRow: 56,
++    radio: 22,
++    radioBorder: 1.5,
++    currentBadge: 28,
++    currentBadgeIcon: 16,
++  },
+   /** Teto da fonte grande do sistema em elementos de altura fixa (1.8). */
+   fixedHeightFontScale: 1.3,
+ 
+   // Splash (fica na v2).
+   /** Selo SCHOOL dentro do PNG do logo, em proporção (vale em qualquer tamanho). */
+   logoBadge: { x: 0.672, y: 0.35, width: 0.328, height: 0.4 },
+   /** Sobra da capa do selo na splash (esconde o antialias da borda). */
+   logoBadgeBleed: 1,

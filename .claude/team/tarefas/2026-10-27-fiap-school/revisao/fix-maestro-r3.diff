@@ -1,0 +1,363 @@
+41cef33 fix(mobile): dropdown da Agenda e do Boletim entra sem animação de layout
+diff --git a/mobile/src/components/EnterDown.tsx b/mobile/src/components/EnterDown.tsx
+new file mode 100644
+index 0000000..63a70ad
+--- /dev/null
++++ b/mobile/src/components/EnterDown.tsx
+@@ -0,0 +1,57 @@
++import { useEffect, type ReactNode } from 'react';
++import Animated, {
++  useAnimatedStyle,
++  useReducedMotion,
++  useSharedValue,
++  withDelay,
++  withTiming,
++} from 'react-native-reanimated';
++
++import { useTheme } from '../theme';
++
++type EnterDownProps = {
++  children: ReactNode;
++  /** Atraso da entrada (stagger), em ms. */
++  delay?: number;
++  testID?: string;
++};
++
++/**
++ * A mesma entrada do `enterDown` (fade de 8 pt abaixo, `base`, `easeOut`),
++ * só que com valor animado em vez de animação de layout. Para o que aparece
++ * depois que a tela já montou (o dropdown da Agenda e do Boletim, quando os
++ * dados chegam): no Android, a entrada de layout dele às vezes não terminava
++ * e o dropdown ficava com opacidade 0, ocupando o lugar mas invisível (run
++ * 40720432602 do Maestro). Com reduzir movimento já monta visível.
++ */
++export function EnterDown({ children, delay = 0, testID }: EnterDownProps) {
++  const { motion } = useTheme();
++  const reducedMotion = useReducedMotion();
++  const progress = useSharedValue(reducedMotion ? 1 : 0);
++
++  useEffect(() => {
++    if (reducedMotion) {
++      progress.set(1);
++      return;
++    }
++    progress.set(
++      withDelay(
++        delay,
++        withTiming(1, { duration: motion.base, easing: motion.easeOut }),
++      ),
++    );
++  }, [delay, motion, progress, reducedMotion]);
++
++  const style = useAnimatedStyle(() => ({
++    opacity: progress.get(),
++    transform: [
++      { translateY: (1 - progress.get()) * motion.enterOffsetSmall },
++    ],
++  }));
++
++  return (
++    <Animated.View testID={testID} style={style}>
++      {children}
++    </Animated.View>
++  );
++}
+diff --git a/mobile/src/components/__tests__/EnterDown.test.tsx b/mobile/src/components/__tests__/EnterDown.test.tsx
+new file mode 100644
+index 0000000..30d04d3
+--- /dev/null
++++ b/mobile/src/components/__tests__/EnterDown.test.tsx
+@@ -0,0 +1,66 @@
++import { ThemeProvider } from '@shopify/restyle';
++import { render, screen } from '@testing-library/react-native';
++import { Text } from 'react-native';
++import {
++  useReducedMotion,
++  withDelay,
++  withTiming,
++} from 'react-native-reanimated';
++
++import { motion, theme } from '../../theme';
++import { EnterDown } from '../EnterDown';
++
++jest.mock('react-native-reanimated', () => {
++  const mock = require('react-native-reanimated/mock');
++  return {
++    ...mock,
++    useReducedMotion: jest.fn(() => false),
++    withTiming: jest.fn((toValue: number) => toValue),
++    withDelay: jest.fn((_delay: number, animation: number) => animation),
++  };
++});
++
++const renderEnterDown = (delay?: number) =>
++  render(
++    <ThemeProvider theme={theme}>
++      <EnterDown testID="enter" delay={delay}>
++        <Text>conteúdo</Text>
++      </EnterDown>
++    </ThemeProvider>,
++  );
++
++describe('EnterDown', () => {
++  beforeEach(() => {
++    jest.mocked(useReducedMotion).mockReturnValue(false);
++    jest.mocked(withTiming).mockClear();
++    jest.mocked(withDelay).mockClear();
++  });
++
++  it('não usa animação de layout (entering): a visibilidade não depende dela', async () => {
++    await renderEnterDown();
++
++    expect(screen.getByTestId('enter')).not.toHaveProp('entering');
++    expect(screen.getByText('conteúdo')).toBeOnTheScreen();
++  });
++
++  it('com reduzir movimento já monta visível e no lugar, sem animar', async () => {
++    jest.mocked(useReducedMotion).mockReturnValue(true);
++    await renderEnterDown(120);
++
++    expect(screen.getByTestId('enter')).toHaveStyle({
++      opacity: 1,
++      transform: [{ translateY: 0 }],
++    });
++    expect(withTiming).not.toHaveBeenCalled();
++  });
++
++  it('sem reduzir movimento entra de 8 pt abaixo, em base com easeOut, depois do atraso', async () => {
++    await renderEnterDown(120);
++
++    expect(withDelay).toHaveBeenCalledWith(120, expect.anything());
++    expect(withTiming).toHaveBeenCalledWith(1, {
++      duration: motion.base,
++      easing: motion.easeOut,
++    });
++  });
++});
+diff --git a/mobile/src/features/lessons/LessonsScreen.tsx b/mobile/src/features/lessons/LessonsScreen.tsx
+index 05a0f22..033461e 100644
+--- a/mobile/src/features/lessons/LessonsScreen.tsx
++++ b/mobile/src/features/lessons/LessonsScreen.tsx
+@@ -1,14 +1,15 @@
+ import { useIsFocused } from '@react-navigation/native';
+ import Animated, { FadeOut, ReduceMotion } from 'react-native-reanimated';
+ 
+ import { AgendaSkeleton } from '../../components/AgendaSkeleton';
+ import { Dropdown } from '../../components/Dropdown';
+ import { EmptyState } from '../../components/EmptyState';
++import { EnterDown } from '../../components/EnterDown';
+ import { ErrorState } from '../../components/ErrorState';
+ import { LessonItem } from '../../components/LessonItem';
+ import { Screen } from '../../components/Screen';
+ import { SectionTitle } from '../../components/SectionTitle';
+ import { strings } from '../../constants/strings';
+ import { Box, enterDown, useTheme } from '../../theme';
+ import { AppHeader } from '../header/AppHeader';
+ import { useAgendaViewModel } from './useAgendaViewModel';
+@@ -51,30 +52,30 @@ export function LessonsScreen() {
+               retrying={vm.retrying}
+               shakeKey={vm.shakeKey}
+               announce={isFocused}
+             />
+           ) : null}
+           {vm.status === 'ready' ? (
+             <>
+               {vm.dayOptions.length > 0 ? (
+-                <Animated.View entering={enterDown(motion, 3 * motion.stagger)}>
++                <EnterDown delay={3 * motion.stagger}>
+                   <Dropdown
+                     testID="agenda-day-dropdown"
+                     label={vm.selectedDayLabel}
+                     options={vm.dayOptions}
+                     selectedKey={vm.selectedDate}
+                     onSelect={vm.onSelectDay}
+                     accessibilityLabelPrefix={
+                       strings.agenda.dayAccessibilityPrefix
+                     }
+                     accessibilityHint={strings.agenda.dayHint}
+                     marginHorizontal="l"
+                   />
+-                </Animated.View>
++                </EnterDown>
+               ) : null}
+               <Animated.View
+                 key={vm.contentKey}
+                 exiting={FadeOut.duration(motion.exitFast)
+                   .easing(motion.easeIn)
+                   .reduceMotion(ReduceMotion.System)}
+                 style={{ marginTop: spacing.l }}
+               >
+diff --git a/mobile/src/features/lessons/__tests__/LessonsScreen.test.tsx b/mobile/src/features/lessons/__tests__/LessonsScreen.test.tsx
+index 9b46576..d2855d0 100644
+--- a/mobile/src/features/lessons/__tests__/LessonsScreen.test.tsx
++++ b/mobile/src/features/lessons/__tests__/LessonsScreen.test.tsx
+@@ -3,16 +3,17 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
+ import { useIsFocused } from '@react-navigation/native';
+ import { http, HttpResponse } from 'msw';
+ import { AccessibilityInfo } from 'react-native';
+ 
+ import { queryClient, queryKeys } from '../../../app/queryClient';
+ import { createSecureStorage } from '../../../services/storage/secureStorage';
+ import { useSessionStore } from '../../../stores/session.store';
+ import { agendaResponse, API_URL, meResponse } from '../../../test/fixtures';
++import { hasEnteringAncestor } from '../../../test/layoutEntering';
+ import { mockMeasureInWindow } from '../../../test/measureInWindow';
+ import { server } from '../../../test/msw/server';
+ import { QueryWrapper } from '../../../test/queryWrapper';
+ import { theme } from '../../../theme';
+ import { LessonsScreen } from '../LessonsScreen';
+ 
+ jest.mock('@react-navigation/native', () => ({
+   ...jest.requireActual('@react-navigation/native'),
+@@ -79,16 +80,26 @@ describe('LessonsScreen', () => {
+     expect(screen.getByTestId('agenda-skeleton')).toBeOnTheScreen();
+     expect(screen.queryByTestId('agenda-day-dropdown')).toBeNull();
+ 
+     gate.release();
+     expect(await screen.findByTestId('agenda-day-dropdown')).toBeOnTheScreen();
+     expect(screen.queryByTestId('agenda-skeleton')).toBeNull();
+   });
+ 
++  // Regressão (run 40720432602 do Maestro, Android): a entrada de layout do
++  // dropdown às vezes não terminava e ele ficava com opacidade 0, ocupando o
++  // lugar mas invisível. A entrada dele não pode ser animação de layout.
++  it('dropdown de dias não depende de animação de layout para aparecer', async () => {
++    await renderScreen();
++
++    const dropdown = await screen.findByTestId('agenda-day-dropdown');
++    expect(hasEnteringAncestor(dropdown)).toBe(false);
++  });
++
+   it('segunda: lista as aulas com horário e disciplina, na ordem', async () => {
+     await renderScreen();
+ 
+     await chooseDay('2025-03-17');
+ 
+     expect(screen.getByTestId('agenda-day-dropdown-label')).toHaveTextContent(
+       '17 de março, segunda-feira',
+     );
+diff --git a/mobile/src/features/report-card/ReportCardScreen.tsx b/mobile/src/features/report-card/ReportCardScreen.tsx
+index 9388502..d3b0204 100644
+--- a/mobile/src/features/report-card/ReportCardScreen.tsx
++++ b/mobile/src/features/report-card/ReportCardScreen.tsx
+@@ -1,14 +1,15 @@
+ import { useIsFocused } from '@react-navigation/native';
+ import Animated, { FadeOut, ReduceMotion } from 'react-native-reanimated';
+ 
+ import { BoletimSkeleton } from '../../components/BoletimSkeleton';
+ import { Dropdown } from '../../components/Dropdown';
+ import { EmptyState } from '../../components/EmptyState';
++import { EnterDown } from '../../components/EnterDown';
+ import { ErrorState } from '../../components/ErrorState';
+ import { Screen } from '../../components/Screen';
+ import { SectionTitle } from '../../components/SectionTitle';
+ import { strings } from '../../constants/strings';
+ import { Box, enterDown, useTheme } from '../../theme';
+ import { AppHeader } from '../header/AppHeader';
+ import { TermAccordion } from './components/TermAccordion';
+ import { useReportCardViewModel } from './useReportCardViewModel';
+@@ -59,30 +60,30 @@ export function ReportCardScreen() {
+             <EmptyState
+               testID="boletim-empty"
+               title={strings.boletim.empty}
+               illustration={false}
+             />
+           ) : null}
+           {vm.status === 'ready' && !vm.isEmpty ? (
+             <>
+-              <Animated.View entering={enterDown(motion, 3 * motion.stagger)}>
++              <EnterDown delay={3 * motion.stagger}>
+                 <Dropdown
+                   testID="boletim-year-dropdown"
+                   label={vm.selectedYearLabel}
+                   options={vm.yearOptions}
+                   selectedKey={vm.selectedYearKey}
+                   onSelect={vm.onSelectYear}
+                   accessibilityLabelPrefix={
+                     strings.boletim.yearAccessibilityPrefix
+                   }
+                   accessibilityHint={strings.boletim.yearHint}
+                   marginHorizontal="m"
+                 />
+-              </Animated.View>
++              </EnterDown>
+               <Box marginTop="m">
+                 {vm.termsStatus === 'loading' ? (
+                   <BoletimSkeleton
+                     testID="boletim-skeleton"
+                     withDropdown={false}
+                   />
+                 ) : null}
+                 {vm.termsStatus === 'error' ? errorState : null}
+diff --git a/mobile/src/features/report-card/__tests__/ReportCardScreen.test.tsx b/mobile/src/features/report-card/__tests__/ReportCardScreen.test.tsx
+index 38e8001..521c58a 100644
+--- a/mobile/src/features/report-card/__tests__/ReportCardScreen.test.tsx
++++ b/mobile/src/features/report-card/__tests__/ReportCardScreen.test.tsx
+@@ -9,16 +9,17 @@ import { createSecureStorage } from '../../../services/storage/secureStorage';
+ import { useSessionStore } from '../../../stores/session.store';
+ import {
+   API_URL,
+   meResponse,
+   reportCard2024,
+   reportCard2025,
+   reportCardsResponse,
+ } from '../../../test/fixtures';
++import { hasEnteringAncestor } from '../../../test/layoutEntering';
+ import { mockMeasureInWindow } from '../../../test/measureInWindow';
+ import { server } from '../../../test/msw/server';
+ import { QueryWrapper } from '../../../test/queryWrapper';
+ import { theme } from '../../../theme';
+ import { ReportCardScreen } from '../ReportCardScreen';
+ 
+ jest.mock('@react-navigation/native', () => ({
+   ...jest.requireActual('@react-navigation/native'),
+@@ -120,16 +121,26 @@ describe('ReportCardScreen', () => {
+     const dropdown = await screen.findByTestId('boletim-year-dropdown');
+     expect(dropdown).toHaveAccessibleName('Turma e ano: 7EF - 2025');
+     expect(dropdown).toHaveProp(
+       'accessibilityHint',
+       'Toque para ver outros anos',
+     );
+   });
+ 
++  // Regressão (run 40720432602 do Maestro, Android): a entrada de layout do
++  // dropdown às vezes não terminava e ele ficava com opacidade 0, ocupando o
++  // lugar mas invisível. A entrada dele não pode ser animação de layout.
++  it('dropdown de turma e ano não depende de animação de layout para aparecer', async () => {
++    await renderScreen();
++
++    const dropdown = await screen.findByTestId('boletim-year-dropdown');
++    expect(hasEnteringAncestor(dropdown)).toBe(false);
++  });
++
+   it('abrir o 1º trimestre e Língua Portuguesa mostra Nota 9,5 e Faltas 0', async () => {
+     await renderScreen();
+     await screen.findByTestId('boletim-term-1');
+ 
+     await press('boletim-term-1');
+     expect(screen.getByTestId('boletim-term-1')).toBeExpanded();
+     expect(screen.getByTestId('boletim-term-1-subject-0')).toHaveTextContent(
+       'Língua Portuguesa',
+diff --git a/mobile/src/test/layoutEntering.ts b/mobile/src/test/layoutEntering.ts
+new file mode 100644
+index 0000000..fd4f983
+--- /dev/null
++++ b/mobile/src/test/layoutEntering.ts
+@@ -0,0 +1,17 @@
++import type { screen } from '@testing-library/react-native';
++
++type Node = ReturnType<typeof screen.getByTestId>;
++
++/**
++ * `true` se a view ou algum ancestral dela tem animação de layout de entrada
++ * (`entering`). No Android, uma entrada que não termina deixa a view com
++ * opacidade 0: ela ocupa o lugar, mas some da tela e da acessibilidade.
++ */
++export function hasEnteringAncestor(node: Node): boolean {
++  let current: Node | null = node;
++  while (current) {
++    if (current.props.entering !== undefined) return true;
++    current = current.parent;
++  }
++  return false;
++}
