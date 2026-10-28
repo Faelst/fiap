@@ -12,9 +12,39 @@ mais uma API própria em NestJS, que substitui o JSON do enunciado.
 
 ## Início rápido
 
-API local com yarn e app no simulador iOS (macOS, com Node 24, yarn, Xcode e
-um Ruby 3 do Homebrew ou do rbenv; ver o aviso logo abaixo). Detalhes, Android
-e Docker nas seções seguintes.
+### Pré-requisitos
+
+| Para | O que instalar |
+|---|---|
+| Tudo | Node.js 24 (o `.nvmrc` da raiz) e yarn (`npm i -g yarn`; o `mobile/` já traz o yarn 4 dele) |
+| Android | **JDK 17** e Android Studio com o SDK Platform 37, Build-Tools 37.0.0, NDK 27.1.12297006 e um emulador |
+| iOS (só macOS) | Xcode 16+ e um Ruby 3 do Homebrew ou do rbenv (ver o aviso do iOS abaixo) |
+
+JDK 17 (a versão que o CI usa para buildar o Android e rodar o Maestro):
+
+```sh
+# macOS (o JDK que o guia do React Native recomenda)
+brew install --cask zulu@17
+export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home
+
+# Linux (Debian/Ubuntu)
+sudo apt install openjdk-17-jdk
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+
+java -version   # deve mostrar 17
+```
+
+SDK do Android (no Android Studio, em **SDK Manager**) e as variáveis no
+`~/.zshrc` ou `~/.bashrc`, junto com o `JAVA_HOME`:
+
+```sh
+export ANDROID_HOME=$HOME/Library/Android/sdk   # Linux: $HOME/Android/Sdk
+export PATH=$PATH:$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools
+```
+
+Detalhes em [Pré-requisitos](#pré-requisitos).
+
+### 1. API (vale para as duas plataformas)
 
 ```sh
 # Terminal 1, na raiz do repositório: API em http://localhost:3333 (Swagger em /docs)
@@ -23,11 +53,43 @@ cp .env.example .env
 yarn install
 yarn prisma:setup
 yarn start:dev
+```
 
-# Terminal 2, na raiz do repositório: app no simulador iOS
+### 2. Metro (bundler do JavaScript)
+
+Deixe o Metro rodando num terminal próprio, antes de abrir o app. O `yarn
+android` e o `yarn ios` tentam abri-lo sozinhos numa janela nova, mas isso nem
+sempre funciona (no Linux depende do emulador de terminal), e num terminal seu
+você vê os logs e o erro de bundle.
+
+```sh
+# Terminal 2, na raiz do repositório
 cd mobile
 yarn install
-cp .env.example .env
+cp .env.example .env   # o API_URL padrão já serve no emulador Android e no simulador iOS
+yarn start             # Metro na porta 8081; yarn start --reset-cache limpa o cache
+```
+
+### 3a. App no Android (emulador)
+
+Abra um emulador pelo Android Studio (**Device Manager**) e confira que ele
+aparece em `adb devices`. Depois:
+
+```sh
+# Terminal 3, na raiz do repositório
+cd mobile
+yarn android
+```
+
+O `API_URL` padrão (`localhost`) funciona porque, no Android, o app troca
+`localhost` por `10.0.2.2`, que é a máquina vista de dentro do emulador. Num
+aparelho físico, use o IP da máquina (ver [Android](#android)).
+
+### 3b. App no iOS (simulador, só macOS)
+
+```sh
+# Terminal 3, na raiz do repositório
+cd mobile
 cd ios && bundle install && bundle exec pod install && cd ..
 yarn ios
 ```
@@ -37,9 +99,20 @@ yarn ios
 > (`brew install ruby`) ou use o CocoaPods do Homebrew com o build pelo Xcode:
 > os dois caminhos estão em [iOS](#ios-macos).
 
-Entre com o Gustavo: CPF `969.294.560-04`, senha `123456` (outras contas em
-[Credenciais de teste](#credenciais-de-teste)). Para o Android, veja
-[Pré-requisitos](#pré-requisitos) e [Android](#android).
+### 4. Entrar no app
+
+> [!IMPORTANT]
+> **Usuário para entrar no app**
+>
+> | CPF | Senha |
+> |---|---|
+> | **`969.294.560-04`** | **`123456`** |
+>
+> É o Gustavo, responsável por dois alunos (Rafael e Joana), a conta que mostra
+> todas as telas, inclusive a troca de aluno. As outras contas estão em
+> [Credenciais de teste](#credenciais-de-teste).
+
+Para rodar os testes de tela, veja [Flows do Maestro](#flows-do-maestro).
 
 ## Sumário
 
