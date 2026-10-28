@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import Animated, {
   FadeInDown,
   FadeOut,
@@ -26,14 +25,6 @@ import { useAgendaViewModel } from './useAgendaViewModel';
 export function LessonsScreen() {
   const vm = useAgendaViewModel();
   const { motion, spacing } = useTheme();
-
-  // A 1ª lista espera a entrada do header (4.3); as seguintes, não.
-  const [firstContentKey, setFirstContentKey] = useState<string | null>(null);
-  if (vm.status === 'ready' && firstContentKey === null) {
-    setFirstContentKey(vm.contentKey);
-  }
-  const contentDelay =
-    vm.contentKey === firstContentKey ? 4 * motion.stagger : 0;
 
   const enterDown = (delay: number) =>
     FadeInDown.duration(motion.base)
@@ -73,20 +64,22 @@ export function LessonsScreen() {
           ) : null}
           {vm.status === 'ready' ? (
             <>
-              <Animated.View entering={enterDown(3 * motion.stagger)}>
-                <Dropdown
-                  testID="agenda-day-dropdown"
-                  label={vm.selectedDayLabel}
-                  options={vm.dayOptions}
-                  selectedKey={vm.selectedDate}
-                  onSelect={vm.onSelectDay}
-                  accessibilityLabelPrefix={
-                    strings.agenda.dayAccessibilityPrefix
-                  }
-                  accessibilityHint={strings.agenda.dayHint}
-                  marginHorizontal="l"
-                />
-              </Animated.View>
+              {vm.dayOptions.length > 0 ? (
+                <Animated.View entering={enterDown(3 * motion.stagger)}>
+                  <Dropdown
+                    testID="agenda-day-dropdown"
+                    label={vm.selectedDayLabel}
+                    options={vm.dayOptions}
+                    selectedKey={vm.selectedDate}
+                    onSelect={vm.onSelectDay}
+                    accessibilityLabelPrefix={
+                      strings.agenda.dayAccessibilityPrefix
+                    }
+                    accessibilityHint={strings.agenda.dayHint}
+                    marginHorizontal="l"
+                  />
+                </Animated.View>
+              ) : null}
               <Animated.View
                 key={vm.contentKey}
                 exiting={FadeOut.duration(motion.exitFast)
@@ -110,7 +103,7 @@ export function LessonsScreen() {
                         key={lesson.key}
                         testID={`agenda-lesson-${index}`}
                         index={index}
-                        enterDelay={contentDelay}
+                        enterDelay={vm.contentEnterDelay}
                         startTime={lesson.startTime}
                         endTime={lesson.endTime}
                         subject={lesson.subject}

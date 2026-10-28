@@ -140,4 +140,15 @@ describe('LessonsScreen', () => {
     expect(await screen.findByTestId('agenda-day-dropdown')).toBeOnTheScreen();
     expect(screen.queryByTestId('agenda-error')).toBeNull();
   });
+  it('agenda sem dias: "Sem aulas neste dia", sem dropdown vazio', async () => {
+    server.use(
+      http.get(`${API_URL}/students/:id/agenda`, () => HttpResponse.json([])),
+    );
+    await renderScreen();
+
+    expect(await screen.findByTestId('agenda-empty')).toHaveTextContent(
+      'Sem aulas neste dia',
+    );
+    expect(screen.queryByTestId('agenda-day-dropdown')).toBeNull();
+  });
 });

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { motion } from '../../theme';
 import { formatDayLabel } from '../../utils/dates';
 import { useSessionStudent } from '../students/useSessionStudent';
 import { initialAgendaDate } from './agendaDays';
@@ -36,18 +37,20 @@ export function useAgendaViewModel({
   const query = useAgendaQuery(studentId);
   const days = query.data ?? NO_DAYS;
 
-  // Escolha do usuário, válida só para o aluno em que foi feita.
+  // Escolha do usuário e estado do TENTAR DE NOVO, válidos só para o aluno
+  // em que aconteceram.
   const [chosenDate, setChosenDate] = useState<string | null>(null);
-  const [chosenFor, setChosenFor] = useState(studentId);
-  if (chosenFor !== studentId) {
-    setChosenFor(studentId);
-    setChosenDate(null);
-  }
-
   const [failedRetries, setFailedRetries] = useState(0);
   // O refetch de uma query sem dados volta o status para `pending`; durante o
   // TENTAR DE NOVO a tela fica no erro, com o spinner no botão (3.8).
   const [retrying, setRetrying] = useState(false);
+  const [stateFor, setStateFor] = useState(studentId);
+  if (stateFor !== studentId) {
+    setStateFor(studentId);
+    setChosenDate(null);
+    setRetrying(false);
+    setFailedRetries(0);
+  }
 
   const status: 'loading' | 'error' | 'ready' = query.data
     ? 'ready'
@@ -71,6 +74,23 @@ export function useAgendaViewModel({
     }),
   );
 
+  // A 1ª lista espera a entrada do header (4.3); depois da 1ª troca, nenhuma.
+  const contentKey = `${studentId}:${selectedDate}`;
+  const [firstContentKey, setFirstContentKey] = useState<string | null>(null);
+  const [firstContentLeft, setFirstContentLeft] = useState(false);
+  if (status === 'ready' && firstContentKey === null) {
+    setFirstContentKey(contentKey);
+  } else if (
+    firstContentKey !== null &&
+    !firstContentLeft &&
+    contentKey !== firstContentKey
+  ) {
+    setFirstContentLeft(true);
+  }
+  const isFirstContent =
+    !firstContentLeft &&
+    (firstContentKey === null || contentKey === firstContentKey);
+
   const onSelectDay = (date: string) => {
     if (dates.includes(date)) setChosenDate(date);
   };
@@ -89,9 +109,10 @@ export function useAgendaViewModel({
     selectedDate,
     selectedDayLabel: selectedDate ? formatDayLabel(selectedDate) : '',
     /** Muda com o dia e com o aluno: a View usa como `key` da lista. */
-    contentKey: `${studentId}:${selectedDate}`,
+    contentKey,
+    contentEnterDelay: isFirstContent ? 4 * motion.stagger : 0,
     lessons,
-    isEmpty: selectedDay !== undefined && lessons.length === 0,
+    isEmpty: lessons.length === 0,
     onSelectDay,
     onRetry,
     retrying,

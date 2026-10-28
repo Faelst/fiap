@@ -7,6 +7,7 @@ import { useSessionStore } from '../../../stores/session.store';
 import { agendaResponse, API_URL, meResponse } from '../../../test/fixtures';
 import { server } from '../../../test/msw/server';
 import { QueryWrapper } from '../../../test/queryWrapper';
+import { motion } from '../../../theme';
 import { useAgendaViewModel } from '../useAgendaViewModel';
 
 // 25/10/2026 é domingo; 27/10/2026, terça.
@@ -234,5 +235,63 @@ describe('useAgendaViewModel', () => {
     await waitFor(() => expect(result.current.retrying).toBe(false));
     expect(result.current.status).toBe('error');
     expect(result.current.shakeKey).toBe(1);
+  });
+  it('agenda sem dias ([]) fica vazia, sem dias para escolher', async () => {
+    server.use(
+      http.get(`${API_URL}/students/:id/agenda`, () => HttpResponse.json([])),
+    );
+
+    const { result } = await renderReady();
+
+    expect(result.current.dayOptions).toEqual([]);
+    expect(result.current.selectedDate).toBeNull();
+    expect(result.current.isEmpty).toBe(true);
+  });
+
+  it('a 1ª lista espera a entrada do header (4 × stagger); as seguintes, não', async () => {
+    const { result } = await renderReady();
+    expect(result.current.contentEnterDelay).toBe(4 * motion.stagger);
+
+    await act(() => result.current.onSelectDay('2025-03-17'));
+    expect(result.current.contentEnterDelay).toBe(0);
+
+    // Voltar ao dia da 1ª exibição não repete o atraso.
+    await act(() => result.current.onSelectDay('2025-03-18'));
+    expect(result.current.contentEnterDelay).toBe(0);
+  });
+
+  it('trocar de aluno durante o TENTAR DE NOVO não leva o spinner nem o shake ao outro aluno', async () => {
+    let releaseRafael = () => {};
+    const rafaelRetry = new Promise<void>(resolve => {
+      releaseRafael = resolve;
+    });
+    let rafaelCalls = 0;
+    server.use(
+      http.get(`${API_URL}/students/:id/agenda`, async ({ params }) => {
+        if (params.id === 's1') {
+          rafaelCalls += 1;
+          if (rafaelCalls > 2) await rafaelRetry;
+          return HttpResponse.error();
+        }
+        return new Promise<never>(() => {});
+      }),
+    );
+    const { result } = await renderAgenda();
+    await waitFor(() => expect(result.current.status).toBe('error'));
+
+    let retry: Promise<void> = Promise.resolve();
+    await act(() => {
+      retry = result.current.onRetry();
+    });
+    expect(result.current.retrying).toBe(true);
+
+    await act(() => useSessionStore.getState().selectStudent('s2'));
+    expect(result.current.retrying).toBe(false);
+    expect(result.current.status).toBe('loading');
+
+    releaseRafael();
+    await act(() => retry);
+    expect(result.current.status).toBe('loading');
+    expect(result.current.shakeKey).toBe(0);
   });
 });

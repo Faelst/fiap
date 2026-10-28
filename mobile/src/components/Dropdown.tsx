@@ -1,8 +1,10 @@
-import { useRef, useState, type ComponentRef } from 'react';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import {
   AccessibilityInfo,
   Modal,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   useWindowDimensions,
   View,
@@ -13,6 +15,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { strings } from '../constants/strings';
@@ -27,7 +30,7 @@ type DropdownProps = {
   options: readonly DropdownOption[];
   selectedKey: string | null;
   onSelect: (key: string) => void;
-  /** Gatilho; os filhos são `-label`, `-options`, `-option-<key>`, `-backdrop`, `-modal`. */
+  /** Gatilho; os filhos são `-label`, `-options`, `-scroll`, `-option-<key>`, `-backdrop`, `-modal`. */
   testID: string;
   /** "Dia" ou "Turma e ano": o leitor lê "Dia: 17 de março, segunda-feira". */
   accessibilityLabelPrefix: string;
@@ -42,7 +45,8 @@ type Anchor = { x: number; y: number; width: number; height: number };
  * Dropdown da Agenda e do Boletim (01-design.md, 2.5 e 4.5). A lista abre num
  * `Modal` transparente, por cima do conteúdo, na posição do gatilho medida
  * por `measureInWindow` (sem briga de `zIndex` dentro da `ScrollView`). Abre
- * abaixo do gatilho ou, sem espaço, acima. Tocar fora ou o voltar do Android
+ * abaixo do gatilho ou, sem espaço, acima, sempre dentro da área segura: o que
+ * não couber rola (tela baixa, fonte grande). Tocar fora ou o voltar do Android
  * fecham sem mudar nada. A opção atual não tem marca visual (Figma), só o
  * estado `selected` para o leitor de tela.
  */
@@ -58,11 +62,15 @@ export function Dropdown({
 }: DropdownProps) {
   const { colors, motion, sizes, spacing } = useTheme();
   const window = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
   const triggerRef = useRef<ComponentRef<typeof View>>(null);
   // Com âncora, o Modal está montado; `expanded` é o estado que o usuário vê.
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   const [expanded, setExpanded] = useState(false);
+  // O foco volta ao gatilho só depois que o Modal sai (6.4): antes disso o
+  // gatilho está encoberto pelo modal e o leitor de tela não o alcança.
+  const focusPending = useRef(false);
   const listProgress = useSharedValue(0);
   const chevronProgress = useSharedValue(0);
 
@@ -80,13 +88,24 @@ export function Dropdown({
     });
   };
 
-  const unmountList = () => {
-    setAnchor(null);
-    // O foco do leitor volta ao gatilho (01-design.md, 6.4).
+  const focusTrigger = () => {
+    if (!focusPending.current) return;
+    focusPending.current = false;
     if (triggerRef.current) {
       AccessibilityInfo.sendAccessibilityEvent(triggerRef.current, 'focus');
     }
   };
+
+  const unmountList = () => {
+    focusPending.current = true;
+    setAnchor(null);
+  };
+
+  // iOS: o `onDismiss` do Modal avisa quando ele saiu. Android: o efeito roda
+  // depois do commit que tirou o Modal.
+  useEffect(() => {
+    if (anchor === null && Platform.OS !== 'ios') focusTrigger();
+  });
 
   const close = () => {
     setExpanded(false);
@@ -94,13 +113,15 @@ export function Dropdown({
     listProgress.set(
       withTiming(0, timing(motion.exitFast, motion.easeIn), finished => {
         'worklet';
-        // Reaberta no meio da saída: a animação foi interrompida e a lista fica.
+        // Fechada de novo no meio da saída (2º toque no fundo): a 1ª animação
+        // é interrompida e só a última desmonta a lista.
         if (finished) scheduleOnRN(unmountList);
       }),
     );
   };
 
   const choose = (key: string) => {
+    if (!expanded) return;
     onSelect(key);
     close();
   };
@@ -121,7 +142,7 @@ export function Dropdown({
   }));
 
   const listPosition = anchor
-    ? placeList(anchor, window.height, {
+    ? placeList(anchor, window.height, insets, {
         gap: spacing.s,
         estimatedHeight: options.length * sizes.touchTarget + 2 * spacing.xs,
       })
@@ -166,6 +187,7 @@ export function Dropdown({
         statusBarTranslucent
         navigationBarTranslucent
         onRequestClose={close}
+        onDismiss={focusTrigger}
       >
         <Box style={StyleSheet.absoluteFill} accessibilityViewIsModal>
           <Pressable
@@ -178,30 +200,44 @@ export function Dropdown({
           {listPosition ? (
             <Animated.View
               testID={`${testID}-options`}
+              // Sumindo: nenhuma opção recebe um 2º toque.
+              pointerEvents={expanded ? 'auto' : 'none'}
               style={[styles.list, listPosition, listStyle]}
             >
-              <Card variant="options">
-                {options.map(option => (
-                  <Pressable
-                    key={option.key}
-                    testID={`${testID}-option-${option.key}`}
-                    accessibilityRole="button"
-                    accessibilityState={{
-                      selected: option.key === selectedKey,
-                    }}
-                    onPress={() => choose(option.key)}
-                    style={({ pressed }) => ({
-                      minHeight: sizes.touchTarget,
-                      paddingHorizontal: spacing.m,
-                      justifyContent: 'center',
-                      opacity: pressed ? motion.pressedOpacity : 1,
-                    })}
-                  >
-                    <Text variant="body" numberOfLines={1}>
-                      {option.label}
-                    </Text>
-                  </Pressable>
-                ))}
+              <Card variant="options" flexShrink={1}>
+                <ScrollView
+                  testID={`${testID}-scroll`}
+                  style={{
+                    maxHeight: listPosition.maxHeight - 2 * spacing.xs,
+                  }}
+                  bounces={false}
+                >
+                  {options.map(option => (
+                    <Pressable
+                      key={option.key}
+                      testID={`${testID}-option-${option.key}`}
+                      accessibilityRole="button"
+                      accessibilityState={{
+                        selected: option.key === selectedKey,
+                      }}
+                      onPress={() => choose(option.key)}
+                      style={({ pressed }) => ({
+                        minHeight: sizes.touchTarget,
+                        paddingHorizontal: spacing.m,
+                        justifyContent: 'center',
+                        opacity: pressed ? motion.pressedOpacity : 1,
+                      })}
+                    >
+                      <Text
+                        variant="body"
+                        numberOfLines={1}
+                        maxFontSizeMultiplier={sizes.fixedHeightFontScale}
+                      >
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
               </Card>
             </Animated.View>
           ) : null}
@@ -212,21 +248,28 @@ export function Dropdown({
 }
 
 /**
- * Lista `gap` abaixo do gatilho, com a mesma largura e o mesmo x. Se não
- * couber até o fim da janela, abre `gap` acima.
+ * Lista `gap` abaixo do gatilho, com a mesma largura e o mesmo x, limitada à
+ * área segura. Abre abaixo se couber ali; senão, no lado com mais espaço. O
+ * `maxHeight` é o espaço desse lado: o que passar dele rola.
  */
 function placeList(
   anchor: Anchor,
   windowHeight: number,
+  insets: { top: number; bottom: number },
   { gap, estimatedHeight }: { gap: number; estimatedHeight: number },
 ) {
-  const below = anchor.y + anchor.height + gap;
-  const fitsBelow = windowHeight - below >= estimatedHeight;
-  return {
-    left: anchor.x,
-    width: anchor.width,
-    ...(fitsBelow ? { top: below } : { bottom: windowHeight - anchor.y + gap }),
-  };
+  const top = anchor.y + anchor.height + gap;
+  const spaceBelow = windowHeight - insets.bottom - top;
+  const spaceAbove = anchor.y - gap - insets.top;
+  const opensBelow = spaceBelow >= estimatedHeight || spaceBelow >= spaceAbove;
+  const horizontal = { left: anchor.x, width: anchor.width };
+  return opensBelow
+    ? { ...horizontal, top, maxHeight: spaceBelow }
+    : {
+        ...horizontal,
+        bottom: windowHeight - anchor.y + gap,
+        maxHeight: spaceAbove,
+      };
 }
 
 const styles = StyleSheet.create({
