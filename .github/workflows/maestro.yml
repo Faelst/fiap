@@ -158,6 +158,8 @@ jobs:
           sudo udevadm trigger --name-match=kvm
 
       # O script do emulator-runner roda linha a linha (sh): um comando por linha.
+      # Na falha, o logcat (erros do JS e do nativo) vai junto com o relatório;
+      # o buffer maior guarda os 10 flows.
       - name: Maestro - flows no emulador (API 34, x86_64)
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -170,15 +172,20 @@ jobs:
           script: |
             adb install -r "$APK"
             mkdir -p "$REPORT_DIR/debug"
-            maestro test mobile/.maestro --format junit --output "$REPORT_DIR/report.xml" --debug-output "$REPORT_DIR/debug"
+            adb logcat -G 16M || true
+            maestro test mobile/.maestro --format junit --output "$REPORT_DIR/report.xml" --debug-output "$REPORT_DIR/debug" || { adb logcat -d > "$REPORT_DIR/logcat.txt"; exit 1; }
 
-      # Relatório JUnit e, nas falhas, os prints e logs de cada comando.
+      # Relatório JUnit e, nas falhas, os prints e logs de cada comando. O
+      # Maestro grava o --debug-output em debug/.maestro/tests/<data>/, uma
+      # pasta oculta que o upload-artifact v4 pula sem o include-hidden-files
+      # (no run 40712207537 o artefato saiu só com o report.xml).
       - name: Relatório do Maestro
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: maestro-report
           path: ${{ env.REPORT_DIR }}/
+          include-hidden-files: true
           if-no-files-found: warn
           retention-days: 14
 
