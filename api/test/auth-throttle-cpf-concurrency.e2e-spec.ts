@@ -62,22 +62,20 @@ describe('Limite por CPF com tentativas simultâneas (e2e)', () => {
       await app.close();
     });
 
-    // Critério: as 20 chegam ao servidor bem antes de o primeiro bcrypt
-    // (~70 ms) terminar, então exatamente 10 reservam vaga e 10 recebem 429,
-    // seja qual for a ordem de chegada. A senha certa só pode dar 200 se ela
-    // estiver entre as 10 primeiras a chegar; nesse caso ela ocupa uma das 10
-    // vagas. Que a certa além do limite dá 429 está provado de forma
-    // determinística no spec do interceptor.
-    it('20 em paralelo com a senha certa no fim: no máximo 10 passam do limite', async () => {
-      const passwords = [...Array<string>(19).fill('errada'), '123456'];
+    // Só senhas erradas: nenhuma resposta zera o contador, então exatamente
+    // 10 reservam vaga e 10 recebem 429, seja qual for a ordem de chegada ou o
+    // tempo do bcrypt. A senha certa no lote deixava o resultado depender de
+    // tempo (o reset dela abre uma janela nova para as que chegam depois).
+    // Que a certa além do limite dá 429 está provado de forma determinística
+    // no spec do interceptor.
+    it('20 senhas erradas em paralelo: exatamente 10 chegam à senha', async () => {
       const responses = await Promise.all(
-        passwords.map((password) => attempt(app, '96929456004', password)),
+        Array.from({ length: 20 }, () => attempt(app, '96929456004', 'errada')),
       );
       const statuses = responses.map((response) => response.status);
 
+      expect(count(statuses, 401)).toBe(10);
       expect(count(statuses, 429)).toBe(10);
-      expect(count(statuses, 401) + count(statuses, 200)).toBe(10);
-      expect(count(statuses, 200)).toBeLessThanOrEqual(1);
     });
   });
 });
