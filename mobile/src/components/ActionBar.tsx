@@ -48,7 +48,7 @@ export function ActionBar({
             style={sizes.logoHeader}
           />
         </Box>
-        <Box flexDirection="row" alignItems="center" gap="s" height="100%">
+        <Box flexDirection="row" alignItems="center" gap="s">
           {canSwitchStudent ? (
             <Pressable
               testID="header-switch-student-button"
@@ -58,9 +58,13 @@ export function ActionBar({
               }
               accessibilityHint={strings.header.switchStudentHint}
               onPress={onSwitchStudent}
-              style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+              // A altura fica no próprio Pressable: é ele a área de toque (6.3).
+              style={({ pressed }) => ({
+                height: sizes.actionBar,
+                opacity: pressed ? motion.pressedOpacity : 1,
+              })}
             >
-              <Box height="100%" justifyContent="center" paddingHorizontal="s">
+              <Box flex={1} justifyContent="center" paddingHorizontal="s">
                 <Text
                   variant="caption"
                   maxFontSizeMultiplier={sizes.fixedHeightFontScale}
@@ -77,10 +81,14 @@ export function ActionBar({
             accessibilityState={{ disabled: logoutDisabled }}
             disabled={logoutDisabled}
             onPress={onLogout}
-            style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+            // A altura fica no próprio Pressable: é ele a área de toque (6.3).
+            style={({ pressed }) => ({
+              height: sizes.actionBar,
+              opacity: pressed ? motion.pressedOpacity : 1,
+            })}
           >
             <Box
-              height="100%"
+              flex={1}
               flexDirection="row"
               alignItems="center"
               gap="xs"

@@ -149,4 +149,25 @@ describe('Header', () => {
       height: theme.sizes.actionBar,
     });
   });
+
+  it('TROCAR PERFIL e SAIR tocáveis na altura toda da barra (alvo ≥ 44)', async () => {
+    await renderWithTheme(
+      <Header
+        guardianFirstName="Gustavo"
+        student={rafael}
+        canSwitchStudent
+        onSwitchStudent={onSwitchStudent}
+        onLogout={onLogout}
+      />,
+    );
+
+    for (const id of ['header-switch-student-button', 'header-logout-button']) {
+      expect(screen.getByTestId(id)).toHaveStyle({
+        height: theme.sizes.actionBar,
+      });
+    }
+    expect(theme.sizes.actionBar).toBeGreaterThanOrEqual(
+      theme.sizes.touchTarget,
+    );
+  });
 });

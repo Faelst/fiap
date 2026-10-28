@@ -22,7 +22,7 @@ export function SecondaryButton({
   testID,
   accessibilityLabel,
 }: SecondaryButtonProps) {
-  const { colors, sizes } = useTheme();
+  const { colors, motion, sizes } = useTheme();
 
   return (
     <Pressable
@@ -32,7 +32,9 @@ export function SecondaryButton({
       accessibilityState={{ busy: loading, disabled: loading }}
       disabled={loading}
       onPress={onPress}
-      style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+      style={({ pressed }) => ({
+        opacity: pressed ? motion.pressedOpacity : 1,
+      })}
     >
       <ButtonContainer variant="secondary">
         <Text

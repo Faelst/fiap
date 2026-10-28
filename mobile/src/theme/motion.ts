@@ -11,6 +11,8 @@ export const motion = {
   easeOut: Easing.out(Easing.cubic),
   easeIn: Easing.in(Easing.cubic),
   press: { damping: 18, stiffness: 260, mass: 1 },
+  /** Opacidade de ações de texto pressionadas (barra, dropdown, acordeão). */
+  pressedOpacity: 0.6,
   /** Escala do botão pressionado. */
   pressScale: 0.98,
   /** Deslocamento das entradas `FadeInDown` (campos do login e erro). */
