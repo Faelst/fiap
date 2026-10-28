@@ -10,10 +10,19 @@ export type AppTabsParamList = {
   Boletim: undefined;
 };
 
+/**
+ * `fromSplash`: a tela veio do fim da splash. Ela entra sem a animação do
+ * stack (a splash já fez a saída) e o Login não mexe no logo no 1º frame.
+ */
+export type FromSplashParams = { fromSplash?: boolean } | undefined;
+
 export type RootStackParamList = {
-  Login: undefined;
-  App: NavigatorScreenParams<AppTabsParamList>;
+  Splash: undefined;
+  Login: FromSplashParams;
+  App: (NavigatorScreenParams<AppTabsParamList> & FromSplashParams) | undefined;
   SelectStudent: undefined;
+  NoStudent: FromSplashParams;
+  BootError: FromSplashParams;
 };
 
 export type RootStackScreenProps<T extends keyof RootStackParamList> =

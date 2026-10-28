@@ -3,10 +3,8 @@ import {
   NavigationContainer,
   type Theme as NavigationTheme,
 } from '@react-navigation/native';
-import BootSplash from 'react-native-bootsplash';
 
 import { RootStack } from '../navigation/RootStack';
-import { useSessionStore } from '../stores/session.store';
 import { theme } from '../theme';
 
 const navigationTheme: NavigationTheme = {
@@ -21,20 +19,13 @@ const navigationTheme: NavigationTheme = {
   },
 };
 
-const hideSplash = () => {
-  BootSplash.hide({ fade: true });
-};
-
+/**
+ * A splash JS é a primeira rota e esconde a nativa (só fundo preto) no
+ * primeiro layout; a sessão é lida enquanto ela anima.
+ */
 export function Navigation() {
-  const loading = useSessionStore(state => state.status === 'loading');
-
-  // Enquanto o keychain é lido, a splash nativa continua na tela.
-  if (loading) {
-    return null;
-  }
-
   return (
-    <NavigationContainer theme={navigationTheme} onReady={hideSplash}>
+    <NavigationContainer theme={navigationTheme}>
       <RootStack />
     </NavigationContainer>
   );
