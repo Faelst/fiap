@@ -8,6 +8,7 @@ import { queryClient, queryKeys } from '../../../app/queryClient';
 import { createSecureStorage } from '../../../services/storage/secureStorage';
 import { useSessionStore } from '../../../stores/session.store';
 import { agendaResponse, API_URL, meResponse } from '../../../test/fixtures';
+import { hasEnteringAncestor } from '../../../test/layoutEntering';
 import { mockMeasureInWindow } from '../../../test/measureInWindow';
 import { server } from '../../../test/msw/server';
 import { QueryWrapper } from '../../../test/queryWrapper';
@@ -82,6 +83,16 @@ describe('LessonsScreen', () => {
     gate.release();
     expect(await screen.findByTestId('agenda-day-dropdown')).toBeOnTheScreen();
     expect(screen.queryByTestId('agenda-skeleton')).toBeNull();
+  });
+
+  // Regressão (run 40720432602 do Maestro, Android): a entrada de layout do
+  // dropdown às vezes não terminava e ele ficava com opacidade 0, ocupando o
+  // lugar mas invisível. A entrada dele não pode ser animação de layout.
+  it('dropdown de dias não depende de animação de layout para aparecer', async () => {
+    await renderScreen();
+
+    const dropdown = await screen.findByTestId('agenda-day-dropdown');
+    expect(hasEnteringAncestor(dropdown)).toBe(false);
   });
 
   it('segunda: lista as aulas com horário e disciplina, na ordem', async () => {

@@ -4,6 +4,7 @@ import Animated, { FadeOut, ReduceMotion } from 'react-native-reanimated';
 import { BoletimSkeleton } from '../../components/BoletimSkeleton';
 import { Dropdown } from '../../components/Dropdown';
 import { EmptyState } from '../../components/EmptyState';
+import { EnterDown } from '../../components/EnterDown';
 import { ErrorState } from '../../components/ErrorState';
 import { Screen } from '../../components/Screen';
 import { SectionTitle } from '../../components/SectionTitle';
@@ -64,7 +65,7 @@ export function ReportCardScreen() {
           ) : null}
           {vm.status === 'ready' && !vm.isEmpty ? (
             <>
-              <Animated.View entering={enterDown(motion, 3 * motion.stagger)}>
+              <EnterDown delay={3 * motion.stagger}>
                 <Dropdown
                   testID="boletim-year-dropdown"
                   label={vm.selectedYearLabel}
@@ -77,7 +78,7 @@ export function ReportCardScreen() {
                   accessibilityHint={strings.boletim.yearHint}
                   marginHorizontal="m"
                 />
-              </Animated.View>
+              </EnterDown>
               <Box marginTop="m">
                 {vm.termsStatus === 'loading' ? (
                   <BoletimSkeleton

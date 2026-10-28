@@ -4,6 +4,7 @@ import Animated, { FadeOut, ReduceMotion } from 'react-native-reanimated';
 import { AgendaSkeleton } from '../../components/AgendaSkeleton';
 import { Dropdown } from '../../components/Dropdown';
 import { EmptyState } from '../../components/EmptyState';
+import { EnterDown } from '../../components/EnterDown';
 import { ErrorState } from '../../components/ErrorState';
 import { LessonItem } from '../../components/LessonItem';
 import { Screen } from '../../components/Screen';
@@ -56,7 +57,7 @@ export function LessonsScreen() {
           {vm.status === 'ready' ? (
             <>
               {vm.dayOptions.length > 0 ? (
-                <Animated.View entering={enterDown(motion, 3 * motion.stagger)}>
+                <EnterDown delay={3 * motion.stagger}>
                   <Dropdown
                     testID="agenda-day-dropdown"
                     label={vm.selectedDayLabel}
@@ -69,7 +70,7 @@ export function LessonsScreen() {
                     accessibilityHint={strings.agenda.dayHint}
                     marginHorizontal="l"
                   />
-                </Animated.View>
+                </EnterDown>
               ) : null}
               <Animated.View
                 key={vm.contentKey}

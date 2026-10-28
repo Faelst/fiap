@@ -14,6 +14,7 @@ import {
   reportCard2025,
   reportCardsResponse,
 } from '../../../test/fixtures';
+import { hasEnteringAncestor } from '../../../test/layoutEntering';
 import { mockMeasureInWindow } from '../../../test/measureInWindow';
 import { server } from '../../../test/msw/server';
 import { QueryWrapper } from '../../../test/queryWrapper';
@@ -123,6 +124,16 @@ describe('ReportCardScreen', () => {
       'accessibilityHint',
       'Toque para ver outros anos',
     );
+  });
+
+  // Regressão (run 40720432602 do Maestro, Android): a entrada de layout do
+  // dropdown às vezes não terminava e ele ficava com opacidade 0, ocupando o
+  // lugar mas invisível. A entrada dele não pode ser animação de layout.
+  it('dropdown de turma e ano não depende de animação de layout para aparecer', async () => {
+    await renderScreen();
+
+    const dropdown = await screen.findByTestId('boletim-year-dropdown');
+    expect(hasEnteringAncestor(dropdown)).toBe(false);
   });
 
   it('abrir o 1º trimestre e Língua Portuguesa mostra Nota 9,5 e Faltas 0', async () => {
