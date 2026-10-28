@@ -114,11 +114,14 @@ yarn ios
 
 Para rodar os testes de tela, veja [Flows do Maestro](#flows-do-maestro).
 
+Para ver a interface nova, veja [Mudar para a v2](#mudar-para-a-v2).
+
 ## Sumário
 
 - [Início rápido](#início-rápido)
 - [Visão geral](#visão-geral)
 - [Demonstração](#demonstração)
+- [v2 (UI moderna)](#v2-ui-moderna)
 - [Stack e dependências](#stack-e-dependências)
 - [Pré-requisitos](#pré-requisitos)
 - [Como rodar a API](#como-rodar-a-api)
@@ -197,6 +200,44 @@ originais estão em
 |---|---|
 | ![Troca de aluno a partir do boletim](docs/media/trocar-aluno.gif) | ![Responsável sem aluno e boletim com a API fora do ar](docs/media/estados.gif) |
 | TROCAR PERFIL a partir do Boletim e da Agenda | Responsável sem aluno; boletim com a API parada e "Tentar de novo" |
+
+## v2 (UI moderna)
+
+Além da v1 (esta branch, fiel ao Figma e a entrega oficial do teste), existe
+uma **v2** com a interface refeita sobre a mesma API, na branch
+[`release/v2`](https://github.com/Faelst/fiap/tree/release/v2): tab bar
+flutuante com a aba **Perfil** (dados do responsável, troca de aluno e sair),
+**Login** novo, **Agenda** em timetable (faixa semanal e linha de "agora") e
+**Boletim** por faixas de nota. Prints e detalhes estão no
+[README da v2](https://github.com/Faelst/fiap/tree/release/v2#v2-ui-moderna).
+
+A v2 foi feita sem testes novos, sem QA e sem revisão de segurança dedicados
+(os testes da v1 foram ajustados e seguem verdes).
+
+### Mudar para a v2
+
+Com o projeto já rodando pelo [Início rápido](#início-rápido):
+
+```sh
+# Na raiz do repositório
+git fetch origin
+git checkout release/v2
+
+cd mobile
+yarn install                # as dependências são as mesmas; só confirma o node_modules
+yarn start --reset-cache    # reinicie o Metro limpando o cache
+```
+
+Com o Metro reiniciado, recarregue o app (`r` no terminal do Metro) ou rode
+`yarn android` / `yarn ios` de novo. A v2 não muda código nativo nem a API:
+não é preciso rebuildar o app nem resetar o banco, e o mesmo login funciona.
+
+Para voltar à v1:
+
+```sh
+git checkout master
+cd mobile && yarn start --reset-cache
+```
 
 ## Stack e dependências
 
