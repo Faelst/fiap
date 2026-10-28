@@ -63,7 +63,7 @@ function IsTrustProxy() {
         }
       },
       defaultMessage: () =>
-        'TRUST_PROXY deve ser false, true, número de saltos ou lista de IPs/sub-redes',
+        'TRUST_PROXY deve ser false, número de saltos ou lista de IPs/sub-redes',
     },
   });
 }
@@ -135,7 +135,7 @@ export class EnvironmentVariables {
 
   /**
    * `trust proxy` do express, que decide o req.ip (usado pelo rate limit):
-   * false, true, número de saltos ou lista de IPs/sub-redes. Ver trust-proxy.ts.
+   * false, número de saltos ou lista de IPs/sub-redes. Ver trust-proxy.ts.
    */
   @IsTrustProxy()
   TRUST_PROXY: string = 'false';

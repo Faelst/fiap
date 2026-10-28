@@ -1,7 +1,7 @@
 import { isIP } from 'node:net';
 
 /** Valor aceito pelo `app.set('trust proxy', ...)` do express. */
-export type TrustProxySetting = boolean | number | string[];
+export type TrustProxySetting = false | number | string[];
 
 /** Nomes de faixa que o express (proxy-addr) já conhece. */
 const NAMED_RANGES = new Set(['loopback', 'linklocal', 'uniquelocal']);
@@ -23,7 +23,7 @@ function isAddressOrSubnet(entry: string): boolean {
 }
 
 /**
- * Lê a env TRUST_PROXY: `false` (padrão), `true`, número de saltos ou lista
+ * Lê a env TRUST_PROXY: `false` (padrão), número de saltos ou lista
  * separada por vírgula de IPs, sub-redes (CIDR) e `loopback`, `linklocal`,
  * `uniquelocal`. Valor fora disso lança erro, para o boot falhar cedo em vez
  * de o express quebrar (ou confiar em quem não devia) depois.
@@ -35,7 +35,11 @@ export function parseTrustProxy(value: string): TrustProxySetting {
     return false;
   }
   if (normalized === 'true') {
-    return true;
+    // Confiar em todo X-Forwarded-For deixa qualquer cliente escolher o próprio
+    // IP, e o rate limit por IP deixa de valer.
+    throw new Error(
+      'TRUST_PROXY inválido ("true"): confiar em qualquer proxy anula o rate limit. Use o número de saltos (ex.: 1) ou a lista de IPs do proxy.',
+    );
   }
   if (/^\d+$/.test(normalized)) {
     return Number(normalized);
@@ -49,7 +53,7 @@ export function parseTrustProxy(value: string): TrustProxySetting {
 
   if (entries.length === 0 || invalid !== undefined) {
     throw new Error(
-      `TRUST_PROXY inválido ("${invalid ?? value}"): use false, true, número de saltos ou lista de IPs/sub-redes.`,
+      `TRUST_PROXY inválido ("${invalid ?? value}"): use false, número de saltos ou lista de IPs/sub-redes.`,
     );
   }
   return entries;

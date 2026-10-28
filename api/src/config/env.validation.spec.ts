@@ -234,20 +234,20 @@ describe('validateEnv: logs, Swagger e proxy', () => {
     );
   });
 
-  it.each(['true', '1', 'loopback, 10.0.0.0/8'])(
-    'aceita TRUST_PROXY "%s"',
+  it.each(['1', 'loopback, 10.0.0.0/8'])('aceita TRUST_PROXY "%s"', (value) => {
+    expect(validateEnv({ ...validEnv, TRUST_PROXY: value }).TRUST_PROXY).toBe(
+      value,
+    );
+  });
+
+  it.each(['true', '-1', 'sim', '10.0.0.0/40'])(
+    'recusa TRUST_PROXY "%s"',
     (value) => {
-      expect(validateEnv({ ...validEnv, TRUST_PROXY: value }).TRUST_PROXY).toBe(
-        value,
+      expect(() => validateEnv({ ...validEnv, TRUST_PROXY: value })).toThrow(
+        'TRUST_PROXY',
       );
     },
   );
-
-  it.each(['-1', 'sim', '10.0.0.0/40'])('recusa TRUST_PROXY "%s"', (value) => {
-    expect(() => validateEnv({ ...validEnv, TRUST_PROXY: value })).toThrow(
-      'TRUST_PROXY',
-    );
-  });
 });
 
 describe('parseCorsOrigins', () => {

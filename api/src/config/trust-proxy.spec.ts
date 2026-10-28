@@ -8,9 +8,12 @@ describe('parseTrustProxy', () => {
     },
   );
 
-  it.each(['true', 'True'])('confia em qualquer proxy com "%s"', (value) => {
-    expect(parseTrustProxy(value)).toBe(true);
-  });
+  it.each(['true', 'True', ' TRUE '])(
+    'recusa "%s": confiar em qualquer X-Forwarded-For anula o rate limit',
+    (value) => {
+      expect(() => parseTrustProxy(value)).toThrow('TRUST_PROXY');
+    },
+  );
 
   it.each([
     ['0', 0],
