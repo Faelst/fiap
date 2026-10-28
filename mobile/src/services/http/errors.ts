@@ -76,6 +76,35 @@ function messageFrom(data: unknown): string | undefined {
   return typeof message === 'string' ? message : message[0];
 }
 
+/** Causa de um erro HTTP sem nada que identifique o usuário. */
+export type HttpErrorCause = {
+  name: string;
+  code?: string;
+  status?: number;
+  method?: string;
+  url?: string;
+};
+
+/**
+ * O AxiosError carrega `config.data` (CPF e senha do login), `config.headers`
+ * (Bearer) e `response.data`. Na `cause` fica só o que ajuda a depurar, para o
+ * erro poder ser serializado (React Query, Reactotron) sem vazar dado.
+ */
+function httpCause(error: {
+  name: string;
+  code?: string;
+  config?: { method?: string; url?: string };
+  response?: { status: number };
+}): HttpErrorCause {
+  return {
+    name: error.name,
+    code: error.code,
+    status: error.response?.status,
+    method: error.config?.method?.toUpperCase(),
+    url: error.config?.url?.split('?')[0],
+  };
+}
+
 export function toApiError(error: unknown): ApiError {
   if (error instanceof ApiError) {
     return error;
@@ -84,17 +113,17 @@ export function toApiError(error: unknown): ApiError {
     return new ApiError('invalidResponse', { cause: error });
   }
   if (isCancel(error)) {
-    return new ApiError('canceled', { cause: error });
+    return new ApiError('canceled', { cause: httpCause(error) });
   }
   if (isAxiosError(error)) {
     if (!error.response) {
-      return new ApiError('network', { cause: error });
+      return new ApiError('network', { cause: httpCause(error) });
     }
     const { status, data } = error.response;
     return new ApiError(kindFromStatus(status), {
       status,
       apiMessage: messageFrom(data),
-      cause: error,
+      cause: httpCause(error),
     });
   }
   return new ApiError('unknown', { cause: error });

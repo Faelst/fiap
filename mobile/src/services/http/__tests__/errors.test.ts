@@ -77,9 +77,54 @@ describe('toApiError', () => {
       'Network Error',
       AxiosError.ERR_NETWORK,
     );
-    expect(toApiError(networkError).cause).toBe(networkError);
+    expect(toApiError(networkError).cause).toMatchObject({
+      name: 'AxiosError',
+      code: 'ERR_NETWORK',
+    });
     const cause = new Error('keychain');
     expect(new ApiError('storage', { cause }).cause).toBe(cause);
+  });
+
+  it('a causa de erro HTTP é saneada: sem corpo, headers nem query string', () => {
+    const config = {
+      method: 'post',
+      url: '/auth/login?debug=96929456004',
+      data: JSON.stringify({ cpf: '96929456004', password: 'senha-secreta' }),
+      headers: new AxiosHeaders({ Authorization: 'Bearer jwt-secreto' }),
+    };
+    const axiosError = new AxiosError(
+      'Request failed',
+      'ERR_BAD_REQUEST',
+      config,
+      null,
+      {
+        status: 401,
+        statusText: '',
+        data: { message: 'Usuário ou senha inválida.', cpf: '96929456004' },
+        headers: {},
+        config,
+      },
+    );
+
+    const error = toApiError(axiosError);
+    const ownProps = Object.fromEntries(
+      Object.getOwnPropertyNames(error).map(key => [
+        key,
+        (error as unknown as Record<string, unknown>)[key],
+      ]),
+    );
+    const dump = JSON.stringify({ error, ownProps, cause: error.cause });
+
+    expect(error.cause).toEqual({
+      name: 'AxiosError',
+      code: 'ERR_BAD_REQUEST',
+      status: 401,
+      method: 'POST',
+      url: '/auth/login',
+    });
+    for (const secret of ['96929456004', 'senha-secreta', 'jwt-secreto']) {
+      expect(dump).not.toContain(secret);
+    }
   });
 
   it('aceita uma mensagem própria (erro do app, não da API)', () => {

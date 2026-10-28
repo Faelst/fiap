@@ -34,7 +34,7 @@ async function expireSession(requestToken: string | null): Promise<void> {
     return expiringSession ?? undefined;
   }
   if (!expiringSession) {
-    logger.warn('sessão expirada: voltando ao login');
+    logger.info('sessão expirada: voltando ao login');
     expiringSession = signOut('expired').finally(() => {
       expiringSession = null;
     });
