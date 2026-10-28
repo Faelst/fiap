@@ -1,5 +1,9 @@
 # Abre o app do zero (sem sessão salva) e espera o Login.
-# A splash tem duração mínima (1,2 s + saída): por isso os 12 s.
+# 30 s: depois do clearState o app abre a frio, e no emulador do CI (2 cores,
+# sem GPU) o JS demora a subir; a splash ainda pode esperar o keychain até a
+# trava de 10 s (motion.splash.hardTimeout) antes de ir para o Login. Os 12 s
+# de antes não cobriam isso (flow 03 do run 40712207537). O extendedWaitUntil
+# sai assim que o Login aparece, então o teto maior não atrasa quem passa.
 appId: br.com.fiap.school
 ---
 - launchApp:
@@ -8,4 +12,4 @@ appId: br.com.fiap.school
 - extendedWaitUntil:
     visible:
       id: login-screen
-    timeout: 12000
+    timeout: 30000

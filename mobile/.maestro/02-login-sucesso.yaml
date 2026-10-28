@@ -13,7 +13,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: agenda-screen
-    timeout: 10000
+    timeout: 20000
 - assertVisible:
     id: header-greeting
     text: '(?i)olá, gustavo'
@@ -26,10 +26,16 @@ tags:
     id: header-logout-button
 - assertVisible:
     id: agenda-title
+# Primeiro a Agenda sai do skeleton (chegou a agenda da API), depois o
+# dropdown dos dias. Separado em dois passos para a falha dizer qual faltou.
+- extendedWaitUntil:
+    notVisible:
+      id: agenda-skeleton
+    timeout: 20000
 - extendedWaitUntil:
     visible:
       id: agenda-day-dropdown
-    timeout: 10000
+    timeout: 20000
 - assertVisible:
     id: tab-agenda
 - assertVisible:

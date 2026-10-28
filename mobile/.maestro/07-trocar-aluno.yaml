@@ -15,13 +15,19 @@ tags:
 - extendedWaitUntil:
     visible:
       id: agenda-screen
-    timeout: 10000
+    timeout: 20000
 - tapOn:
     id: tab-boletim
+# Primeiro o Boletim sai do skeleton (chegaram os anos da API), depois o
+# dropdown de turma e ano. Separado para a falha dizer qual faltou.
+- extendedWaitUntil:
+    notVisible:
+      id: boletim-skeleton
+    timeout: 20000
 - extendedWaitUntil:
     visible:
       id: boletim-year-dropdown
-    timeout: 10000
+    timeout: 20000
 
 # Rafael (7EF).
 - runFlow:
@@ -32,7 +38,7 @@ tags:
     visible:
       id: boletim-year-dropdown
       text: '.*7EF - 2025'
-    timeout: 10000
+    timeout: 20000
 - assertVisible:
     text: '(?i)aluno rafael,.*'
 
@@ -45,7 +51,7 @@ tags:
     visible:
       id: boletim-year-dropdown
       text: '.*2EM - 2025'
-    timeout: 10000
+    timeout: 20000
 - assertVisible:
     text: '(?i)aluno joana,.*'
 - assertVisible:

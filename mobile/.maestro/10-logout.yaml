@@ -13,16 +13,16 @@ tags:
 - extendedWaitUntil:
     visible:
       id: agenda-screen
-    timeout: 10000
+    timeout: 20000
 - runFlow: subflows/logout.yaml
 - assertNotVisible:
     id: agenda-screen
 - stopApp
 - launchApp
-# A splash tem duração mínima: 12 s (ledger).
+# Abertura a frio + splash: até 30 s, como no subflows/launch-clean.yaml.
 - extendedWaitUntil:
     visible:
       id: login-screen
-    timeout: 12000
+    timeout: 30000
 - assertNotVisible:
     id: agenda-screen

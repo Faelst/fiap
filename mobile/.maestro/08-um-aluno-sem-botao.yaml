@@ -13,7 +13,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: agenda-screen
-    timeout: 10000
+    timeout: 20000
 - assertVisible:
     id: header-greeting
     text: '(?i)olá, adelaide'
@@ -29,6 +29,6 @@ tags:
     visible:
       id: boletim-year-dropdown
       text: '.*1EF - 2025'
-    timeout: 10000
+    timeout: 20000
 - assertNotVisible:
     id: header-switch-student-button

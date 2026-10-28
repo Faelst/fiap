@@ -1,8 +1,10 @@
 # Flows do Maestro
 
-> Os flows ainda não foram executados: a máquina de desenvolvimento não tem
-> Maestro, Java nem Android SDK. Hoje roda só a checagem estática
-> (`yarn maestro:check`). A primeira execução real é o `maestro.yml` no CI.
+> A máquina de desenvolvimento não tem Maestro, Java nem Android SDK: aqui
+> roda só a checagem estática (`yarn maestro:check`). Os flows rodam de
+> verdade no `maestro.yml`, no emulador Android do CI; na falha, o artefato
+> `maestro-report` traz o JUnit, os prints e a hierarquia de cada comando
+> (em `debug/.maestro/tests/<data>/`) e o `logcat.txt`.
 
 Um flow por caso de uso (brief, seção 6), usando `testID` e os responsáveis do
 seed da API.
@@ -76,8 +78,10 @@ emulador Android. Ele roda pelo `workflow_dispatch` ou num PR com a label
 
 ## Observações
 
-- A splash tem duração mínima, então os flows esperam o Login ou a Agenda por
-  até 12 s depois do `launchApp`.
+- Depois do `launchApp` os flows esperam o Login ou a Agenda por até 30 s: o
+  app abre a frio, e a splash pode esperar o keychain até a trava de 10 s.
+  Os dados da API (Agenda, Boletim) têm até 20 s. O `extendedWaitUntil` sai
+  assim que a tela aparece, então o teto só pesa quando o flow falha.
 - No iOS, o texto de dentro de um elemento acessível (ex.: nota e faltas, o
   nome do aluno no header) aparece só no rótulo do elemento. Por isso os flows
   conferem o rótulo (`Nota 9,5, 0 faltas`, `Aluno Rafael, ...`), que vale nas
