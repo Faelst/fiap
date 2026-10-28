@@ -92,10 +92,13 @@ export class EnvironmentVariables {
   @Matches(/^[1-9]\d*(s|m|h|d|w|y)$/)
   JWT_EXPIRES_IN: string = '7d';
 
-  /** "*" ou lista de origens separadas por vírgula. */
+  /**
+   * "*" ou lista de origens separadas por vírgula. Sem a env: "*" fora de
+   * produção; com NODE_ENV=production ela é obrigatória (ver applyDefaults).
+   */
   @IsString()
   @IsNotEmpty()
-  CORS_ORIGINS: string = '*';
+  CORS_ORIGINS!: string;
 
   /** Tentativas de login por IP dentro da janela LOGIN_THROTTLE_TTL_MS. */
   @IsInt()
@@ -122,10 +125,13 @@ export class EnvironmentVariables {
   @IsIn(LOG_LEVELS)
   LOG_LEVEL: LogLevel = 'info';
 
-  /** Swagger em /docs e /docs-json. */
+  /**
+   * Swagger em /docs e /docs-json. Sem a env: ligado fora de produção e
+   * desligado com NODE_ENV=production (ver applyDefaults).
+   */
   @Transform(toBoolean)
   @IsBoolean()
-  SWAGGER_ENABLED: boolean = true;
+  SWAGGER_ENABLED!: boolean;
 
   /**
    * `trust proxy` do express, que decide o req.ip (usado pelo rate limit):
@@ -137,6 +143,17 @@ export class EnvironmentVariables {
   @IsOptional()
   @IsString()
   NODE_ENV?: string;
+}
+
+/** Padrões que dependem do NODE_ENV (só para as envs ausentes). */
+function applyDefaults(env: EnvironmentVariables): void {
+  const production = env.NODE_ENV === 'production';
+  if (env.CORS_ORIGINS === undefined && !production) {
+    env.CORS_ORIGINS = '*';
+  }
+  if (env.SWAGGER_ENABLED === undefined) {
+    env.SWAGGER_ENABLED = !production;
+  }
 }
 
 /** Regras que só valem com NODE_ENV=production. */
@@ -163,6 +180,7 @@ export function validateEnv(
     enableImplicitConversion: true,
     exposeDefaultValues: true,
   });
+  applyDefaults(env);
   const problems = [
     ...validateSync(env, { skipMissingProperties: false }).map(
       (error) =>

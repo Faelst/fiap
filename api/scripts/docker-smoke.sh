@@ -54,6 +54,7 @@ docker run -d --name "${CONTAINER}" \
   -p "127.0.0.1:${PORT}:3333" \
   -v "${VOLUME}:/app/data" \
   -e JWT_SECRET="docker-smoke-segredo-descartavel-$(date +%s)" \
+  -e CORS_ORIGINS="*" \
   "${IMAGE}" >/dev/null
 wait_healthy
 

@@ -146,6 +146,47 @@ describe('validateEnv: JWT_SECRET', () => {
   });
 });
 
+describe('validateEnv: padrões de produção (CORS e Swagger)', () => {
+  const production = { ...validEnv, NODE_ENV: 'production' };
+
+  it('em produção exige CORS_ORIGINS (sem * implícito)', () => {
+    expect(() => validateEnv(production)).toThrow('CORS_ORIGINS');
+  });
+
+  it('em produção aceita CORS_ORIGINS explícito, inclusive *', () => {
+    for (const origins of ['https://app.example.com', '*']) {
+      expect(
+        validateEnv({ ...production, CORS_ORIGINS: origins }).CORS_ORIGINS,
+      ).toBe(origins);
+    }
+  });
+
+  it('fora de produção o CORS continua * por padrão', () => {
+    expect(
+      validateEnv({ ...validEnv, NODE_ENV: 'development' }).CORS_ORIGINS,
+    ).toBe('*');
+  });
+
+  it('em produção o Swagger fica desligado por padrão', () => {
+    expect(
+      validateEnv({ ...production, CORS_ORIGINS: '*' }).SWAGGER_ENABLED,
+    ).toBe(false);
+  });
+
+  it('em produção SWAGGER_ENABLED=true liga o Swagger', () => {
+    expect(
+      validateEnv({ ...production, CORS_ORIGINS: '*', SWAGGER_ENABLED: 'true' })
+        .SWAGGER_ENABLED,
+    ).toBe(true);
+  });
+
+  it('fora de produção o Swagger fica ligado por padrão', () => {
+    expect(
+      validateEnv({ ...validEnv, NODE_ENV: 'development' }).SWAGGER_ENABLED,
+    ).toBe(true);
+  });
+});
+
 describe('publicSecretWarning', () => {
   it('avisa quando o segredo é o padrão do docker-compose', () => {
     expect(publicSecretWarning(COMPOSE_JWT_SECRET)).toContain('JWT_SECRET');
