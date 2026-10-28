@@ -40,6 +40,27 @@ describe('App', () => {
     expect(useSessionStore.getState().status).toBe('signedOut');
   });
 
+  it('login com CPF e senha certos entra nas abas e guarda o token', async () => {
+    await render(<App />);
+    await fireEvent(
+      await screen.findByTestId('splash-screen'),
+      'layout',
+      layout,
+    );
+    const cpf = await screen.findByTestId('login-cpf-input', {}, AFTER_SPLASH);
+
+    await fireEvent.changeText(cpf, '96929456004');
+    await fireEvent.changeText(
+      screen.getByTestId('login-password-input'),
+      '123456',
+    );
+    await act(() => fireEvent.press(screen.getByTestId('login-submit-button')));
+
+    expect(await screen.findByTestId('agenda-screen')).toBeOnTheScreen();
+    expect(screen.queryByTestId('login-screen')).toBeNull();
+    expect(await createSecureStorage().getToken()).toBe('jwt-gustavo');
+  });
+
   it('com token e /me com aluno abre nas abas e a seleção de aluno abre em modal', async () => {
     await createSecureStorage().setToken('jwt-salvo');
 
