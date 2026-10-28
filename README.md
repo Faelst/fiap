@@ -1,5 +1,12 @@
 # FIAP School
 
+**▶ [Assistir à apresentação no YouTube (30 min)](https://www.youtube.com/watch?v=FqoLJbpjyPk)**:
+visão geral do repositório ([0:00](https://www.youtube.com/watch?v=FqoLJbpjyPk&t=0s)),
+app v1 ([21:54](https://www.youtube.com/watch?v=FqoLJbpjyPk&t=1314s)) e
+app v2 ([26:56](https://www.youtube.com/watch?v=FqoLJbpjyPk&t=1616s)) no simulador.
+
+[![Apresentação do FIAP School: app no simulador do iPhone ao lado do README](.docs/media/apresentacao.jpg)](https://www.youtube.com/watch?v=FqoLJbpjyPk)
+
 Teste técnico de Mobile da FIAP School. É um app para os responsáveis
 acompanharem as aulas do dia e o boletim anual (notas e faltas) dos alunos,
 mais uma API própria em NestJS, que substitui o JSON do enunciado.
