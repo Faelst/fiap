@@ -488,10 +488,15 @@ cd ..
 yarn ios                  # ou: yarn ios --simulator "iPhone 16"
 ```
 
-O CocoaPods do Gemfile é o 1.15.2, então o `pod install` troca a última linha
-do `ios/Podfile.lock` (`COCOAPODS: 1.16.2` → `1.15.2`). Isso não muda o build;
-se não quiser a diferença no `git status`, `git checkout -- ios/Podfile.lock`.
-O `mobile/Gemfile.lock` que o bundler cria é ignorado pelo git.
+O CocoaPods do Gemfile é o 1.15.2 (o `xcodeproj < 1.26.0` do template segura
+nessa versão), a mesma do `ios/Podfile.lock` e do CI. O `mobile/Gemfile.lock`
+que o bundler cria é ignorado pelo git.
+
+> **Não reverta só o `ios/Podfile.lock`.** O `pod install` grava a versão do
+> CocoaPods no `Podfile.lock` e no `Pods/Manifest.lock`, e o Xcode compara os
+> dois: se diferirem, o build falha com "The sandbox is not in sync with the
+> Podfile.lock". Se isso aparecer, rode o `pod install` de novo com o mesmo
+> CocoaPods de antes.
 
 **Caminho B: CocoaPods do Homebrew, sem bundler e sem `yarn ios`**
 
@@ -500,6 +505,11 @@ brew install cocoapods
 cd ios && pod install && cd ..
 yarn start                # Metro na 8081, deixe este terminal aberto
 ```
+
+O CocoaPods do Homebrew costuma ser mais novo que o 1.15.2, então o
+`pod install` troca a última linha do `ios/Podfile.lock` (`COCOAPODS: 1.15.2`
+→ a versão do Homebrew). Deixe essa diferença no `git status` e não a commite:
+reverter o arquivo quebra o build (ver o aviso do Caminho A).
 
 Em outro terminal, também em `mobile/`, builde pelo Xcode
 (`open ios/FiapSchool.xcworkspace`, escolha um simulador e clique em Run) ou
