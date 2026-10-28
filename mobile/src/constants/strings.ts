@@ -49,14 +49,56 @@ export const strings = {
   },
   agenda: {
     title: 'Agenda',
-    dayAccessibilityPrefix: 'Dia',
-    dayHint: 'Toque para escolher outro dia',
-    /** `07:15 - 08:00`. */
-    lessonTime: (start: string, end: string) => `${start} - ${end}`,
+    today: 'Hoje',
+    todayHint: 'Volta para o dia de hoje',
+    /** `{n} aulas` / `1 aula`. */
+    lessonCount: (count: number) => (count === 1 ? '1 aula' : `${count} aulas`),
+    /** `Segunda-feira, 17 de março, 6 aulas` (+ `, hoje`). */
+    dayAccessibilityLabel: (
+      weekday: string,
+      day: number,
+      month: string,
+      count: number,
+      isToday: boolean,
+    ) =>
+      `${weekday}, ${day} de ${month}, ${
+        count === 0 ? 'sem aulas' : count === 1 ? '1 aula' : `${count} aulas`
+      }${isToday ? ', hoje' : ''}`,
+    /** Anúncio da troca de dia pelo swipe (6.4). */
+    dayChangedAnnouncement: (
+      weekday: string,
+      day: number,
+      month: string,
+      count: number,
+    ) =>
+      `${weekday}, ${day} de ${month}. ${
+        count === 0 ? 'Sem aulas' : count === 1 ? '1 aula' : `${count} aulas`
+      }.`,
+    /** `07:15 – 08:00 · 45 min`. */
+    lessonTime: (start: string, end: string, minutes: number) =>
+      `${start} – ${end} · ${minutes} min`,
     lessonAccessibilityLabel: (start: string, end: string, subject: string) =>
       `Das ${start} às ${end}, ${subject}`,
+    lessonNowSuffix: ', agora',
+    lessonPastSuffix: ', encerrada',
+    nowBadge: 'Agora',
+    banner: {
+      now: (subject: string) => `Agora: ${subject}`,
+      nowDetail: (end: string) => ` · até ${end}`,
+      break: 'Intervalo',
+      breakDetail: (start: string) => ` · próxima aula às ${start}`,
+      before: (start: string) => `Próxima aula às ${start}`,
+      after: 'Aulas encerradas',
+      summaryDetail: (start: string, end: string) =>
+        ` · das ${start} às ${end}`,
+    },
+    /** `Intervalo · 30 min`. */
+    break: (minutes: number) => `Intervalo · ${minutes} min`,
     empty: 'Sem aulas neste dia',
-    loadingAccessibilityLabel: 'Carregando agenda',
+    emptyWeekend: 'Aproveite o fim de semana.',
+    emptyWeekday: 'Nenhuma aula marcada para este dia.',
+    weekEmpty: 'Nenhuma aula nesta semana',
+    loadingAccessibilityLabel: 'Carregando agenda…',
     error: { title: 'Não foi possível carregar a agenda.' },
   },
   boletim: {

@@ -46,7 +46,17 @@ describe('LessonsScreen', () => {
     mockMeasureInWindow({ x: 24, y: 300, width: 366, height: 45 });
   });
 
-  afterEach(() => jest.restoreAllMocks());
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  /** "Hoje" numa segunda (D35: a Agenda abre em 17/03, com o domingo ao lado). */
+  const onMonday = () =>
+    jest.useFakeTimers({
+      now: new Date(2026, 9, 26, 6, 0),
+      advanceTimers: true,
+    });
 
   const renderScreen = () =>
     render(
@@ -58,26 +68,24 @@ describe('LessonsScreen', () => {
     );
 
   const chooseDay = async (date: string) => {
-    await fireEvent.press(await screen.findByTestId('agenda-day-dropdown'));
-    await fireEvent.press(
-      screen.getByTestId(`agenda-day-dropdown-option-${date}`),
-    );
+    await fireEvent.press(await screen.findByTestId(`agenda-day-${date}`));
   };
 
   it('o fim da rolagem fica acima da tab bar flutuante (N1)', async () => {
+    onMonday();
     await renderScreen();
 
     const { floatingTabBar } = theme.sizes;
     // Sem home indicator: barra (64) + `m` da borda + `m` de folga.
     const inset = floatingTabBar.height + 2 * theme.spacing.m;
     expect(
-      screen.getByTestId('agenda-scroll').props.contentContainerStyle,
+      (await screen.findByTestId('agenda-page-2025-03-17')).props
+        .contentContainerStyle,
     ).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ paddingBottom: inset }),
       ]),
     );
-    await screen.findByTestId('agenda-day-dropdown');
   });
 
   it('header compacto com o título Agenda e o chip do aluno; skeleton enquanto a agenda carrega', async () => {
@@ -101,52 +109,48 @@ describe('LessonsScreen', () => {
     );
     expect(screen.getByTestId('header-student-chip')).toBeOnTheScreen();
     expect(screen.getByTestId('agenda-skeleton')).toBeOnTheScreen();
-    expect(screen.queryByTestId('agenda-day-dropdown')).toBeNull();
+    expect(screen.queryByTestId('agenda-week-strip')).toBeNull();
 
     gate.release();
-    expect(await screen.findByTestId('agenda-day-dropdown')).toBeOnTheScreen();
+    expect(await screen.findByTestId('agenda-week-strip')).toBeOnTheScreen();
     expect(screen.queryByTestId('agenda-skeleton')).toBeNull();
   });
 
-  it('segunda: lista as aulas com horário e disciplina, na ordem', async () => {
+  it('segunda: a grade mostra as aulas com horário e disciplina, na ordem', async () => {
+    onMonday();
     await renderScreen();
 
     await chooseDay('2025-03-17');
 
-    expect(screen.getByTestId('agenda-day-dropdown-label')).toHaveTextContent(
-      '17 de março, segunda-feira',
-    );
-    expect(screen.getByTestId('agenda-lesson-list')).toBeOnTheScreen();
-    expect(screen.getByTestId('agenda-lesson-0-time')).toHaveTextContent(
-      '07:15 - 08:00',
-    );
-    expect(screen.getByTestId('agenda-lesson-0-subject')).toHaveTextContent(
-      'Matemática I',
-    );
-    expect(screen.getByTestId('agenda-lesson-1-subject')).toHaveTextContent(
-      'Língua Inglesa',
-    );
-    expect(screen.queryByTestId('agenda-lesson-2')).toBeNull();
-    expect(screen.queryByTestId('agenda-empty')).toBeNull();
+    expect(screen.getByTestId('agenda-day-2025-03-17')).toBeSelected();
+    expect(
+      screen.getByTestId('agenda-page-2025-03-17-timetable'),
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByTestId('agenda-page-2025-03-17-lesson-0-time'),
+    ).toHaveTextContent('07:15 – 08:00 · 45 min');
+    expect(
+      screen.getByTestId('agenda-page-2025-03-17-lesson-0-subject'),
+    ).toHaveTextContent('Matemática I');
+    expect(
+      screen.getByTestId('agenda-page-2025-03-17-lesson-1-subject'),
+    ).toHaveTextContent('Língua Inglesa');
+    expect(screen.queryByTestId('agenda-page-2025-03-17-lesson-2')).toBeNull();
   });
 
-  it('domingo: ícone e "Sem aulas neste dia", sem lista', async () => {
+  it('domingo: ícone e "Sem aulas neste dia", sem grade', async () => {
+    onMonday();
     await renderScreen();
 
     await chooseDay('2025-03-16');
 
-    expect(screen.getByTestId('agenda-empty')).toHaveTextContent(
-      'Sem aulas neste dia',
-    );
     expect(
-      screen.getByTestId('agenda-empty-icon', {
-        includeHiddenElements: true,
-      }),
-    ).toBeOnTheScreen();
-    expect(screen.queryByTestId('agenda-lesson-list')).toBeNull();
+      screen.getByTestId('agenda-page-2025-03-16-empty'),
+    ).toHaveTextContent(/Sem aulas neste dia/);
+    expect(screen.queryByTestId('agenda-page-2025-03-16-timetable')).toBeNull();
   });
 
-  it('API fora do ar: erro sem dropdown; TENTAR DE NOVO traz a agenda', async () => {
+  it('API fora do ar: erro sem faixa; TENTAR DE NOVO traz a agenda', async () => {
     server.use(
       http.get(`${API_URL}/students/:id/agenda`, () => HttpResponse.error()),
     );
@@ -155,7 +159,7 @@ describe('LessonsScreen', () => {
     expect(await screen.findByTestId('agenda-error')).toHaveTextContent(
       /Não foi possível carregar a agenda\./,
     );
-    expect(screen.queryByTestId('agenda-day-dropdown')).toBeNull();
+    expect(screen.queryByTestId('agenda-week-strip')).toBeNull();
 
     server.use(
       http.get(`${API_URL}/students/:id/agenda`, () =>
@@ -164,19 +168,19 @@ describe('LessonsScreen', () => {
     );
     await fireEvent.press(screen.getByTestId('agenda-error-retry'));
 
-    expect(await screen.findByTestId('agenda-day-dropdown')).toBeOnTheScreen();
+    expect(await screen.findByTestId('agenda-week-strip')).toBeOnTheScreen();
     expect(screen.queryByTestId('agenda-error')).toBeNull();
   });
-  it('agenda sem dias: "Sem aulas neste dia", sem dropdown vazio', async () => {
+  it('agenda sem dias: "Nenhuma aula nesta semana", sem faixa vazia', async () => {
     server.use(
       http.get(`${API_URL}/students/:id/agenda`, () => HttpResponse.json([])),
     );
     await renderScreen();
 
-    expect(await screen.findByTestId('agenda-empty')).toHaveTextContent(
-      'Sem aulas neste dia',
+    expect(await screen.findByTestId('agenda-week-empty')).toHaveTextContent(
+      'Nenhuma aula nesta semana',
     );
-    expect(screen.queryByTestId('agenda-day-dropdown')).toBeNull();
+    expect(screen.queryByTestId('agenda-week-strip')).toBeNull();
   });
 
   describe('anúncio do erro só com a aba em foco (3.8)', () => {

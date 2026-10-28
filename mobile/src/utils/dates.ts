@@ -67,3 +67,56 @@ export function formatDayLabel(isoDate: string): string {
     date.getDay(),
   )}`;
 }
+
+const WEEKDAYS_SHORT = [
+  'dom',
+  'seg',
+  'ter',
+  'qua',
+  'qui',
+  'sex',
+  'sáb',
+] as const;
+
+const capitalize = (text: string) =>
+  text.charAt(0).toUpperCase() + text.slice(1);
+
+/** `"2025-03-17"` → `"seg"` (a variante `overline` põe em maiúsculas). */
+export function weekdayShort(isoDate: string): string {
+  return WEEKDAYS_SHORT[weekdayOf(isoDate)] ?? '';
+}
+
+/** Nome do mês (0 = janeiro) em pt-BR, minúsculo. */
+export function monthName(month: number): string {
+  return MONTHS[month] ?? '';
+}
+
+/** `"2025-03-17"` → `{ weekday: "Segunda-feira", day: 17, month: "março" }`. */
+export function dayParts(isoDate: string) {
+  const date = parseLocalDate(isoDate);
+  return {
+    weekday: capitalize(weekdayName(date.getDay())),
+    day: date.getDate(),
+    month: monthName(date.getMonth()),
+  };
+}
+
+/**
+ * Cabeçalho da semana: `"Março 2025"`; se cruzar meses, `"Março – Abril
+ * 2025"`; se cruzar anos, `"Dezembro 2025 – Janeiro 2026"`.
+ */
+export function monthYearLabel(isoDates: readonly string[]): string {
+  if (isoDates.length === 0) return '';
+  const first = parseLocalDate(isoDates[0]);
+  const last = parseLocalDate(isoDates[isoDates.length - 1]);
+  const label = (date: Date) => capitalize(monthName(date.getMonth()));
+  if (first.getFullYear() !== last.getFullYear()) {
+    return `${label(first)} ${first.getFullYear()} – ${label(
+      last,
+    )} ${last.getFullYear()}`;
+  }
+  if (first.getMonth() !== last.getMonth()) {
+    return `${label(first)} – ${label(last)} ${last.getFullYear()}`;
+  }
+  return `${label(first)} ${first.getFullYear()}`;
+}

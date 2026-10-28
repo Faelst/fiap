@@ -69,3 +69,5 @@ tags:
     visible:
       id: boletim-term-2-not-evaluated
     timeout: 5000
+- assertNotVisible:
+    id: agenda-week-strip
