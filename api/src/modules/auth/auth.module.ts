@@ -5,10 +5,9 @@ import { JwtModule, JwtSignOptions } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { EnvironmentVariables } from '../../config/env.validation';
+import { GuardiansModule } from '../guardians/guardians.module';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { AuthController } from './controllers/auth.controller';
-import { GUARDIANS_REPOSITORY } from './repositories/guardians.repository';
-import { PrismaGuardiansRepository } from './repositories/prisma-guardians.repository';
 import {
   BcryptPasswordHasher,
   PASSWORD_HASHER,
@@ -20,6 +19,7 @@ type Config = ConfigService<EnvironmentVariables, true>;
 
 @Module({
   imports: [
+    GuardiansModule,
     PassportModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
@@ -54,7 +54,6 @@ type Config = ConfigService<EnvironmentVariables, true>;
   providers: [
     LoginUseCase,
     JwtStrategy,
-    { provide: GUARDIANS_REPOSITORY, useClass: PrismaGuardiansRepository },
     { provide: PASSWORD_HASHER, useClass: BcryptPasswordHasher },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],

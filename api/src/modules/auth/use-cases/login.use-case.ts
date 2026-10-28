@@ -2,9 +2,9 @@ import { Inject, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InvalidCredentialsError } from '../errors/invalid-credentials.error';
 import {
-  GUARDIANS_REPOSITORY,
-  type GuardiansRepository,
-} from '../repositories/guardians.repository';
+  GUARDIAN_CREDENTIALS_REPOSITORY,
+  type GuardianCredentialsRepository,
+} from '../../guardians/repositories/guardian-credentials.repository';
 import {
   DUMMY_PASSWORD_HASH,
   PASSWORD_HASHER,
@@ -30,8 +30,8 @@ export interface AccessTokenPayload {
 @Injectable()
 export class LoginUseCase {
   constructor(
-    @Inject(GUARDIANS_REPOSITORY)
-    private readonly guardians: GuardiansRepository,
+    @Inject(GUARDIAN_CREDENTIALS_REPOSITORY)
+    private readonly guardians: GuardianCredentialsRepository,
     @Inject(PASSWORD_HASHER)
     private readonly hasher: PasswordHasher,
     private readonly jwt: JwtService,

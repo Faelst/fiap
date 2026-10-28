@@ -1,9 +1,7 @@
 import { JwtService } from '@nestjs/jwt';
 import { getRounds, hash } from 'bcryptjs';
-import {
-  GuardianCredentials,
-  GuardiansRepository,
-} from '../repositories/guardians.repository';
+import { GuardianCredentials } from '../../guardians/repositories/guardian-credentials.repository';
+import { InMemoryGuardianCredentialsRepository } from '../../guardians/testing/in-memory-guardian-credentials.repository';
 import {
   BcryptPasswordHasher,
   DUMMY_PASSWORD_HASH,
@@ -13,16 +11,6 @@ import {
   InvalidCredentialsError,
 } from '../errors/invalid-credentials.error';
 import { LoginUseCase } from './login.use-case';
-
-class InMemoryGuardiansRepository implements GuardiansRepository {
-  constructor(private readonly guardians: GuardianCredentials[]) {}
-
-  findCredentialsByCpf(cpf: string): Promise<GuardianCredentials | null> {
-    return Promise.resolve(
-      this.guardians.find((guardian) => guardian.cpf === cpf) ?? null,
-    );
-  }
-}
 
 const SECRET = 'segredo-do-spec';
 const PASSWORD = '123456';
@@ -48,7 +36,7 @@ describe('LoginUseCase', () => {
     hasher = new BcryptPasswordHasher();
     jwt = new JwtService({ secret: SECRET, signOptions: { expiresIn: '7d' } });
     useCase = new LoginUseCase(
-      new InMemoryGuardiansRepository([gustavo]),
+      new InMemoryGuardianCredentialsRepository([gustavo]),
       hasher,
       jwt,
     );

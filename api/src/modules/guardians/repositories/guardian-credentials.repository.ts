@@ -1,4 +1,6 @@
-export const GUARDIANS_REPOSITORY = Symbol('GUARDIANS_REPOSITORY');
+export const GUARDIAN_CREDENTIALS_REPOSITORY = Symbol(
+  'GUARDIAN_CREDENTIALS_REPOSITORY',
+);
 
 /** O que o login precisa saber de um responsável. */
 export interface GuardianCredentials {
@@ -10,7 +12,7 @@ export interface GuardianCredentials {
   passwordHash: string;
 }
 
-export interface GuardiansRepository {
+export interface GuardianCredentialsRepository {
   /** `cpf` só com dígitos. */
   findCredentialsByCpf(cpf: string): Promise<GuardianCredentials | null>;
 }

@@ -2,11 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import {
   GuardianCredentials,
-  GuardiansRepository,
-} from './guardians.repository';
+  GuardianCredentialsRepository,
+} from './guardian-credentials.repository';
 
 @Injectable()
-export class PrismaGuardiansRepository implements GuardiansRepository {
+export class PrismaGuardianCredentialsRepository implements GuardianCredentialsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   findCredentialsByCpf(cpf: string): Promise<GuardianCredentials | null> {

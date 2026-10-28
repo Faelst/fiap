@@ -1,19 +1,7 @@
 import { GuardianNotFoundError } from '../errors/guardian-not-found.error';
-import {
-  GuardianProfile,
-  GuardianProfilesRepository,
-} from '../repositories/guardian-profiles.repository';
+import { GuardianProfile } from '../repositories/guardian-profiles.repository';
+import { InMemoryGuardianProfilesRepository } from '../testing/in-memory-guardian-profiles.repository';
 import { GetMeUseCase } from './get-me.use-case';
-
-class InMemoryGuardianProfilesRepository implements GuardianProfilesRepository {
-  constructor(private readonly profiles: GuardianProfile[]) {}
-
-  findProfileById(id: string): Promise<GuardianProfile | null> {
-    return Promise.resolve(
-      this.profiles.find((profile) => profile.id === id) ?? null,
-    );
-  }
-}
 
 const rafael = {
   id: 'student-rafael',
