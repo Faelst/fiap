@@ -8,6 +8,14 @@ export const motion = {
   base: 220,
   slow: 320,
   stagger: 40,
+  /** Saídas curtas: lista do dropdown e troca de dia (01-design.md, 4.5). */
+  exitFast: 120,
+  /** Teto do stagger: no máximo 6 itens escalonados por lista (1.8). */
+  maxStaggered: 6,
+  /** Chevron aberto (4.5). */
+  chevronOpenDeg: 180,
+  /** Pulso do skeleton: 0,5 ↔ 1 em 800 ms; parado em 0,7 com reduzir movimento (4.8). */
+  skeleton: { duration: 800, min: 0.5, reduced: 0.7 },
   easeOut: Easing.out(Easing.cubic),
   easeIn: Easing.in(Easing.cubic),
   press: { damping: 18, stiffness: 260, mass: 1 },

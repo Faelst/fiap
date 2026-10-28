@@ -48,6 +48,19 @@ export const strings = {
     boletim: 'BOLETIM',
     boletimAccessibilityLabel: 'Boletim',
   },
+  agenda: {
+    title: 'AGENDA',
+    titleAccessibilityLabel: 'Agenda',
+    dayAccessibilityPrefix: 'Dia',
+    dayHint: 'Toque para escolher outro dia',
+    /** `07:15 - 08:00`. */
+    lessonTime: (start: string, end: string) => `${start} - ${end}`,
+    lessonAccessibilityLabel: (start: string, end: string, subject: string) =>
+      `Das ${start} às ${end}, ${subject}`,
+    empty: 'Sem aulas neste dia',
+    loadingAccessibilityLabel: 'Carregando agenda',
+    error: { title: 'Não foi possível carregar a agenda.' },
+  },
   selectStudent: {
     close: 'FECHAR',
     closeAccessibilityLabel: 'Fechar',
@@ -70,6 +83,8 @@ export const strings = {
     error: { title: 'Não conseguimos conectar.' },
   },
   common: {
+    /** Fundo do dropdown aberto: o leitor de tela também fecha a lista por ele. */
+    closeListAccessibilityLabel: 'Fechar lista',
     error: { description: 'Confira sua conexão e tente de novo.' },
     retry: 'TENTAR DE NOVO',
     retryAccessibilityLabel: 'Tentar de novo',

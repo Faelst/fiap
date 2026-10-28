@@ -17,6 +17,11 @@ export const sizes = {
   logoHeader: { width: 100, height: 16 },
   logoLogin: { width: 306, height: 49 },
   illustration: { width: 328, height: 208 },
+  /** Barras do skeleton da aula: horário e disciplina (01-design.md, 2.13). */
+  skeletonLessonTime: { width: 88, height: 12 },
+  skeletonLessonSubject: { width: 180, height: 16 },
+  /** Linhas de aula no skeleton da agenda. */
+  skeletonLessonRows: 4,
   /** Selo SCHOOL dentro do PNG do logo, em proporção (vale em qualquer tamanho). */
   logoBadge: { x: 0.672, y: 0.35, width: 0.328, height: 0.4 },
   /** Sobra da capa do selo na splash (esconde o antialias da borda). */
