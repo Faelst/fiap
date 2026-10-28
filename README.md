@@ -55,28 +55,41 @@ yarn prisma:setup
 yarn start:dev
 ```
 
-### 2a. App no Android (emulador)
+### 2. Metro (bundler do JavaScript)
+
+Deixe o Metro rodando num terminal próprio, antes de abrir o app. O `yarn
+android` e o `yarn ios` tentam abri-lo sozinhos numa janela nova, mas isso nem
+sempre funciona (no Linux depende do emulador de terminal), e num terminal seu
+você vê os logs e o erro de bundle.
+
+```sh
+# Terminal 2, na raiz do repositório
+cd mobile
+yarn install
+cp .env.example .env   # o API_URL padrão já serve no emulador Android e no simulador iOS
+yarn start             # Metro na porta 8081; yarn start --reset-cache limpa o cache
+```
+
+### 3a. App no Android (emulador)
 
 Abra um emulador pelo Android Studio (**Device Manager**) e confira que ele
 aparece em `adb devices`. Depois:
 
 ```sh
-# Terminal 2, na raiz do repositório
+# Terminal 3, na raiz do repositório
 cd mobile
-yarn install
-cp .env.example .env   # o API_URL padrão já serve: no Android o app troca localhost por 10.0.2.2
 yarn android
 ```
 
-Num aparelho físico, use o IP da máquina no `API_URL` (ver [Android](#android)).
+O `API_URL` padrão (`localhost`) funciona porque, no Android, o app troca
+`localhost` por `10.0.2.2`, que é a máquina vista de dentro do emulador. Num
+aparelho físico, use o IP da máquina (ver [Android](#android)).
 
-### 2b. App no iOS (simulador, só macOS)
+### 3b. App no iOS (simulador, só macOS)
 
 ```sh
-# Terminal 2, na raiz do repositório
+# Terminal 3, na raiz do repositório
 cd mobile
-yarn install
-cp .env.example .env   # o API_URL padrão (localhost) já serve no simulador
 cd ios && bundle install && bundle exec pod install && cd ..
 yarn ios
 ```
@@ -86,11 +99,20 @@ yarn ios
 > (`brew install ruby`) ou use o CocoaPods do Homebrew com o build pelo Xcode:
 > os dois caminhos estão em [iOS](#ios-macos).
 
-### 3. Entrar no app
+### 4. Entrar no app
 
-Entre com o Gustavo: CPF `969.294.560-04`, senha `123456` (outras contas em
-[Credenciais de teste](#credenciais-de-teste)). Para rodar os testes de tela,
-veja [Flows do Maestro](#flows-do-maestro).
+> [!IMPORTANT]
+> **Usuário para entrar no app**
+>
+> | CPF | Senha |
+> |---|---|
+> | **`969.294.560-04`** | **`123456`** |
+>
+> É o Gustavo, responsável por dois alunos (Rafael e Joana), a conta que mostra
+> todas as telas, inclusive a troca de aluno. As outras contas estão em
+> [Credenciais de teste](#credenciais-de-teste).
+
+Para rodar os testes de tela, veja [Flows do Maestro](#flows-do-maestro).
 
 ## Sumário
 
