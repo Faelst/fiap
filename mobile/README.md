@@ -22,6 +22,7 @@ Atualizando uma cópia antiga: depois de puxar a mudança que trocou as
 dependências nativas e o preset do babel, rode `cd ios && pod install` e suba o
 Metro com `yarn start --reset-cache`, senão o cache antigo serve o bundle velho.
 
-Scripts: `yarn lint`, `yarn tsc`, `yarn test`, `yarn format`, `yarn maestro:check`
-(flows em `.maestro/`), `yarn link:assets`
+Scripts: `yarn lint`, `yarn tsc`, `yarn test`, `yarn format`, `yarn maestro:check`,
+`yarn maestro:install` e `yarn maestro:test` (flows em `.maestro/`, ver
+`.maestro/README.md`), `yarn link:assets`
 (relinka as fontes de `assets/fonts` depois de trocar algum arquivo).

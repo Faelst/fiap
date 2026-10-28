@@ -32,8 +32,7 @@ hoje (o dia da Agenda é escolhido no dropdown).
 ## Pré-requisitos
 
 - [Maestro CLI](https://docs.maestro.dev/getting-started/installing-maestro)
-  (o CI usa a 2.11.0):
-  `curl -fsSL "https://get.maestro.mobile.dev" | MAESTRO_VERSION=2.11.0 bash`.
+  2.11.0, a mesma do CI: `yarn maestro:install`.
 - Java 17 (o Maestro roda na JVM).
 - Simulador iOS ou emulador Android com o app instalado (`yarn ios` /
   `yarn android`), bundle id `br.com.fiap.school`.
@@ -53,13 +52,18 @@ hoje (o dia da Agenda é escolhido no dropdown).
 Em `mobile/`:
 
 ```bash
-maestro test .maestro                          # todos os flows
-maestro test .maestro/04-aulas-navegar-dias.yaml   # um flow
-maestro test .maestro --include-tags boletim   # por tag (login, agenda, boletim, alunos)
-yarn maestro:check                             # checagem estática, sem Maestro
+yarn maestro:install                                  # instala o Maestro 2.11.0 (uma vez)
+yarn maestro:test                                     # todos os flows
+yarn maestro:test .maestro/04-aulas-navegar-dias.yaml # um flow
+yarn maestro:test --include-tags boletim              # por tag (login, agenda, boletim, alunos)
+yarn maestro:test --device emulator-5554              # escolhe o aparelho
+yarn maestro:check                                    # checagem estática, sem Maestro
 ```
 
-Com mais de um aparelho ligado, escolha com `maestro --device <id> test ...`.
+O `maestro:test` acha o binário no `PATH` ou em `~/.maestro/bin` (onde o
+instalador põe, sem precisar reabrir o terminal); `MAESTRO_BIN` sobrescreve.
+Sem flow nos argumentos ele roda a pasta `.maestro` inteira, e o `--device`
+vai para antes do `test`, como o Maestro pede.
 
 `yarn maestro:check` confere, sem emulador, que os YAML são válidos, que o
 `appId` é o do app, que os subflows existem e que todo `id` usado nos flows
