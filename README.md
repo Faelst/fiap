@@ -46,6 +46,7 @@ Entre com o Gustavo: CPF `969.294.560-04`, senha `123456` (outras contas em
 - [Início rápido](#início-rápido)
 - [Visão geral](#visão-geral)
 - [Demonstração](#demonstração)
+- [v2 (UI moderna)](#v2-ui-moderna)
 - [Stack e dependências](#stack-e-dependências)
 - [Pré-requisitos](#pré-requisitos)
 - [Como rodar a API](#como-rodar-a-api)
@@ -123,6 +124,24 @@ originais estão em
 |---|---|
 | ![Troca de aluno a partir do boletim](docs/media/trocar-aluno.gif) | ![Responsável sem aluno e boletim com a API fora do ar](docs/media/estados.gif) |
 | TROCAR PERFIL a partir do Boletim e da Agenda | Responsável sem aluno; boletim com a API parada e "Tentar de novo" |
+
+## v2 (UI moderna)
+
+A branch `release/v2` traz uma evolução da interface sobre a mesma API: tab
+bar flutuante com a aba **Perfil** (dados do responsável, troca de aluno e
+sair), header compacto com o chip do aluno, **Login** novo, **Agenda** em
+timetable (faixa semanal, pager de dias e linha de "agora") e **Boletim** por
+faixas de nota (resumo do trimestre, barras e legenda), com pull-to-refresh
+nas três abas.
+
+**A entrega oficial do teste continua sendo a v1** (branch `main`), fiel ao
+Figma. A v2 foi feita por decisão de prazo **sem testes novos**, sem QA e sem
+revisão de segurança dedicados: os testes da v1 foram só ajustados, e a
+suíte, o lint, o `tsc` e a checagem dos flows do Maestro seguem verdes.
+
+| Login | Agenda | Boletim | Perfil |
+|---|---|---|---|
+| ![Login da v2](docs/media/v2-login.png) | ![Agenda da v2 em timetable](docs/media/v2-agenda.png) | ![Boletim da v2 por faixas](docs/media/v2-boletim.png) | ![Perfil da v2 depois da troca de aluno](docs/media/v2-perfil.png) |
 
 ## Stack e dependências
 
