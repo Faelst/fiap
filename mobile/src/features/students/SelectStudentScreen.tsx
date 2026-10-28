@@ -1,4 +1,11 @@
-import { Pressable, ScrollView, StyleSheet } from 'react-native';
+import { useEffect, useRef, type ComponentRef } from 'react';
+import {
+  AccessibilityInfo,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  type Text as RNText,
+} from 'react-native';
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -28,6 +35,19 @@ export function SelectStudentScreen({
   const { colors, motion, sizes, spacing } = useTheme();
   const insets = useSafeAreaInsets();
   const vm = useSelectStudentViewModel(navigation);
+  const titleRef = useRef<ComponentRef<typeof RNText>>(null);
+
+  // O leitor de tela começa no título (6.4), e não no FECHAR, que fica acima
+  // dele. Só depois que o modal terminou de subir: antes disso o foco cai na
+  // tela de baixo.
+  useEffect(
+    () =>
+      navigation.addListener('transitionEnd', ({ data }) => {
+        if (data.closing || !titleRef.current) return;
+        AccessibilityInfo.sendAccessibilityEvent(titleRef.current, 'focus');
+      }),
+    [navigation],
+  );
   const enterDown = (delay: number) =>
     FadeInDown.duration(motion.base)
       .delay(delay)
@@ -48,7 +68,7 @@ export function SelectStudentScreen({
         showsVerticalScrollIndicator={false}
       >
         <Animated.View entering={enterDown(0)}>
-          <Text variant="title" accessibilityRole="header">
+          <Text ref={titleRef} variant="title" accessibilityRole="header">
             {strings.selectStudent.title}
           </Text>
         </Animated.View>
