@@ -10,7 +10,7 @@ tags:
     env:
       CPF: '96929456004'
       PASSWORD: '000000'
-# O texto tem quebra de linha (no iOS o rótulo acessível vem sem ela).
+# Banner acima do botão; o regex casa o início da mensagem (uma linha só na v2).
 - extendedWaitUntil:
     visible:
       id: login-error-message
