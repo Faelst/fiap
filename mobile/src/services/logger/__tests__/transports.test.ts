@@ -23,9 +23,8 @@ describe('logger no Jest', () => {
   });
 
   it('o transporte de console de verdade escreve no nível certo, com o contexto', () => {
-    const { consoleTransport } = jest.requireActual<
-      typeof import('../transports')
-    >('../transports');
+    const { consoleTransport } =
+      jest.requireActual<typeof import('../transports')>('../transports');
     const consoleWarn = jest.spyOn(console, 'warn').mockImplementation();
 
     consoleTransport({
