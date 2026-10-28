@@ -23,8 +23,12 @@ export const sizes = {
   logoBadgeBleed: 1,
   /** Linha teal da splash: largura e quanto passa do logo em cima e embaixo. */
   scanLine: { width: 2, overhang: 8 },
+  /** Espessura da linha do input do login. */
+  inputLine: 1,
   /** Espessura do trilho de espera da splash. */
   splashTrack: 1,
+  /** Teto da fonte grande do sistema em elementos de altura fixa (1.6). */
+  fixedHeightFontScale: 1.3,
   contentMaxWidth: 600,
   formMaxWidth: 318,
 } as const;

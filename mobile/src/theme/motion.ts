@@ -2,6 +2,8 @@ import { Easing } from 'react-native-reanimated';
 
 /** Durações e curvas das animações (01-design.md, 1.8). */
 export const motion = {
+  /** Saída do texto do botão quando vira spinner (01-design.md, 4.2). */
+  instant: 100,
   fast: 150,
   base: 220,
   slow: 320,
@@ -9,6 +11,13 @@ export const motion = {
   easeOut: Easing.out(Easing.cubic),
   easeIn: Easing.in(Easing.cubic),
   press: { damping: 18, stiffness: 260, mass: 1 },
+  /** Escala do botão pressionado. */
+  pressScale: 0.98,
+  /** Deslocamento das entradas `FadeInDown` (campos do login e erro). */
+  enterOffset: 12,
+  enterOffsetSmall: 8,
+  /** Shake do formulário em erro (01-design.md, 4.2): 6 passos de 50 ms. */
+  shake: { offsets: [-10, 10, -8, 8, -4, 0], step: 50 },
   /** Splash animada (01-design.md, 3.1.3 a 3.1.6). */
   splash: {
     minDuration: 1200,

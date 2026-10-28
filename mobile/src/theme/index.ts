@@ -1,5 +1,10 @@
-export { Box, Card, Text } from './components';
-export type { BoxProps, CardProps, TextProps } from './components';
+export { Box, ButtonContainer, Card, Text } from './components';
+export type {
+  BoxProps,
+  ButtonContainerProps,
+  CardProps,
+  TextProps,
+} from './components';
 export { fonts } from './fonts';
 export { motion } from './motion';
 export { sizes } from './sizes';
