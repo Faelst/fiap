@@ -29,7 +29,7 @@ export function LoginErrorMessage({ message }: LoginErrorMessageProps) {
     >
       <Text
         testID="login-error-message"
-        variant="error"
+        variant="errorV1"
         marginTop="xxl"
         accessibilityLabel={spoken}
       >

@@ -36,7 +36,7 @@ export function SecondaryButton({
         opacity: pressed ? motion.pressedOpacity : 1,
       })}
     >
-      <ButtonContainer variant="secondary">
+      <ButtonContainer variant="secondaryV1">
         <Text
           variant="bodyBold"
           color="primary"

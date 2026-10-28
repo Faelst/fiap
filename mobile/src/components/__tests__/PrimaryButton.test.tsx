@@ -1,6 +1,7 @@
 import { fireEvent, screen } from '@testing-library/react-native';
 
 import { renderWithTheme } from '../../test/renderWithTheme';
+import { theme } from '../../theme';
 import { PrimaryButton } from '../PrimaryButton';
 
 const baseProps = {
@@ -25,7 +26,9 @@ describe('PrimaryButton', () => {
     });
     expect(button).toHaveProp('accessibilityRole', 'button');
     expect(button).toHaveProp('accessibilityLabel', 'Fazer login');
-    expect(screen.getByText('FAZER LOGIN')).toHaveStyle({ color: '#777777' });
+    expect(screen.getByText('FAZER LOGIN')).toHaveStyle({
+      color: theme.colors.textDisabled,
+    });
 
     await fireEvent.press(button);
     expect(onPress).not.toHaveBeenCalled();

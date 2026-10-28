@@ -77,7 +77,7 @@ export function UnderlineInput({
   return (
     <Box width="100%">
       <Text
-        variant={focused ? 'labelFocused' : 'label'}
+        variant={focused ? 'labelFocused' : 'labelV1'}
         importantForAccessibility="no"
         accessibilityElementsHidden
       >

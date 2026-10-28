@@ -55,7 +55,7 @@ export function SelectStudentScreen({
         showsVerticalScrollIndicator={false}
       >
         <Animated.View entering={enterDown(motion, 0)}>
-          <Text ref={titleRef} variant="title" accessibilityRole="header">
+          <Text ref={titleRef} variant="titleV1" accessibilityRole="header">
             {strings.selectStudent.title}
           </Text>
         </Animated.View>

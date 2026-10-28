@@ -2,6 +2,7 @@ import { fireEvent, screen } from '@testing-library/react-native';
 import { useState } from 'react';
 
 import { renderWithTheme } from '../../test/renderWithTheme';
+import { theme } from '../../theme';
 import { CpfInput } from '../CpfInput';
 
 /** CPF controlado, como o ViewModel faz. */
@@ -78,7 +79,7 @@ describe('CpfInput', () => {
     await renderWithTheme(<ControlledCpf />);
 
     expect(screen.getByTestId('login-cpf-input-line')).toHaveStyle({
-      backgroundColor: '#5C5C5C',
+      backgroundColor: theme.colors.inputLine,
     });
 
     await fireEvent.changeText(input(), '969');

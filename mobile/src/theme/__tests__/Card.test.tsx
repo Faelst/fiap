@@ -4,19 +4,51 @@ import { StyleSheet } from 'react-native';
 
 import { Card, theme } from '..';
 
-const renderCard = (variant: 'student') =>
-  render(
+const styleOf = async (
+  variant: Exclude<keyof typeof theme.cardVariants, 'defaults'>,
+) => {
+  await render(
     <ThemeProvider theme={theme}>
       <Card testID="card" variant={variant} />
     </ThemeProvider>,
   );
+  return StyleSheet.flatten(screen.getByTestId('card').props.style);
+};
 
 describe('Card', () => {
-  it('mantém a borda transparente no aluno não selecionado para não pular o layout', async () => {
-    await renderCard('student');
+  it('surface: fundo surface, borda sutil de 1, raio l e padding l', async () => {
+    expect(await styleOf('surface')).toMatchObject({
+      backgroundColor: '#141414',
+      borderColor: '#262626',
+      borderWidth: 1,
+      borderRadius: 20,
+      padding: 24,
+    });
+  });
 
-    const style = StyleSheet.flatten(screen.getByTestId('card').props.style);
+  it('lesson: surfaceRaised, raio s e padding sm × s', async () => {
+    expect(await styleOf('lesson')).toMatchObject({
+      backgroundColor: '#1E1E1E',
+      borderWidth: 1,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    });
+  });
 
-    expect(style).toMatchObject({ borderColor: 'transparent', borderWidth: 1 });
+  it('floating: pílula com borda forte', async () => {
+    expect(await styleOf('floating')).toMatchObject({
+      backgroundColor: '#1E1E1E',
+      borderColor: '#3A3A3A',
+      borderWidth: 1,
+      borderRadius: 999,
+    });
+  });
+
+  it('legado v1: aluno não selecionado mantém a borda transparente para não pular o layout', async () => {
+    expect(await styleOf('student')).toMatchObject({
+      borderColor: 'transparent',
+      borderWidth: 1,
+    });
   });
 });

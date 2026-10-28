@@ -72,7 +72,7 @@ export function PrimaryButton({
       onPressOut={() => scale.set(withSpring(1, motion.press))}
       style={{ backgroundColor: colors.primary, paddingBottom: bottomInset }}
     >
-      <ButtonContainer variant="primary">
+      <ButtonContainer variant="primaryV1">
         <Animated.View style={contentStyle}>
           {loading ? (
             <Animated.View
