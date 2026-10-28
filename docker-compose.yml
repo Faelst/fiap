@@ -1,8 +1,9 @@
 # Sobe a API com um comando: `docker compose up --build`
 # Swagger em http://localhost:3333/docs · health em http://localhost:3333/api/health
 # O banco SQLite fica no volume `api-data`. A cada boot o container roda
-# migrate deploy + seed, que recria os dados do JSON (os ids mudam e tokens
-# antigos passam a dar 401). `docker compose down -v` apaga o volume.
+# migrate deploy + seed; o seed só popula o banco vazio, então ids e tokens
+# sobrevivem a um restart. SEED_RESET=true recria os dados do JSON a cada boot.
+# `docker compose down -v` apaga o volume.
 name: fiap-school
 
 services:
@@ -24,6 +25,7 @@ services:
       SWAGGER_ENABLED: "true"
       # Sem proxy na frente. Atrás de um reverse proxy, use 1 (ou a lista de IPs dele).
       TRUST_PROXY: "false"
+      SEED_RESET: "false"
     # Todas as interfaces de propósito: o app num celular da mesma rede chega
     # pelo IP da máquina. Para só esta máquina, use "127.0.0.1:3333:3333".
     ports:

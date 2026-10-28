@@ -10,6 +10,7 @@ import {
   RawGuardian,
   SeedStudent,
 } from './seed-mapper';
+import { decideSeed } from './seed-policy';
 
 const BCRYPT_ROUNDS = 10;
 
@@ -49,19 +50,31 @@ async function main(): Promise<void> {
 
   const { guardians, students } = mapSeed(readOfficialJson());
   const allGuardians = [...guardians, GUARDIAN_WITHOUT_STUDENTS];
-  const passwordHashes = await Promise.all(
-    allGuardians.map((guardian) => hash(guardian.password, BCRYPT_ROUNDS)),
-  );
 
   const prisma = new PrismaClient({
     adapter: new PrismaBetterSqlite3({ url }),
   });
 
   try {
+    const action = decideSeed({
+      existingGuardians: await prisma.guardian.count(),
+      seedReset: process.env.SEED_RESET,
+    });
+    if (action === 'skip') {
+      console.log(
+        'Seed ignorado: o banco já tem dados (SEED_RESET=true apaga e recria).',
+      );
+      return;
+    }
+
+    const passwordHashes = await Promise.all(
+      allGuardians.map((guardian) => hash(guardian.password, BCRYPT_ROUNDS)),
+    );
     await prisma.$transaction(async (tx) => {
-      // Recria tudo: o seed pode rodar de novo sem duplicar nada.
-      await tx.guardian.deleteMany();
-      await tx.student.deleteMany();
+      if (action === 'reset') {
+        await tx.guardian.deleteMany();
+        await tx.student.deleteMany();
+      }
 
       const studentIds = new Map<number, string>();
       for (const student of students) {
