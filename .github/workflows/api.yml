@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths:
       - "api/**"
+      - "docker-compose.yml"
       - ".github/workflows/api.yml"
   pull_request:
     paths:
       - "api/**"
+      - "docker-compose.yml"
       - ".github/workflows/api.yml"
 
 permissions:
@@ -68,6 +70,9 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+
+      - name: Valida o docker-compose.yml da raiz
+        run: docker compose -f ../docker-compose.yml config --quiet
 
       - name: Build da imagem (api/Dockerfile)
         run: docker build -t fiap-school-api:ci .
