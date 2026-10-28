@@ -2,7 +2,7 @@ import { fireEvent, screen } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
 
 import { renderWithTheme } from '../../test/renderWithTheme';
-import { theme } from '../../theme';
+import { Text, theme } from '../../theme';
 import { ErrorState } from '../ErrorState';
 import { WifiOffIcon } from '../icons/WifiOffIcon';
 
@@ -65,6 +65,41 @@ describe('ErrorState', () => {
       height: theme.sizes.pill.sm,
       backgroundColor: theme.colors.surfaceRaised,
     });
+  });
+
+  it('no erro de tela cheia (BootError), o retry é a pílula primária grande', async () => {
+    await renderWithTheme(
+      <ErrorState
+        {...base}
+        retryVariant="primary"
+        onRetry={jest.fn()}
+        retrying={false}
+      />,
+    );
+
+    expect(screen.getByTestId('boot-error-retry-surface')).toHaveStyle({
+      height: theme.sizes.pill.md,
+      backgroundColor: theme.colors.primary,
+    });
+  });
+
+  it('mostra uma ação secundária embaixo do retry', async () => {
+    await renderWithTheme(
+      <ErrorState
+        {...base}
+        onRetry={jest.fn()}
+        retrying={false}
+        secondaryAction={<Text testID="acao-secundaria">Sair</Text>}
+      />,
+    );
+
+    const retry = screen.getByTestId('boot-error-retry');
+    const secondary = screen.getByTestId('acao-secundaria');
+    expect(secondary).toBeOnTheScreen();
+    // Os dois na mesma coluna de ações, o retry primeiro.
+    const actions = screen.getByTestId('boot-error-actions');
+    expect(actions).toContainElement(retry);
+    expect(actions).toContainElement(secondary);
   });
 
   it('tentando: spinner no botão, busy e sem novo toque', async () => {

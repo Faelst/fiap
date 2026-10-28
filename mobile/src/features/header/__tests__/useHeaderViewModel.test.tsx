@@ -1,4 +1,4 @@
-import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { act, renderHook } from '@testing-library/react-native';
 
 import { queryClient, queryKeys } from '../../../app/queryClient';
 import { createSecureStorage } from '../../../services/storage/secureStorage';
@@ -29,7 +29,7 @@ describe('useHeaderViewModel', () => {
       wrapper: QueryWrapper,
     });
 
-  it('mostra o primeiro nome do responsável e o aluno em uso', async () => {
+  it('mostra o primeiro nome do responsável e o aluno em uso, para o chip', async () => {
     queryClient.setQueryData(queryKeys.me(), meResponse);
     useSessionStore.setState({ selectedStudentId: 's2' });
 
@@ -39,42 +39,35 @@ describe('useHeaderViewModel', () => {
     expect(result.current.student).toEqual({
       id: 's2',
       firstName: 'Marina',
+      lastName: 'da Silva',
       rm: 12568,
       className: '3EF',
       period: 'Vespertino',
     });
   });
 
-  it('com mais de um aluno, pode trocar e TROCAR PERFIL abre a seleção', async () => {
+  it('tocar no chip leva à aba Perfil', async () => {
     queryClient.setQueryData(queryKeys.me(), meResponse);
     const { result } = await renderHeader();
 
-    expect(result.current.canSwitchStudent).toBe(true);
-    await act(async () => result.current.onSwitchStudent());
+    await act(async () => result.current.onPressStudent());
 
-    expect(navigate).toHaveBeenCalledWith('SelectStudent');
+    expect(navigate).toHaveBeenCalledWith('Perfil');
   });
 
-  it('com um aluno só, não pode trocar e TROCAR PERFIL não navega', async () => {
+  it('com um aluno só, o chip também leva ao Perfil (o Perfil é mais que a troca)', async () => {
     queryClient.setQueryData(queryKeys.me(), meWithOneStudent);
     const { result } = await renderHeader();
 
-    expect(result.current.canSwitchStudent).toBe(false);
-    await act(async () => result.current.onSwitchStudent());
+    expect(result.current.guardianFirstName).toBe('Adelaide');
+    await act(async () => result.current.onPressStudent());
 
-    expect(navigate).not.toHaveBeenCalled();
+    expect(navigate).toHaveBeenCalledWith('Perfil');
   });
 
-  it('SAIR encerra a sessão e desabilita o botão enquanto sai', async () => {
-    queryClient.setQueryData(queryKeys.me(), meResponse);
+  it('sem /me no cache, sem aluno', async () => {
     const { result } = await renderHeader();
 
-    expect(result.current.logoutDisabled).toBe(false);
-    await act(() => result.current.onLogout());
-
-    await waitFor(() =>
-      expect(useSessionStore.getState().status).toBe('signedOut'),
-    );
-    expect(await createSecureStorage().getToken()).toBeNull();
+    expect(result.current.student).toBeNull();
   });
 });

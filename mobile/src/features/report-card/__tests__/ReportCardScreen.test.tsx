@@ -80,7 +80,7 @@ describe('ReportCardScreen', () => {
 
   const press = (testID: string) => fireEvent.press(screen.getByTestId(testID));
 
-  it('título BOLETIM e skeleton enquanto carrega; depois "7EF - 2025" e os 3 trimestres fechados', async () => {
+  it('header compacto com o título Boletim e skeleton enquanto carrega; depois "7EF - 2025" e os 3 trimestres fechados', async () => {
     const gate = deferred();
     server.use(
       http.get(listPath, async () => {
@@ -91,7 +91,9 @@ describe('ReportCardScreen', () => {
     await renderScreen();
 
     expect(screen.getByTestId('boletim-screen')).toBeOnTheScreen();
-    expect(screen.getByTestId('boletim-title')).toHaveTextContent('BOLETIM');
+    expect(screen.getByTestId('boletim-title')).toHaveTextContent('Boletim');
+    expect(screen.getByTestId('header-student-chip')).toBeOnTheScreen();
+    expect(screen.getByTestId('boletim-scroll')).toBeOnTheScreen();
     expect(screen.getByTestId('boletim-skeleton')).toBeOnTheScreen();
     expect(screen.queryByTestId('boletim-year-dropdown')).toBeNull();
 

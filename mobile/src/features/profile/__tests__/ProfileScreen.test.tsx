@@ -13,6 +13,7 @@ import { ProfileScreen } from '../ProfileScreen';
 
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
+  useNavigation: () => ({ navigate: jest.fn() }),
   useIsFocused: jest.fn(() => true),
 }));
 
@@ -46,6 +47,19 @@ describe('ProfileScreen', () => {
   });
 
   afterEach(() => jest.restoreAllMocks());
+
+  it('header compacto com a saudação e o título Perfil, sem o chip do aluno', async () => {
+    await renderScreen();
+
+    expect(screen.getByTestId('header-greeting')).toHaveTextContent(
+      'Olá, Gustavo',
+    );
+    expect(screen.getByLabelText('FIAP School')).toBeOnTheScreen();
+    expect(screen.queryByTestId('header-student-chip')).toBeNull();
+    expect(screen.getByTestId('profile-scroll')).not.toContainElement(
+      screen.getByTestId('profile-title'),
+    );
+  });
 
   it('título Perfil e o card do responsável com nome, papel e CPF mascarado', async () => {
     await renderScreen();
@@ -173,7 +187,9 @@ describe('ProfileScreen', () => {
     const scroll = screen.getByTestId('profile-scroll');
     const inset = sizes.floatingTabBar.height + 2 * spacing.m;
     expect(scroll.props.contentContainerStyle).toEqual(
-      expect.objectContaining({ paddingBottom: inset }),
+      expect.arrayContaining([
+        expect.objectContaining({ paddingBottom: inset }),
+      ]),
     );
     expect(scroll).toHaveProp('scrollIndicatorInsets', { bottom: inset });
     const refresh = scroll.props.refreshControl;

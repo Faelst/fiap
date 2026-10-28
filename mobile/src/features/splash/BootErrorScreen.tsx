@@ -1,14 +1,18 @@
-import { ActionBar } from '../../components/ActionBar';
+import { CompactHeader } from '../../components/CompactHeader';
 import { ErrorState } from '../../components/ErrorState';
 import { WifiOffIcon } from '../../components/icons/WifiOffIcon';
+import { PillButton } from '../../components/PillButton';
 import { Screen } from '../../components/Screen';
 import { strings } from '../../constants/strings';
 import type { RootStackScreenProps } from '../../navigation/types';
+import { Box } from '../../theme';
 import { useBootErrorViewModel } from './useBootErrorViewModel';
 
 /**
- * Erro de rede na abertura (01-design.md, 3.7): barra só com SAIR, sem
- * saudação (o `/me` falhou), e o ErrorState com TENTAR DE NOVO.
+ * Erro de rede na abertura (01-design.md da v2, 3.7): header compacto só
+ * com o logo e "Sem conexão" (sem saudação: o `/me` falhou), e o erro no
+ * meio da tela com "Tentar de novo" em destaque e Sair embaixo, que sai na
+ * hora e funciona offline.
  */
 export function BootErrorScreen({
   navigation,
@@ -17,21 +21,33 @@ export function BootErrorScreen({
 
   return (
     <Screen testID="boot-error-screen">
-      <ActionBar
-        canSwitchStudent={false}
-        onLogout={vm.onLogout}
-        logoutDisabled={vm.logoutDisabled}
+      <CompactHeader
+        title={strings.boot.screenTitle}
+        titleTestID="boot-error-title"
       />
-      <ErrorState
-        testID="boot-error"
-        icon={WifiOffIcon}
-        title={strings.boot.error.title}
-        description={strings.common.error.description}
-        onRetry={vm.onRetry}
-        retrying={vm.retrying}
-        shakeKey={vm.shakeKey}
-        announce
-      />
+      <Box testID="boot-error-body" flex={1} justifyContent="center">
+        <ErrorState
+          testID="boot-error"
+          icon={WifiOffIcon}
+          title={strings.boot.error.title}
+          description={strings.common.error.description}
+          onRetry={vm.onRetry}
+          retrying={vm.retrying}
+          retryVariant="primary"
+          shakeKey={vm.shakeKey}
+          announce
+          secondaryAction={
+            <PillButton
+              testID="boot-error-logout-button"
+              label={strings.boot.logout}
+              variant="ghost"
+              size="sm"
+              disabled={vm.logoutDisabled}
+              onPress={vm.onLogout}
+            />
+          }
+        />
+      </Box>
     </Screen>
   );
 }

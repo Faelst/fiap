@@ -23,7 +23,7 @@ export const sizes = {
   /** Card do login. */
   formMaxWidth: 400,
   contentMaxWidth: 600,
-  studentChip: { height: 40, avatar: 28, maxWidth: 200 },
+  studentChip: { height: 40, avatar: 28, maxWidth: 200, chevron: 16 },
   avatar: { s: 28, m: 44, l: 56 },
   textField: 60,
   /** Alturas do `PillButton`. */

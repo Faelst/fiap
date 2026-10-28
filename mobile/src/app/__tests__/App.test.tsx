@@ -112,7 +112,7 @@ describe('App', () => {
     expect(screen.queryByTestId('agenda-screen')).toBeNull();
   });
 
-  it('com token e /me com aluno abre nas abas e a seleção de aluno abre em modal', async () => {
+  it('com token e /me com aluno abre nas abas; o chip do aluno leva ao Perfil', async () => {
     await createSecureStorage().setToken('jwt-salvo');
 
     await render(<App />);
@@ -122,12 +122,9 @@ describe('App', () => {
     ).toBeOnTheScreen();
     expect(screen.queryByTestId('login-screen')).toBeNull();
 
-    await act(() =>
-      fireEvent.press(screen.getByTestId('header-switch-student-button')),
-    );
-    expect(
-      await screen.findByTestId('select-student-screen'),
-    ).toBeOnTheScreen();
+    await act(() => fireEvent.press(screen.getByTestId('header-student-chip')));
+    expect(await screen.findByTestId('profile-screen')).toBeOnTheScreen();
+    expect(screen.getByTestId('tab-perfil')).toBeSelected();
   });
 
   it('com token e /me sem aluno abre no NoStudent', async () => {
@@ -255,23 +252,7 @@ describe('App', () => {
     expect(await createSecureStorage().getToken()).toBeNull();
   });
 
-  it('SAIR no Boletim apaga o token e volta ao Login', async () => {
-    await createSecureStorage().setToken('jwt-salvo');
-    await render(<App />);
-    expect(
-      await screen.findByTestId('agenda-screen', {}, AFTER_SPLASH),
-    ).toBeOnTheScreen();
-
-    await act(() => fireEvent.press(screen.getByTestId('tab-boletim')));
-    await act(() =>
-      fireEvent.press(screen.getByTestId('header-logout-button')),
-    );
-
-    expect(await screen.findByTestId('login-screen')).toBeOnTheScreen();
-    expect(await createSecureStorage().getToken()).toBeNull();
-  });
-
-  it('Header nas abas: responsável, aluno e TROCAR PERFIL; trocar no Boletim volta ao Boletim com o aluno novo', async () => {
+  it('header compacto nas abas: chip no Boletim leva ao Perfil, e a troca volta ao Boletim com o aluno novo', async () => {
     await createSecureStorage().setToken('jwt-salvo');
     await render(<App />);
     expect(
@@ -280,37 +261,37 @@ describe('App', () => {
     expect(screen.getByTestId('header-greeting')).toHaveTextContent(
       'Olá, Gustavo',
     );
+    expect(screen.getByTestId('agenda-title')).toHaveTextContent('Agenda');
     expect(screen.getByTestId('header-student-name')).toHaveTextContent(
       'Rafael',
     );
-    expect(useSessionStore.getState().selectedStudentId).toBe('s1');
+    // O Sair e a troca saíram do header (V7).
+    expect(screen.queryByTestId('header-logout-button')).toBeNull();
+    expect(screen.queryByTestId('header-switch-student-button')).toBeNull();
 
     await act(() => fireEvent.press(screen.getByTestId('tab-boletim')));
     expect(await screen.findByTestId('boletim-screen')).toBeOnTheScreen();
-    const switchButtons = screen.getAllByTestId('header-switch-student-button');
-    await act(() => fireEvent.press(switchButtons[switchButtons.length - 1]));
+    const chips = screen.getAllByTestId('header-student-chip');
+    await act(() => fireEvent.press(chips[chips.length - 1]));
 
-    expect(
-      await screen.findByTestId('select-student-screen'),
-    ).toBeOnTheScreen();
-    expect(screen.getByTestId('select-student-card-12567')).toBeSelected();
+    expect(await screen.findByTestId('profile-screen')).toBeOnTheScreen();
     await act(() =>
-      fireEvent.press(screen.getByTestId('select-student-card-12568')),
+      fireEvent.press(screen.getByTestId('profile-student-12568')),
     );
-
-    await waitFor(() =>
-      expect(screen.queryByTestId('select-student-screen')).toBeNull(),
-    );
-    expect(screen.getByTestId('boletim-screen')).toBeOnTheScreen();
     expect(useSessionStore.getState().selectedStudentId).toBe('s2');
-    expect(
-      screen
-        .getAllByTestId('header-student-name')
-        .some(node => node.props.children === 'Marina'),
-    ).toBe(true);
+
+    await act(() => fireEvent.press(screen.getByTestId('tab-boletim')));
+    expect(screen.getByTestId('tab-boletim')).toBeSelected();
+    await waitFor(() =>
+      expect(
+        screen
+          .getAllByTestId('header-student-name')
+          .every(node => node.props.children === 'Marina'),
+      ).toBe(true),
+    );
   });
 
-  it('com um aluno só, o Header não tem TROCAR PERFIL', async () => {
+  it('com um aluno só, o chip mostra a aluna e também leva ao Perfil', async () => {
     await createSecureStorage().setToken('jwt-salvo');
     server.use(
       http.get(`${API_URL}/me`, () =>
@@ -329,11 +310,11 @@ describe('App', () => {
     expect(screen.getByTestId('header-greeting')).toHaveTextContent(
       'Olá, Adelaide',
     );
-    expect(screen.queryByTestId('header-switch-student-button')).toBeNull();
-    expect(screen.getByTestId('header-logout-button')).toBeOnTheScreen();
+    await act(() => fireEvent.press(screen.getByTestId('header-student-chip')));
+    expect(await screen.findByTestId('profile-screen')).toBeOnTheScreen();
   });
 
-  it('NoStudent real: saudação, estado vazio e SAIR leva ao Login', async () => {
+  it('NoStudent real: saudação, estado vazio e Sair leva ao Login na hora', async () => {
     await createSecureStorage().setToken('jwt-salvo');
     server.use(
       http.get(`${API_URL}/me`, () => HttpResponse.json(meWithoutStudents)),
@@ -348,11 +329,31 @@ describe('App', () => {
     );
     expect(screen.getByText('Nenhum aluno vinculado')).toBeOnTheScreen();
     expect(screen.queryByTestId('tab-bar')).toBeNull();
+    expect(screen.queryByTestId('header-student-chip')).toBeNull();
 
     await act(() =>
-      fireEvent.press(screen.getByTestId('header-logout-button')),
+      fireEvent.press(screen.getByTestId('no-student-logout-button')),
     );
     expect(await screen.findByTestId('login-screen')).toBeOnTheScreen();
+  });
+
+  it('BootError: Sair funciona sem API e leva ao Login', async () => {
+    await createSecureStorage().setToken('jwt-salvo');
+    server.use(http.get(`${API_URL}/me`, () => HttpResponse.error()));
+    await render(<App />);
+    expect(
+      await screen.findByTestId('boot-error-screen', {}, AFTER_SPLASH),
+    ).toBeOnTheScreen();
+    expect(screen.getByTestId('boot-error-title')).toHaveTextContent(
+      'Sem conexão',
+    );
+
+    await act(() =>
+      fireEvent.press(screen.getByTestId('boot-error-logout-button')),
+    );
+
+    expect(await screen.findByTestId('login-screen')).toBeOnTheScreen();
+    expect(await createSecureStorage().getToken()).toBeNull();
   });
 
   it('BootError: TENTAR DE NOVO com a API de volta abre as abas', async () => {

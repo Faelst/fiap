@@ -8,7 +8,6 @@ import { LoginScreen } from '../features/auth/LoginScreen';
 import { BootErrorScreen } from '../features/splash/BootErrorScreen';
 import { SplashScreen } from '../features/splash/SplashScreen';
 import { NoStudentScreen } from '../features/students/NoStudentScreen';
-import { SelectStudentScreen } from '../features/students/SelectStudentScreen';
 import { queryKeys } from '../app/queryClient';
 import type { Me } from '../features/auth/schemas';
 import { useBootStore } from '../stores/boot.store';
@@ -41,8 +40,8 @@ function useAuthenticatedLanding(): 'App' | 'NoStudent' {
 /**
  * Stack raiz. A splash é a primeira rota até entregar o app a outra tela
  * (`reset`) e depois sai da lista. Fora isso, a sessão decide as telas: sem
- * sessão só existe o Login; com sessão, as abas, a seleção de aluno e os
- * estados de início. Quando o logout ou um 401 encerra a sessão, o React
+ * sessão só existe o Login; com sessão, as abas e os estados de início (a
+ * troca de aluno fica na aba Perfil, v2). Quando o logout ou um 401 encerra a sessão, o React
  * Navigation troca para o Login sozinho.
  */
 export function RootStack() {
@@ -86,14 +85,6 @@ export function RootStack() {
             name="App"
             component={AppTabs}
             options={fromSplashOptions}
-          />
-          <Stack.Screen
-            name="SelectStudent"
-            component={SelectStudentScreen}
-            options={{
-              presentation: 'fullScreenModal',
-              animation: 'slide_from_bottom',
-            }}
           />
           {landing === 'NoStudent' ? null : noStudent}
           <Stack.Screen

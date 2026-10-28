@@ -1,9 +1,10 @@
-import { useEffect, type ComponentType } from 'react';
+import { useEffect, type ComponentType, type ReactNode } from 'react';
 import { AccessibilityInfo } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import { strings } from '../constants/strings';
 import { useShakeStyle } from '../hooks/useShakeStyle';
+import { Box } from '../theme';
 import { EmptyState } from './EmptyState';
 import { AlertIcon } from './icons/AlertIcon';
 import { RefreshIcon } from './icons/RefreshIcon';
@@ -21,6 +22,13 @@ type ErrorStateProps = {
   testID: string;
   /** Padrão `AlertIcon`; o BootError usa o `WifiOffIcon`. */
   icon?: ComponentType<IconProps>;
+  /**
+   * `secondary` (padrão): pílula secundária pequena, dentro das abas.
+   * `primary`: pílula primária grande, no erro de tela cheia (BootError, 3.7).
+   */
+  retryVariant?: 'secondary' | 'primary';
+  /** Ação embaixo do retry (o Sair do BootError). */
+  secondaryAction?: ReactNode;
   /** Muda a cada retry que falha: dispara o shake curto. */
   shakeKey?: number;
   /**
@@ -44,6 +52,8 @@ export function ErrorState({
   retrying,
   testID,
   icon = AlertIcon,
+  retryVariant = 'secondary',
+  secondaryAction,
   shakeKey = 0,
   announce,
 }: ErrorStateProps) {
@@ -65,16 +75,19 @@ export function ErrorState({
         title={title}
         description={description}
         action={
-          <PillButton
-            testID={`${testID}-retry`}
-            label={strings.common.retry}
-            accessibilityLabel={strings.common.retryAccessibilityLabel}
-            variant="secondary"
-            size="sm"
-            icon={retryIcon}
-            loading={retrying}
-            onPress={onRetry}
-          />
+          <Box testID={`${testID}-actions`} alignItems="center" gap="s">
+            <PillButton
+              testID={`${testID}-retry`}
+              label={strings.common.retry}
+              accessibilityLabel={strings.common.retryAccessibilityLabel}
+              variant={retryVariant}
+              size={retryVariant === 'primary' ? 'md' : 'sm'}
+              icon={retryIcon}
+              loading={retrying}
+              onPress={onRetry}
+            />
+            {secondaryAction}
+          </Box>
         }
       />
     </Animated.View>

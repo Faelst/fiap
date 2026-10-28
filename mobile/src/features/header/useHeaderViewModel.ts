@@ -1,24 +1,17 @@
-import type { RootStackScreenProps } from '../../navigation/types';
-import { useLogout } from '../auth/useLogout';
+import type { NavigationProp } from '@react-navigation/native';
+
+import type { AppTabsParamList } from '../../navigation/types';
 import { useSessionStudent } from '../students/useSessionStudent';
 
-type HeaderNavigation = Pick<
-  RootStackScreenProps<'App'>['navigation'],
-  'navigate'
->;
+type HeaderNavigation = Pick<NavigationProp<AppTabsParamList>, 'navigate'>;
 
 /**
- * Header das abas (R5, M3): primeiro nome do responsável, aluno em uso,
- * TROCAR PERFIL só com mais de um aluno e SAIR sempre.
+ * Header compacto das abas (V7, 01-design.md da v2 2.6): primeiro nome do
+ * responsável e o aluno em uso no chip. O chip leva ao Perfil, mesmo com um
+ * aluno só; a troca de aluno e o Sair ficam lá.
  */
 export function useHeaderViewModel(navigation: HeaderNavigation) {
-  const { guardianFirstName, students, student } = useSessionStudent();
-  const { logout, loggingOut } = useLogout();
-  const canSwitchStudent = students.length > 1;
-
-  const onSwitchStudent = () => {
-    if (canSwitchStudent) navigation.navigate('SelectStudent');
-  };
+  const { guardianFirstName, student } = useSessionStudent();
 
   return {
     guardianFirstName,
@@ -26,14 +19,12 @@ export function useHeaderViewModel(navigation: HeaderNavigation) {
       ? {
           id: student.id,
           firstName: student.firstName,
+          lastName: student.lastName,
           rm: student.rm,
           className: student.className,
           period: student.period,
         }
       : null,
-    canSwitchStudent,
-    onSwitchStudent,
-    onLogout: logout,
-    logoutDisabled: loggingOut,
+    onPressStudent: () => navigation.navigate('Perfil'),
   };
 }

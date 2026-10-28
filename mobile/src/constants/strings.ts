@@ -25,20 +25,17 @@ export const strings = {
     },
   },
   header: {
-    /** Seguido do primeiro nome em `greetingName` (maiúsculo pela variante). */
-    greeting: 'Olá, ',
-    greetingAccessibilityLabel: (name: string) => `Olá, ${name}`,
+    /** `Olá, Gustavo` (caixa normal, DV2). */
+    greeting: (name: string) => `Olá, ${name}`,
     studentAccessibilityLabel: (
       name: string,
       className: string,
       rm: number,
       period: string,
     ) => `Aluno ${name}, turma ${className}, RM ${rm}, período ${period}`,
-    switchStudent: 'TROCAR PERFIL',
-    switchStudentAccessibilityLabel: 'Trocar aluno',
-    switchStudentHint: 'Abre a lista de alunos',
-    logout: 'SAIR',
-    logoutAccessibilityLabel: 'Sair da conta',
+    /** Chip do aluno: `Rafael · 7EF` (nome e turma em `Text` separados). */
+    studentChipSeparator: ' · ',
+    studentHint: 'Abre o perfil',
   },
   tabs: {
     agenda: 'Agenda',
@@ -49,8 +46,7 @@ export const strings = {
     perfilAccessibilityLabel: 'Perfil',
   },
   agenda: {
-    title: 'AGENDA',
-    titleAccessibilityLabel: 'Agenda',
+    title: 'Agenda',
     dayAccessibilityPrefix: 'Dia',
     dayHint: 'Toque para escolher outro dia',
     /** `07:15 - 08:00`. */
@@ -62,8 +58,7 @@ export const strings = {
     error: { title: 'Não foi possível carregar a agenda.' },
   },
   boletim: {
-    title: 'BOLETIM',
-    titleAccessibilityLabel: 'Boletim',
+    title: 'Boletim',
     /** `7EF - 2025`. */
     yearLabel: (className: string, year: number) => `${className} - ${year}`,
     yearAccessibilityPrefix: 'Turma e ano',
@@ -85,17 +80,6 @@ export const strings = {
       title: 'Não foi possível carregar o boletim.',
       notFound: 'Boletim não encontrado.',
     },
-  },
-  selectStudent: {
-    close: 'FECHAR',
-    closeAccessibilityLabel: 'Fechar',
-    title: 'Escolha o perfil\nque você quer visualizar',
-    cardAccessibilityLabel: (
-      fullName: string,
-      className: string,
-      rm: number,
-      period: string,
-    ) => `${fullName}, turma ${className}, RM ${rm}, ${period}`,
   },
   profile: {
     title: 'Perfil',
@@ -132,22 +116,23 @@ export const strings = {
     loggingOutAccessibilityLabel: 'Saindo…',
   },
   noStudent: {
+    screenTitle: 'Sua conta',
     title: 'Nenhum aluno vinculado',
     description:
       'Não encontramos alunos ligados ao seu CPF. Fale com a secretaria da FIAP School para fazer o vínculo.',
+    logout: 'Sair',
   },
   splash: {
     loadingAccessibilityLabel: 'Carregando',
   },
   boot: {
+    screenTitle: 'Sem conexão',
+    logout: 'Sair',
     error: { title: 'Não conseguimos conectar.' },
   },
   common: {
-    /** Logo da splash, do Login e do Header. */
+    /** Logo da splash, do Login e do header. */
     logoLabel: 'FIAP School',
-    /** `7EF - RM 12567 - Matutino` (Header e cartão da troca de aluno). */
-    studentInfo: (className: string, rm: number, period: string) =>
-      `${className} - RM ${rm} - ${period}`,
     /** Fundo do dropdown aberto: o leitor de tela também fecha a lista por ele. */
     closeListAccessibilityLabel: 'Fechar lista',
     error: { description: 'Confira sua conexão e tente de novo.' },

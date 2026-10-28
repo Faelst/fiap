@@ -7,18 +7,18 @@ import { EmptyState } from '../../components/EmptyState';
 import { ClockIcon } from '../../components/icons/ClockIcon';
 import { ErrorState } from '../../components/ErrorState';
 import { Screen } from '../../components/Screen';
-import { SectionTitle } from '../../components/SectionTitle';
 import { strings } from '../../constants/strings';
 import { Box, enterDown, useTheme } from '../../theme';
-import { AppHeader } from '../header/AppHeader';
+import { TabScreenLayout } from '../header/TabScreenLayout';
 import { TermAccordion } from './components/TermAccordion';
 import { useReportCardViewModel } from './useReportCardViewModel';
 
 /**
- * Boletim (M5, 01-design.md 3.4 e 4.6): título, dropdown de turma e ano e os
- * trimestres do ano em acordeão, o skeleton ou o erro. Rola junto com o
- * Header (que já é a `ScrollView`), por isso um `map`: são 3 trimestres de
- * até 12 disciplinas, e o corpo de cada acordeão só monta na 1ª abertura.
+ * Boletim (M5, 01-design.md 3.4 e 4.6): header compacto (v2, 2.6), dropdown
+ * de turma e ano e os trimestres do ano em acordeão, o skeleton ou o erro.
+ * Rola na `ScrollView` do layout das abas, por isso um `map`: são 3
+ * trimestres de até 12 disciplinas, e o corpo de cada acordeão só monta na
+ * 1ª abertura.
  */
 export function ReportCardScreen() {
   const vm = useReportCardViewModel();
@@ -40,18 +40,12 @@ export function ReportCardScreen() {
 
   return (
     <Screen testID="boletim-screen">
-      <AppHeader>
-        <Animated.View
-          entering={enterDown(motion, 2 * motion.stagger)}
-          style={{ marginTop: spacing.section }}
-        >
-          <SectionTitle
-            testID="boletim-title"
-            title={strings.boletim.title}
-            accessibilityLabel={strings.boletim.titleAccessibilityLabel}
-          />
-        </Animated.View>
-        <Box marginTop="m" paddingBottom="l">
+      <TabScreenLayout
+        title={strings.boletim.title}
+        titleTestID="boletim-title"
+        scrollTestID="boletim-scroll"
+      >
+        <Box marginTop="sm" paddingBottom="l">
           {vm.status === 'loading' ? (
             <BoletimSkeleton testID="boletim-skeleton" />
           ) : null}
@@ -119,7 +113,7 @@ export function ReportCardScreen() {
             </>
           ) : null}
         </Box>
-      </AppHeader>
+      </TabScreenLayout>
     </Screen>
   );
 }

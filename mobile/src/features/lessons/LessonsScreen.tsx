@@ -8,17 +8,16 @@ import { CalendarOffIcon } from '../../components/icons/CalendarOffIcon';
 import { ErrorState } from '../../components/ErrorState';
 import { LessonItem } from '../../components/LessonItem';
 import { Screen } from '../../components/Screen';
-import { SectionTitle } from '../../components/SectionTitle';
 import { strings } from '../../constants/strings';
 import { Box, enterDown, useTheme } from '../../theme';
-import { AppHeader } from '../header/AppHeader';
+import { TabScreenLayout } from '../header/TabScreenLayout';
 import { useAgendaViewModel } from './useAgendaViewModel';
 
 /**
- * Agenda (M4, 01-design.md 3.3 e 4.5): título, dropdown dos dias e as aulas
- * do dia, o estado vazio, o skeleton ou o erro. As aulas são no máximo
- * algumas por dia e rolam junto com o Header (que já é a `ScrollView`), por
- * isso um `map`, e não uma `FlatList` aninhada.
+ * Agenda (M4, 01-design.md 3.3 e 4.5): header compacto (v2, 2.6), dropdown
+ * dos dias e as aulas do dia, o estado vazio, o skeleton ou o erro. As
+ * aulas são no máximo algumas por dia e rolam na `ScrollView` do layout das
+ * abas, por isso um `map`, e não uma `FlatList` aninhada.
  */
 export function LessonsScreen() {
   const vm = useAgendaViewModel();
@@ -28,18 +27,12 @@ export function LessonsScreen() {
 
   return (
     <Screen testID="agenda-screen">
-      <AppHeader>
-        <Animated.View
-          entering={enterDown(motion, 2 * motion.stagger)}
-          style={{ marginTop: spacing.section }}
-        >
-          <SectionTitle
-            testID="agenda-title"
-            title={strings.agenda.title}
-            accessibilityLabel={strings.agenda.titleAccessibilityLabel}
-          />
-        </Animated.View>
-        <Box marginTop="m" paddingBottom="l">
+      <TabScreenLayout
+        title={strings.agenda.title}
+        titleTestID="agenda-title"
+        scrollTestID="agenda-scroll"
+      >
+        <Box marginTop="sm" paddingBottom="l">
           {vm.status === 'loading' ? (
             <AgendaSkeleton testID="agenda-skeleton" />
           ) : null}
@@ -108,7 +101,7 @@ export function LessonsScreen() {
             </>
           ) : null}
         </Box>
-      </AppHeader>
+      </TabScreenLayout>
     </Screen>
   );
 }

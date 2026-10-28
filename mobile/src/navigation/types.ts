@@ -21,7 +21,6 @@ export type RootStackParamList = {
   Splash: undefined;
   Login: FromSplashParams;
   App: (NavigatorScreenParams<AppTabsParamList> & FromSplashParams) | undefined;
-  SelectStudent: undefined;
   NoStudent: FromSplashParams;
   BootError: FromSplashParams;
 };

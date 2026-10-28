@@ -66,8 +66,6 @@ export const motion = {
   shake: { offsets: [-10, 10, -8, 8, -4, 0], step: 50 },
   /** Shake curto do estado de erro quando o retry falha de novo (4.8). */
   shakeShort: { offsets: [-6, 6, -3, 0], step: 50 },
-  /** Seleção de aluno: o modal fecha 120 ms depois da borda acender (4.7). */
-  selectStudentBackDelay: 120,
   /** Atraso entre cards em cascata. */
   cardStagger: 50,
   /** Atraso entre os 7 chips da faixa semanal (120 ms no total). */

@@ -71,12 +71,16 @@ describe('LessonsScreen', () => {
     // Sem home indicator: barra (64) + `m` da borda + `m` de folga.
     const inset = floatingTabBar.height + 2 * theme.spacing.m;
     expect(
-      screen.getByTestId('header-scroll').props.contentContainerStyle,
-    ).toEqual(expect.arrayContaining([{ paddingBottom: inset }]));
+      screen.getByTestId('agenda-scroll').props.contentContainerStyle,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ paddingBottom: inset }),
+      ]),
+    );
     await screen.findByTestId('agenda-day-dropdown');
   });
 
-  it('título AGENDA e skeleton enquanto a agenda carrega', async () => {
+  it('header compacto com o título Agenda e o chip do aluno; skeleton enquanto a agenda carrega', async () => {
     const gate = deferred();
     server.use(
       http.get(`${API_URL}/students/:id/agenda`, async () => {
@@ -87,7 +91,15 @@ describe('LessonsScreen', () => {
     await renderScreen();
 
     expect(screen.getByTestId('agenda-screen')).toBeOnTheScreen();
-    expect(screen.getByTestId('agenda-title')).toHaveTextContent('AGENDA');
+    expect(screen.getByTestId('agenda-title')).toHaveTextContent('Agenda');
+    expect(screen.getByTestId('agenda-title')).toHaveProp(
+      'accessibilityRole',
+      'header',
+    );
+    expect(screen.getByTestId('header-greeting')).toHaveTextContent(
+      'Olá, Gustavo',
+    );
+    expect(screen.getByTestId('header-student-chip')).toBeOnTheScreen();
     expect(screen.getByTestId('agenda-skeleton')).toBeOnTheScreen();
     expect(screen.queryByTestId('agenda-day-dropdown')).toBeNull();
 
