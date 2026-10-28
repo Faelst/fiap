@@ -32,8 +32,20 @@ type SegmentedControlProps = {
   testID: string;
 };
 
-/** `sm` tem 36 de altura: 4 a mais em cima e embaixo dão o alvo de 44. */
-const SM_HIT_SLOP: Insets = { top: 4, bottom: 4 };
+/**
+ * Folga vertical do toque: o item tem a altura do segmento menos o padding
+ * e a borda do trilho (34 no `md`, 26 no `sm`); a folga completa o alvo de
+ * 44 (6.3): 5 no `md`, 9 no `sm`.
+ */
+function itemHitSlop(
+  segmentHeight: number,
+  padding: number,
+  touchTarget: number,
+): Insets {
+  const itemHeight = segmentHeight - 2 * padding - 2;
+  const slop = Math.max((touchTarget - itemHeight) / 2, 0);
+  return { top: slop, bottom: slop };
+}
 
 type SegmentProps = {
   option: SegmentOption;
@@ -87,7 +99,11 @@ function Segment({
       accessibilityRole="tab"
       accessibilityLabel={option.accessibilityLabel ?? option.label}
       accessibilityState={{ selected }}
-      hitSlop={size === 'sm' ? SM_HIT_SLOP : undefined}
+      hitSlop={itemHitSlop(
+        sizes.segmented[size],
+        sizes.segmented.padding,
+        sizes.touchTarget,
+      )}
       onPress={onPress}
       style={width === undefined ? styles.flexItem : { width }}
     >
