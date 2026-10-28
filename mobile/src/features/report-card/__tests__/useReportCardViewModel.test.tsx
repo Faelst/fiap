@@ -390,6 +390,34 @@ describe('useReportCardViewModel', () => {
       expect(result.current.terms[0].subjects[0].grade).toBe('9,5');
     });
 
+    it('durante o TENTAR DE NOVO do 404, a descrição continua "Boletim não encontrado."', async () => {
+      server.use(
+        http.get(yearPath, () => HttpResponse.json(notFound, { status: 404 })),
+      );
+      const { result } = await renderBoletim();
+      await waitFor(() => expect(result.current.termsStatus).toBe('error'));
+
+      const gate = deferred();
+      server.use(
+        http.get(yearPath, async () => {
+          await gate.promise;
+          return HttpResponse.json(notFound, { status: 404 });
+        }),
+      );
+      let retry: Promise<void> = Promise.resolve();
+      await act(() => {
+        retry = result.current.onRetry();
+      });
+
+      expect(result.current.retrying).toBe(true);
+      expect(result.current.errorDescription).toBe('Boletim não encontrado.');
+
+      gate.release();
+      await act(() => retry);
+      expect(result.current.termsStatus).toBe('error');
+      expect(result.current.errorDescription).toBe('Boletim não encontrado.');
+    });
+
     it('TENTAR DE NOVO que falha de novo continua no erro e muda o shakeKey', async () => {
       server.use(http.get(listPath, () => HttpResponse.error()));
       const { result } = await renderBoletim();

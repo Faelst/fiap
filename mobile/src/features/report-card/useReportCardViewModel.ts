@@ -150,8 +150,16 @@ export function useReportCardViewModel() {
     }),
   );
 
-  const failedError =
+  // O refetch de uma query sem dados zera o `error` enquanto busca: durante o
+  // TENTAR DE NOVO a descrição vem do último erro que terminou, senão ela
+  // trocaria para o texto de conexão até a resposta chegar.
+  const currentError =
     status === 'error' ? yearsQuery.error : reportQuery.error ?? null;
+  const [lastError, setLastError] = useState(currentError);
+  if (currentError !== null && currentError !== lastError) {
+    setLastError(currentError);
+  }
+  const failedError = currentError ?? (retrying ? lastError : null);
   const errorDescription =
     failedError?.kind === 'notFound'
       ? strings.boletim.error.notFound
