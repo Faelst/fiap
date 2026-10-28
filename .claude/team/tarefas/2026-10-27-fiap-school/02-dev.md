@@ -2397,3 +2397,97 @@ Adiados, como pedido: máquina de retry duplicada, ícone, app switcher e action
 
 ## Mensagens
 - Ao chief: revisão final do mobile corrigida em 7 commits (`565fa1f`, `f9758e4`, `d4bb83e`, `4ae048e`, `a874ef3`, `7055d96`, `537a032`). Há mudança nativa: saiu o gesture-handler, então é preciso refazer `pod install` e o build nativo. O bundle de release caiu de 3,28 MB para 2,77 MB. O PID 35131 (Metro antigo na 8081) segue de pé.
+
+## Tarefa 17 — parte 2
+
+- Worktree `/Users/fael_st/workspace/fiap/.claude/worktrees/release`, branch `release/v1`, base `44f6184`. Commits: **77fa800** `chore(mobile): prettier ignora vendor/ das gems do bundle install`, **bb62ac2** `docs: GIFs da demonstração a partir dos vídeos do QA`, **e32fe3b** `docs: README final com caminhos do CocoaPods, Maestro e GIFs`. Push não feito: não há remote `origin`.
+
+### O que mudou
+
+- `README.md`:
+  - Início rápido: aviso do Ruby do sistema, com o caminho A (Ruby 3 do Homebrew + bundler) e o B (CocoaPods do Homebrew + Xcode).
+  - iOS: os dois caminhos completos. Inclui o `xcodebuild` por UDID, o `simctl install`/`launch`, a diferença do `Podfile.lock`/`Gemfile.lock` no caminho A e o Metro em outra porta (`RCT_jsLocation`).
+  - Demonstração: 5 GIFs em duas tabelas lado a lado.
+  - Stack: saem `expo` e `gesture-handler`. Entram versões de screens/safe-area e as devDependencies `@babel/plugin-transform-export-namespace-from`, `yaml` e `react-native-asset`.
+  - Pré-requisitos: Ruby 3 e Maestro 2.11.0 + Java 17.
+  - Testes: `yarn maestro:check` na tabela e uma seção "Flows do Maestro" (instalação com `MAESTRO_VERSION=2.11.0`, limites de login altos, comandos e o aviso "ainda não executados").
+  - Workflows: `maestro.yml` real, `mobile.yml` com `maestro:check` e o nome do artefato, aviso de que nenhum workflow rodou ainda e um parágrafo sobre o APK debug (x86_64, precisa de Metro + `adb reverse`, API em `10.0.2.2`, sem APK de release).
+  - Modelo: `GuardianStudent.position` e a ordem do `/me`.
+  - SDD: tirei "no fechamento" e acrescentei a linha do `05-qa.md`.
+  - Limitações: Maestro não executado e sem push/OTA/APK de release. Os avisos de Android e Docker continuam.
+  - Próximos passos: primeiro CI real, v2 de UI (`2026-10-28-app-v2/`), APK de release e logo em SVG.
+  - Troubleshooting: o yarn 3 com os dois sintomas e como reverter (`git checkout -- yarn.lock && rm -rf .yarn`, com o aviso de não fazer isso em `mobile/`), a falha do Ruby e o `vendor/` no `format:check`.
+- `mobile/README.md`: nota do Ruby 3/CocoaPods e do `yarn ios`, e `maestro:check` nos scripts.
+- `mobile/.maestro/README.md`: aviso "flows ainda não executados". Também corrigi 2 achados de markdownlint que já existiam (linha longa e bloco sem linguagem).
+- `mobile/.prettierignore`: `vendor`.
+- `docs/media/{login,agenda,boletim,trocar-aluno,estados}.gif`: novos.
+
+### Início rápido executado (G3)
+
+Clone limpo da `release/v1` em `/tmp/fiap-g3`, simulador iPhone 16 `1E7DEFC7-…`, iOS 18.1. Apaguei tudo no fim.
+
+1. API: `cp .env.example .env`, `YARN_IGNORE_PATH=1 yarn install` (yarn 1.22.22), `yarn prisma:setup` → "Seed concluído: 3 responsáveis e 3 alunos." (banco novo, sem `migrate reset`). `yarn start:dev` → `/api/health` `{"status":"ok"}`.
+2. App: `yarn install` (yarn 4.18.1), `cp .env.example .env`.
+3. Ruby do sistema (2.6.10): `bundle install` falhou em `json 2.7.6` (o mesmo do QA).
+4. **Caminho A**:
+   - Com `PATH="/opt/homebrew/opt/ruby/bin:$PATH"` (Ruby 3.4.8): `bundle install` ok, `bundle exec pod install` ok (1 min 17 s).
+   - Efeitos colaterais: `Podfile.lock` passou de `COCOAPODS: 1.16.2` para `1.15.2`, e apareceu o `mobile/Gemfile.lock` não versionado.
+   - `yarn ios --udid … --port 8090 --no-packager`: "✔ Installing Ruby Gems", "✔ Installing CocoaPods", "Successfully built the app", "Successfully launched the app".
+5. **Metro** na **8090** (`yarn start --port 8090`), porque a 8081 é do Metro antigo (PID 35131), que não toquei.
+   - O app abriu com a tela vermelha "Unable to resolve module expo/internal/async-require-module from …/worktrees/mobile/…". Ele foi para a 8081, apesar do `--port 8090`: o domínio `br.com.fiap.school` nem existia no `defaults` do simulador.
+   - Com `simctl spawn … defaults write br.com.fiap.school RCT_jsLocation localhost:8090` + relaunch → Login. Isso foi para o README como "Metro em outra porta".
+   - Login do Gustavo (handlers reais pelo inspector do Metro, como nas tarefas anteriores) → `agenda-screen`, "Olá, GUSTAVO", RAFAEL 7EF, 19 de março, quarta-feira. A API registrou POST login + GET me + GET agenda.
+6. **Caminho B**:
+   - `git checkout` do lock, `rm -rf Pods Gemfile.lock vendor`, `pod install` do Homebrew (1.16.2, Ruby do sistema). `git status` ficou limpo.
+   - `xcodebuild … -destination 'platform=iOS Simulator,name=iPhone 16'` **falhou**: "Unable to find a device matching…", porque ele procura `OS:latest` (há runtime 27.0 sem iPhone 16).
+   - Com `-destination 'platform=iOS Simulator,id=<UDID>' -derivedDataPath build/cli` → `** BUILD SUCCEEDED **` (5 min 43 s, build do zero).
+   - `simctl uninstall` + `install …/Debug-iphonesimulator/FiapSchool.app` + `launch` → Login → login do Gustavo → Agenda com Rafael.
+   - O README usa o UDID por causa disso.
+7. Limpeza: Metro da 8090 e API parados, `RCT_jsLocation` apagado (o `defaults read` confirma que não existe), `/tmp/fiap-g3` e os scripts apagados. 8090 e 3333 livres. A 8081 segue com o PID 35131.
+
+Não testado: rbenv/asdf (o README só diz "um Ruby 3 ativo na pasta"), Xcode pela interface (sem Simulator.app nesta sessão; o caminho por linha de comando é o mesmo build), Android, Docker e Maestro.
+
+### GIFs
+
+ffmpeg 8 com palette (`palettegen max_colors=128 stats_mode=diff` + `paletteuse` bayer, `diff_mode=rectangle`), 12 fps e 320 px de largura. Cortei só as pausas longas (detectadas com `mpdecimate`) e mantive as de ~2 s, para dar tempo de ler:
+
+| GIF | Cortes | Duração | Tamanho |
+|---|---|---|---|
+| `login.gif` | login vazio 3,0–5,0 s; agenda parada 17,5–18,8 s | 17,6 s | 342 KB |
+| `agenda.gif` | início parado 0–2 s | 17,5 s | 442 KB |
+| `boletim.gif` | início parado 0–2 s | 19,2 s | 198 KB |
+| `trocar-aluno.gif` | nenhum | 11,3 s | 432 KB |
+| `estados.gif` | 0–1 s e erro parado 16,0–21,5 s | 18,2 s | 369 KB |
+
+Total: **1,7 MB**, todos abaixo de 0,5 MB. Conferi a legibilidade num quadro extraído: o header, o "Nenhum aluno vinculado" e os trimestres são legíveis a 320 px.
+
+### Verificação
+
+- `npx --yes markdownlint-cli2 --config <MD060 off, MD013 sem tabelas/código> README.md mobile/README.md mobile/.maestro/README.md` → `Summary: 0 issues in 0 files`.
+- `cd mobile && yarn format:check` → "All matched files use Prettier code style!".
+- Prova do `.prettierignore`: com `mobile/vendor/bundle/x.js` mal formatado, o check passa com a linha `vendor` e falha sem ela (`[warn] vendor/bundle/x.js`). Arquivo apagado em seguida.
+- `grep -n "previst\|a gravar\|a confirmar\|no fechamento\|ainda não\|expo\|Expo\|push\|gesture" README.md mobile/README.md mobile/.maestro/README.md`: sobram só (a) os avisos honestos ("ainda não" de Opção B, Android, Docker, Maestro e workflows), (b) "sem Expo" e "Sem push e sem atualização OTA" nas limitações, (c) `export`/`push na main` (falsos positivos).
+- Dependências conferidas contra `mobile/package.json` e `api/package.json` (TypeScript da API instalado: 5.9.3). Os gatilhos do `maestro.yml`/`mobile.yml` e o nome do artefato foram conferidos nos YAMLs.
+- Não há código de produção nem teste novo (só docs, mídia e config de prettier), então não rodei suítes.
+
+### Decisões
+
+- **APK**: o `mobile.yml` builda `-PreactNativeArchitectures=x86_64` e não embute o bundle JS. O APK só roda num emulador x86_64 (não num emulador arm64 de Mac Apple Silicon) e precisa do Metro + `adb reverse tcp:8081 tcp:8081`. O README diz isso, em vez de "instala e roda".
+- **Destino do `xcodebuild` por UDID**: pelo nome falhou nesta máquina (ver o passo 6).
+- **`yarn ios` não é plano B**: o CLI (`cli-config-apple/tools/pods.js`) roda `bundle install` sempre que o cache de hash do Podfile está vazio, então sem Ruby 3 ele falha mesmo com os pods instalados. O caminho B usa Xcode ou `xcodebuild`.
+
+### Ressalvas
+
+1. O README linka `05-qa.md` e `evidencias/qa/`, que **ainda não estão commitados** (estão como não versionados no checkout principal, na `spec/fiap-school`). Até o chief commitá-los e integrá-los na `release/v1`, esses dois links ficam quebrados. Os GIFs em `docs/media/` não dependem disso.
+2. O link para `.claude/team/tarefas/2026-10-28-app-v2/` existe na `release/v1` (`00-pedido.md`).
+3. Os avisos de Docker, Android, Maestro e workflows continuam no README, porque nada disso rodou. Tirar quando o primeiro CI passar.
+
+**Status: PRONTO COM RESSALVAS** (ressalva 1). Commits 77fa800, bb62ac2, e32fe3b. Testes: só docs; markdownlint 0 issues, `format:check` ok, Início rápido executado nos dois caminhos até a Agenda.
+
+## Mensagens
+
+- Ao chief: T17 parte 2 em `release/v1` (77fa800..e32fe3b). G3 resolvido no texto e provado num clone limpo nos dois caminhos (Ruby 3 + `yarn ios`; CocoaPods do Homebrew + `xcodebuild` por UDID). Três coisas para você:
+  - (a) commitar `05-qa.md` e `evidencias/qa/` e trazer para a `release/v1`, porque o README linka os dois;
+  - (b) o APK do `mobile.yml` é x86_64 e precisa de Metro, e o README diz isso; se quiser um APK que "instala e roda", seria embutir o bundle como no `maestro.yml` (fora desta tarefa);
+  - (c) o `yarn ios --port N` não muda a porta que o app procura (vai na 8081); o README documenta o `RCT_jsLocation`. O PID 35131 segue de pé.
+- Ao qa (re-teste do G3): seguir o Início rápido com o aviso do Ruby, caminho A ou B. Num Mac com a 8081 livre não precisa do `RCT_jsLocation`.

@@ -183,3 +183,11 @@ Fila: pedido da v2 do app registrado em .claude/team/tarefas/2026-10-28-app-v2/0
 Revisão final mobile: rodada 1/3 (8 itens pelo developer; commits b6bdc22..537a032; gesture-handler removido = mudança nativa) — re-review restrito do code-reviewer e do cyber-security abertos
 Revisão final mobile: cyber-security rodada 1 — SEGURO, sem pendências (IMP 1 e SUG 3 resolvidos); IMP 2/SUG 6 seguem como pré-requisitos do APK na T17.
 Revisão final mobile: code-reviewer rodada 1 — APROVADO. Trilha mobile CONCLUÍDA (40c8577..537a032). Aberto só o logo/ilustração 1× (depende do usuário).
+Integração: branch release/v1 (worktree .claude/worktrees/release) = spec/fiap-school + chore/tooling + feat/api + feat/mobile (merges --no-ff, só 1 conflito trivial no .gitignore), renormalização LF/CRLF aplicada; evidências comprimidas (71 MB → 8 MB; originais em /.evidencias-originais, fora do git).
+Decisão: entrega como UM PR release/v1 → main (no lugar de spec → main + 3 PRs de trilha) — mais simples de revisar/mergear; o histórico das trilhas fica nos merges. Revoga a sequência de PRs registrada antes — custo: PR grande (mitigado pela trilha de revisão em .claude/team).
+Decisão: T17 parte 2 (GIFs, README final) é feita direto na release/v1, depois do QA.
+QA: aberto na release/v1.
+QA (release/v1 44f6184): A1–A8 ✅, M1–M9/M12 ✅ no iOS, G1 ✅, G2 ✅ estático, G3 ❌ (README: bundle install com Ruby do sistema falha; README desatualizado com Expo/push/gesture-handler/"previsto"). Não testável aqui: Android, Maestro, VoiceOver, Docker, CI real.
+Decisão: APK em tag (D32 "CD") sai do escopo da v1 — sem API pública o APK de release não teria com quem falar e exigiria keystore de release + cleartext; o README aponta o APK debug do artefato do mobile.yml para quem quiser instalar no emulador. Revoga o item do APK da T17 e encerra o IMP 2/SUG 6 da segurança mobile (não há APK distribuído).
+Decisão: rolar a tela ao abrir o 3º trimestre e senha com "•" no lugar de "*" — adiados (a v2 refaz o boletim).
+Tarefa 17 (parte 2): aberta na release/v1 (README final, GIFs, .prettierignore).
