@@ -38,8 +38,8 @@ type HostRef = ComponentRef<typeof View>;
  * "Sair da conta" com confirmação leve no mesmo lugar (01-design.md da v2,
  * 3.5, DV7): o 1º toque troca a linha por "Sair deste aparelho?" + Cancelar
  * + Sair, em crossfade e na mesma altura, sem modal. O foco do leitor de
- * tela acompanha a troca (6.4). Na tela estreita a pergunta some e os dois
- * botões dividem a largura.
+ * tela acompanha a troca (6.4). Na tela estreita a pergunta some, os dois
+ * botões dividem a largura e levam a pergunta no rótulo acessível.
  */
 export function LogoutRow({
   testID,
@@ -121,6 +121,13 @@ export function LogoutRow({
                 ref={cancelRef}
                 testID={`${testID}-cancel`}
                 label={strings.profile.logoutCancel}
+                accessibilityLabel={
+                  compact
+                    ? strings.profile.logoutInContext(
+                        strings.profile.logoutCancel,
+                      )
+                    : undefined
+                }
                 variant="secondary"
                 size="xs"
                 fullWidth={compact}
@@ -132,6 +139,13 @@ export function LogoutRow({
               <PillButton
                 testID={`${testID}-confirm`}
                 label={strings.profile.logoutConfirm}
+                accessibilityLabel={
+                  compact
+                    ? strings.profile.logoutInContext(
+                        strings.profile.logoutConfirm,
+                      )
+                    : undefined
+                }
                 variant="danger"
                 size="xs"
                 fullWidth={compact}

@@ -39,12 +39,17 @@ const ROW_BORDER = 1;
 
 type Motion = Theme['motion'];
 
+/** Opacidade não é movimento: o fade fica com reduzir movimento (4.6). */
+function fadeInFast(motion: Motion) {
+  return FadeIn.duration(motion.fast).reduceMotion(ReduceMotion.Never);
+}
+
 /**
  * Selo "Atual" entrando quando o aluno acaba de ser escolhido (4.6): fade e
  * escala `popFrom` → 1 com a mola `pop`; com reduzir movimento, só o fade.
  */
 function badgeEntering(motion: Motion, reduced: boolean) {
-  if (reduced) return FadeIn.duration(motion.fast);
+  if (reduced) return fadeInFast(motion);
   const { fast, popFrom, spring } = motion;
   return (): LayoutAnimation => {
     'worklet';
@@ -88,6 +93,8 @@ export function StudentRow({
   const [initialSelected] = useState(selected);
   const [toggled, setToggled] = useState(false);
   if (!toggled && selected !== initialSelected) setToggled(true);
+  // O atual não troca nada: sem papel de botão, sem toque e sem escala (3.5).
+  const switchable = pressable && !selected;
 
   useEffect(() => {
     if (previousSelected.current === selected) return;
@@ -128,18 +135,16 @@ export function StudentRow({
   return (
     <Pressable
       testID={testID}
-      accessibilityRole={pressable ? 'button' : 'text'}
+      accessibilityRole={switchable ? 'button' : 'text'}
       accessibilityLabel={strings.profile.studentAccessibilityLabel(
         fullName,
         className,
         rm,
         period,
       )}
-      accessibilityHint={
-        pressable && !selected ? strings.profile.studentHint : undefined
-      }
+      accessibilityHint={switchable ? strings.profile.studentHint : undefined}
       accessibilityState={{ selected }}
-      disabled={!pressable}
+      disabled={!switchable}
       onPress={onPress}
       onPressIn={pressIn}
       onPressOut={pressOut}
@@ -219,7 +224,7 @@ export function StudentRow({
           ) : null}
           {!selected && pressable ? (
             <Animated.View
-              entering={toggled ? FadeIn.duration(motion.fast) : undefined}
+              entering={toggled ? fadeInFast(motion) : undefined}
               exiting={fadeOut}
             >
               <Box

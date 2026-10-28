@@ -6,6 +6,7 @@ import {
   withTiming,
 } from 'react-native-reanimated';
 
+import type { RecordedAnimation } from '../../../test/recordingAnimations';
 import { renderWithTheme } from '../../../test/renderWithTheme';
 import { theme } from '../../../theme';
 import { StudentRow } from '../components/StudentRow';
@@ -14,6 +15,9 @@ jest.mock('react-native-reanimated', () => {
   const actual = jest.requireActual('react-native-reanimated/mock');
   return {
     ...actual,
+    ...jest
+      .requireActual('../../../test/recordingAnimations')
+      .recordingAnimations(),
     useReducedMotion: jest.fn(() => false),
     withSpring: jest.fn(actual.withSpring),
     withTiming: jest.fn(actual.withTiming),
@@ -157,6 +161,19 @@ describe('StudentRow', () => {
     expect(marina.onPress).toHaveBeenCalledTimes(1);
   });
 
+  it('aluno atual com troca possível: sem papel de botão, desabilitado e sem escala ao toque', async () => {
+    await renderWithTheme(<StudentRow {...marina} selected />);
+
+    expect(row()).toHaveProp('accessibilityRole', 'text');
+    expect(row()).toBeSelected();
+    expect(row()).toBeDisabled();
+    await fireEvent(row(), 'pressIn');
+    await fireEvent.press(row());
+
+    expect(marina.onPress).not.toHaveBeenCalled();
+    expect(withSpring).not.toHaveBeenCalled();
+  });
+
   it('com 1 aluno: não é pressionável, sem rádio e sem dica, e fica como atual', async () => {
     await renderWithTheme(
       <StudentRow {...marina} selected pressable={false} />,
@@ -226,6 +243,29 @@ describe('StudentRow', () => {
 
       expect(withTiming).toHaveBeenCalledWith(0, { duration: motion.fast });
       expect(withSpring).not.toHaveBeenCalled();
+    });
+
+    it('com reduzir movimento: o selo e o rádio ainda entram em fade (opacidade não é movimento)', async () => {
+      reducedMotionMock.mockReturnValue(true);
+      const enteringOf = (id: string) =>
+        (
+          screen.getByTestId(id, hidden).parent as unknown as {
+            props: { entering?: RecordedAnimation };
+          }
+        ).props.entering;
+      const { rerender } = await renderWithTheme(<StudentRow {...marina} />);
+
+      await rerender(<StudentRow {...marina} selected />);
+      expect(enteringOf('profile-student-12568-current')).toMatchObject({
+        name: 'FadeIn',
+        calls: { duration: motion.fast, reduceMotion: 'never' },
+      });
+
+      await rerender(<StudentRow {...marina} />);
+      expect(enteringOf('profile-student-12568-radio')).toMatchObject({
+        name: 'FadeIn',
+        calls: { duration: motion.fast, reduceMotion: 'never' },
+      });
     });
 
     it('com reduzir movimento: a camada ainda faz o fade, mas sem escala', async () => {

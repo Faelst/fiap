@@ -1,6 +1,6 @@
-import { fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen } from '@testing-library/react-native';
 import type { ComponentProps } from 'react';
-import { AccessibilityInfo } from 'react-native';
+import { AccessibilityInfo, Dimensions } from 'react-native';
 
 import { renderWithTheme } from '../../../test/renderWithTheme';
 import { theme } from '../../../theme';
@@ -100,6 +100,41 @@ describe('LogoutRow', () => {
     expect(screen.getByTestId('profile-logout-confirm-loading')).toBeTruthy();
     expect(screen.getByTestId('profile-logout-confirm')).toBeBusy();
     expect(screen.getByTestId('profile-logout-cancel')).toBeDisabled();
+  });
+
+  it('tela larga: a pergunta fica visível e os botões ficam só com o rótulo', async () => {
+    await renderWithTheme(<LogoutRow {...props({ confirming: true })} />);
+
+    expect(screen.getByTestId('profile-logout-cancel')).toHaveAccessibleName(
+      'Cancelar',
+    );
+    expect(screen.getByTestId('profile-logout-confirm')).toHaveAccessibleName(
+      'Sair',
+    );
+  });
+
+  describe('tela estreita (320)', () => {
+    const original = Dimensions.get('window');
+
+    beforeEach(() => {
+      Dimensions.set({ window: { ...original, width: 320, height: 568 } });
+    });
+
+    afterEach(async () => {
+      await act(() => Dimensions.set({ window: original }));
+    });
+
+    it('a pergunta some da tela, mas o leitor ouve o contexto nos dois botões', async () => {
+      await renderWithTheme(<LogoutRow {...props({ confirming: true })} />);
+
+      expect(screen.queryByText('Sair deste aparelho?')).toBeNull();
+      expect(screen.getByTestId('profile-logout-cancel')).toHaveAccessibleName(
+        'Sair deste aparelho? Cancelar',
+      );
+      expect(screen.getByTestId('profile-logout-confirm')).toHaveAccessibleName(
+        'Sair deste aparelho? Sair',
+      );
+    });
   });
 
   describe('foco do leitor de tela (6.4)', () => {

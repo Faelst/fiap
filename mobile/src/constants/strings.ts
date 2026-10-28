@@ -124,6 +124,11 @@ export const strings = {
     logoutConfirmQuestion: 'Sair deste aparelho?',
     logoutCancel: 'Cancelar',
     logoutConfirm: 'Sair',
+    /**
+     * Tela estreita: a pergunta some, e o leitor ouve o contexto no próprio
+     * botão (`Sair deste aparelho? Cancelar`).
+     */
+    logoutInContext: (action: string) => `Sair deste aparelho? ${action}`,
     loggingOutAccessibilityLabel: 'Saindo…',
   },
   noStudent: {
