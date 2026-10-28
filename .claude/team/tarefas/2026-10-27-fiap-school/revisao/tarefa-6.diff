@@ -1,0 +1,2297 @@
+e0aa371 chore(ci): workflow da api com lint, testes e smoke no build
+8f2d8b4 feat(api): Dockerfile multi-stage e docker compose na raiz
+ffa4059 feat(api): logs com pino, swagger em /docs e trust proxy
+ .github/workflows/api.yml                          |  63 +++++++
+ api/.dockerignore                                  |  18 ++
+ api/.env.example                                   |   8 +
+ api/Dockerfile                                     |  59 ++++++
+ api/package.json                                   |   5 +
+ api/scripts/smoke.sh                               | 134 ++++++++++++++
+ api/src/app.module.ts                              |   2 +
+ api/src/app.setup.ts                               |  16 ++
+ api/src/app.swagger.ts                             |  34 ++++
+ api/src/config/env.validation.spec.ts              |  52 ++++++
+ api/src/config/env.validation.ts                   |  73 +++++++-
+ api/src/config/trust-proxy.spec.ts                 |  54 ++++++
+ api/src/config/trust-proxy.ts                      |  56 ++++++
+ api/src/infra/logger/logger.config.spec.ts         | 157 ++++++++++++++++
+ api/src/infra/logger/logger.config.ts              |  76 ++++++++
+ api/src/infra/logger/logger.module.ts              |  35 ++++
+ api/src/infra/logger/request-id.spec.ts            |  45 +++++
+ api/src/infra/logger/request-id.ts                 |  19 ++
+ api/src/main.ts                                    |   3 +-
+ .../modules/auth/controllers/auth.controller.ts    |  30 +++
+ api/src/modules/auth/dto/login.dto.ts              |   6 +
+ api/src/modules/auth/dto/login.response.ts         |  24 +++
+ .../modules/guardians/controllers/me.controller.ts |   9 +
+ api/src/modules/guardians/dto/me.response.ts       |  49 +++++
+ .../health/controllers/health.controller.ts        |   5 +
+ api/src/modules/health/dto/health.response.ts      |   6 +
+ .../students/controllers/students.controller.ts    |  49 +++++
+ api/src/modules/students/dto/agenda.response.ts    |  27 +++
+ .../modules/students/dto/report-card.response.ts   |  58 ++++++
+ api/src/shared/swagger/api-docs.ts                 |  34 ++++
+ api/src/shared/swagger/error-response.ts           |  17 ++
+ api/test/auth-throttle.e2e-spec.ts                 |   9 +
+ api/test/health.e2e-spec.ts                        |  10 +
+ api/test/logging.e2e-spec.ts                       | 134 ++++++++++++++
+ api/test/setup/create-test-app.ts                  |  12 +-
+ api/test/setup/log-capture.ts                      |  25 +++
+ api/test/setup/test-env.ts                         |   5 +
+ api/test/swagger-disabled.e2e-spec.ts              |  27 +++
+ api/test/swagger.e2e-spec.ts                       | 138 ++++++++++++++
+ api/test/trust-proxy.e2e-spec.ts                   |  34 ++++
+ api/yarn.lock                                      | 202 ++++++++++++++++++++-
+ docker-compose.yml                                 |  34 ++++
+ 42 files changed, 1848 insertions(+), 5 deletions(-)
+diff --git a/.github/workflows/api.yml b/.github/workflows/api.yml
+new file mode 100644
+index 0000000..ad90d6e
+--- /dev/null
++++ b/.github/workflows/api.yml
+@@ -0,0 +1,63 @@
++name: api
++
++on:
++  push:
++    branches: [main]
++    paths:
++      - "api/**"
++      - ".github/workflows/api.yml"
++  pull_request:
++    paths:
++      - "api/**"
++      - ".github/workflows/api.yml"
++
++permissions:
++  contents: read
++
++concurrency:
++  group: api-${{ github.ref }}
++  cancel-in-progress: true
++
++defaults:
++  run:
++    working-directory: api
++
++jobs:
++  test:
++    name: lint, tsc, unit, e2e, build e smoke
++    runs-on: ubuntu-latest
++    timeout-minutes: 15
++    steps:
++      - uses: actions/checkout@v4
++
++      # Node 24, o mesmo do engines do api/package.json e do .nvmrc da raiz.
++      - uses: actions/setup-node@v4
++        with:
++          node-version: 24
++          cache: yarn
++          cache-dependency-path: api/yarn.lock
++
++      - name: Instala dependências (roda prisma generate)
++        run: yarn install --frozen-lockfile --non-interactive
++
++      - name: Env de exemplo
++        run: cp .env.example .env
++
++      - name: Lint
++        run: yarn lint
++
++      - name: Typecheck
++        run: yarn tsc
++
++      - name: Testes unitários
++        run: yarn test
++
++      - name: Testes e2e (SQLite test.db com migrate + seed)
++        run: yarn test:e2e
++
++      - name: Build
++        run: yarn build
++
++      # Sobe o dist/ com banco novo e confere login, /me, boletim, Swagger e o log.
++      - name: Smoke no build
++        run: ./scripts/smoke.sh
+diff --git a/api/.dockerignore b/api/.dockerignore
+new file mode 100644
+index 0000000..3dd0f8f
+--- /dev/null
++++ b/api/.dockerignore
+@@ -0,0 +1,18 @@
++# Só o que o Dockerfile copia importa; o resto fica fora do contexto.
++node_modules
++dist
++coverage
++src/generated
++test
++scripts
++*.db
++*.db-journal
++*.db-wal
++*.db-shm
++.env
++.env.*
++*.log
++*.tsbuildinfo
++.DS_Store
++Dockerfile
++.dockerignore
+diff --git a/api/.env.example b/api/.env.example
+index 016b588..5071f23 100644
+--- a/api/.env.example
++++ b/api/.env.example
+@@ -3,10 +3,18 @@ DATABASE_URL="file:./dev.db"
+ PORT=3333
+ # Troque por um segredo longo e aleatório fora do ambiente local
+ JWT_SECRET="troque-este-segredo-local"
+ # Validade do token: número com unidade obrigatória s, m, h, d, w ou y (ex.: 3600s, 30m, 7d)
+ JWT_EXPIRES_IN=7d
+ # Lista separada por vírgula, ou * para liberar todas (só em dev)
+ CORS_ORIGINS=*
+ # Rate limit do login: tentativas por IP dentro da janela (ms). Padrão 5 por minuto
+ LOGIN_THROTTLE_LIMIT=5
+ LOGIN_THROTTLE_TTL_MS=60000
++# Logs (pino): fatal, error, warn, info, debug, trace ou silent. JSON com
++# NODE_ENV=production; pino-pretty no desenvolvimento
++LOG_LEVEL=info
++# Swagger em /docs e /docs-json (true ou false)
++SWAGGER_ENABLED=true
++# trust proxy do express (decide o IP do rate limit): false (sem proxy), true,
++# número de saltos (ex.: 1) ou lista de IPs/sub-redes (ex.: loopback,10.0.0.0/8)
++TRUST_PROXY=false
+diff --git a/api/Dockerfile b/api/Dockerfile
+new file mode 100644
+index 0000000..ee89e9c
+--- /dev/null
++++ b/api/Dockerfile
+@@ -0,0 +1,59 @@
++# syntax=docker/dockerfile:1
++# API da FIAP School: NestJS + Prisma + SQLite (better-sqlite3).
++# Build: docker build -t fiap-school-api api/   (ou docker compose up, na raiz)
++
++ARG NODE_VERSION=24
++
++# ---- base: Node + yarn 1 + openssl (os engines do Prisma procuram a libssl) ----
++FROM node:${NODE_VERSION}-bookworm-slim AS base
++# yarn 1 fixo (o mesmo do packageManager), instalado pelo npm: não depende do
++# corepack nem do yarn que a imagem traga. YARN_IGNORE_PATH ignora qualquer
++# yarnPath de .yarnrc herdado.
++ENV YARN_IGNORE_PATH=1
++RUN apt-get update \
++  && apt-get install -y --no-install-recommends openssl ca-certificates \
++  && rm -rf /var/lib/apt/lists/* \
++  && npm install -g --force yarn@1.22.22 \
++  && npm cache clean --force
++WORKDIR /app
++
++# ---- deps: node_modules completo (prisma e tsx rodam migrate e seed no boot) ----
++FROM base AS deps
++# Toolchain para o better-sqlite3 compilar se não houver binário pronto para a
++# plataforma. Fica só neste estágio.
++RUN apt-get update \
++  && apt-get install -y --no-install-recommends python3 make g++ \
++  && rm -rf /var/lib/apt/lists/*
++# O postinstall roda `prisma generate`, que precisa do schema e do config.
++COPY package.json yarn.lock prisma.config.ts ./
++COPY prisma ./prisma
++RUN yarn install --frozen-lockfile --non-interactive \
++  && yarn cache clean
++
++# ---- build: compila o Nest para dist/ ----
++FROM deps AS build
++COPY tsconfig.json tsconfig.build.json nest-cli.json ./
++COPY src ./src
++RUN yarn build
++
++# ---- runtime ----
++FROM base AS runtime
++ENV NODE_ENV=production \
++    PORT=3333 \
++    DATABASE_URL=file:/app/data/fiap-school.db \
++    LOG_LEVEL=info
++COPY --from=deps --chown=node:node /app/node_modules ./node_modules
++COPY --from=build --chown=node:node /app/dist ./dist
++# O seed (tsx prisma/seed.ts) importa o client gerado em src/generated.
++COPY --from=deps --chown=node:node /app/src/generated ./src/generated
++COPY --chown=node:node package.json prisma.config.ts ./
++COPY --chown=node:node prisma ./prisma
++RUN mkdir -p /app/data && chown node:node /app/data
++USER node
++VOLUME ["/app/data"]
++EXPOSE 3333
++HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=3 \
++  CMD ["node", "-e", "fetch('http://127.0.0.1:' + (process.env.PORT || 3333) + '/api/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
++# migrate deploy + seed (idempotente: apaga e recria os dados do JSON) e sobe a
++# API. `exec` deixa o node como PID 1, recebendo o SIGTERM do `docker stop`.
++CMD ["sh", "-c", "yarn -s prisma:setup && exec node dist/main"]
+diff --git a/api/package.json b/api/package.json
+index 969632d..4f861c6 100644
+--- a/api/package.json
++++ b/api/package.json
+@@ -29,48 +29,53 @@
+     "postinstall": "prisma generate",
+     "prisma:setup": "prisma migrate deploy && prisma db seed"
+   },
+   "dependencies": {
+     "@nestjs/common": "^11.0.1",
+     "@nestjs/config": "^4.0.4",
+     "@nestjs/core": "^11.0.1",
+     "@nestjs/jwt": "^11.0.2",
+     "@nestjs/passport": "^11.0.5",
+     "@nestjs/platform-express": "^11.0.1",
++    "@nestjs/swagger": "^11.4.7",
+     "@nestjs/throttler": "^6.7.1",
+     "@prisma/adapter-better-sqlite3": "7.10.1",
+     "@prisma/client": "7.10.1",
+     "bcryptjs": "^3.0.3",
+     "class-transformer": "^0.5.1",
+     "class-validator": "^0.15.1",
++    "nestjs-pino": "^5.3.1",
+     "passport": "^0.7.0",
+     "passport-jwt": "^4.0.1",
++    "pino": "^10.4.0",
++    "pino-http": "^11.0.0",
+     "reflect-metadata": "^0.2.2",
+     "rxjs": "^7.8.1"
+   },
+   "devDependencies": {
+     "@eslint/eslintrc": "^3.2.0",
+     "@eslint/js": "^9.18.0",
+     "@nestjs/cli": "^11.0.0",
+     "@nestjs/schematics": "^11.0.0",
+     "@nestjs/testing": "^11.0.1",
+     "@types/express": "^5.0.0",
+     "@types/jest": "^30.0.0",
+     "@types/node": "^24.0.0",
+     "@types/passport-jwt": "^4.0.1",
+     "@types/supertest": "^7.0.0",
+     "dotenv": "^18.0.9",
+     "eslint": "^9.18.0",
+     "eslint-config-prettier": "^10.0.1",
+     "eslint-plugin-prettier": "^5.2.2",
+     "globals": "^17.0.0",
+     "jest": "^30.0.0",
++    "pino-pretty": "^13.2.0",
+     "prettier": "^3.4.2",
+     "prisma": "7.10.1",
+     "source-map-support": "^0.5.21",
+     "supertest": "^7.0.0",
+     "ts-jest": "^29.2.5",
+     "ts-loader": "^9.5.2",
+     "ts-node": "^10.9.2",
+     "tsconfig-paths": "^4.2.0",
+     "tsx": "^4.23.15",
+     "typescript": "^5.7.3",
+diff --git a/api/scripts/smoke.sh b/api/scripts/smoke.sh
+new file mode 100755
+index 0000000..c90d177
+--- /dev/null
++++ b/api/scripts/smoke.sh
+@@ -0,0 +1,134 @@
++#!/usr/bin/env bash
++# Smoke test do build: sobe `node dist/main` com um banco SQLite novo
++# (migrate deploy + seed), faz login do Gustavo e confere health, /me, boletim,
++# Swagger, x-request-id e que o log não tem senha, CPF nem token.
++#
++# Uso (em api/, depois de `yarn build`):  ./scripts/smoke.sh
++# Precisa de curl e jq. Variáveis opcionais: SMOKE_PORT (padrão 3399).
++set -euo pipefail
++
++cd "$(dirname "$0")/.."
++
++PORT="${SMOKE_PORT:-3399}"
++BASE="http://127.0.0.1:${PORT}"
++DB_FILE="smoke.db"
++WORK_DIR="$(mktemp -d)"
++LOG_FILE="${WORK_DIR}/api.log"
++SERVER_PID=""
++
++# Banco, porta e segredo próprios: o smoke nunca toca no dev.db nem no .env.
++export DATABASE_URL="file:./${DB_FILE}"
++export PORT
++export NODE_ENV=production
++export LOG_LEVEL=info
++export JWT_SECRET="smoke-$(date +%s)-segredo-descartavel"
++export JWT_EXPIRES_IN=1h
++export CORS_ORIGINS='*'
++export SWAGGER_ENABLED=true
++export TRUST_PROXY=false
++# Nesta máquina há um yarn 3 acima do repo (ver 02-dev.md); no CI não faz diferença.
++export YARN_IGNORE_PATH=1
++
++CPF="969.294.560-04"
++CPF_DIGITS="96929456004"
++PASSWORD="123456"
++
++remove_db() {
++  rm -f "${DB_FILE}" "${DB_FILE}-journal" "${DB_FILE}-wal" "${DB_FILE}-shm"
++}
++
++cleanup() {
++  if [[ -n "${SERVER_PID}" ]]; then
++    kill "${SERVER_PID}" 2>/dev/null || true
++    wait "${SERVER_PID}" 2>/dev/null || true
++  fi
++  remove_db
++  rm -rf "${WORK_DIR}"
++}
++trap cleanup EXIT
++
++fail() {
++  echo "SMOKE FALHOU: $*" >&2
++  if [[ -f "${LOG_FILE}" ]]; then
++    echo "--- últimas linhas do log da API ---" >&2
++    tail -n 30 "${LOG_FILE}" >&2
++  fi
++  exit 1
++}
++
++for tool in curl jq node; do
++  command -v "${tool}" >/dev/null || fail "${tool} não encontrado"
++done
++[[ -f dist/main.js ]] || fail "dist/main.js não existe: rode yarn build antes"
++
++echo "==> banco novo (${DB_FILE}): migrate deploy + seed"
++remove_db
++yarn -s prisma:setup >"${WORK_DIR}/setup.log" 2>&1 || {
++  cat "${WORK_DIR}/setup.log" >&2
++  fail "prisma:setup"
++}
++
++echo "==> subindo node dist/main na porta ${PORT}"
++node dist/main >"${LOG_FILE}" 2>&1 &
++SERVER_PID=$!
++
++for _ in $(seq 1 50); do
++  if curl -fsS "${BASE}/api/health" >/dev/null 2>&1; then
++    break
++  fi
++  kill -0 "${SERVER_PID}" 2>/dev/null || fail "a API parou durante o boot"
++  sleep 0.2
++done
++
++# GET com Bearer; imprime o corpo e falha se o status não for o esperado.
++get() {
++  local path="$1" expected="$2" token="${3:-}" body status
++  body="${WORK_DIR}/body.json"
++  if [[ -n "${token}" ]]; then
++    status=$(curl -sS -o "${body}" -w '%{http_code}' -H "Authorization: Bearer ${token}" "${BASE}${path}")
++  else
++    status=$(curl -sS -o "${body}" -w '%{http_code}' "${BASE}${path}")
++  fi
++  [[ "${status}" == "${expected}" ]] || fail "GET ${path}: esperado ${expected}, veio ${status}: $(cat "${body}")"
++  cat "${body}"
++}
++
++echo "==> GET /api/health"
++get /api/health 200 | jq -e '.status == "ok"' >/dev/null || fail "health sem status ok"
++
++echo "==> POST /api/auth/login (Gustavo)"
++HEADERS="${WORK_DIR}/login.headers"
++LOGIN=$(curl -sS -D "${HEADERS}" -H 'content-type: application/json' -H 'x-request-id: smoke-login-1' \
++  -d "{\"cpf\":\"${CPF}\",\"password\":\"${PASSWORD}\"}" "${BASE}/api/auth/login")
++TOKEN=$(jq -er '.accessToken' <<<"${LOGIN}") || fail "login sem accessToken: ${LOGIN}"
++grep -qi '^x-request-id: smoke-login-1' "${HEADERS}" || fail "login não devolveu o x-request-id enviado"
++
++echo "==> GET /api/me"
++ME=$(get /api/me 200 "${TOKEN}")
++jq -e '.firstName == "Gustavo" and .cpf == "***.294.560-**" and (.students | length) == 2' <<<"${ME}" >/dev/null \
++  || fail "/api/me inesperado: ${ME}"
++RAFAEL_ID=$(jq -er '.students[] | select(.firstName == "Rafael") | .id' <<<"${ME}") || fail "Rafael não está no /me"
++
++echo "==> GET /api/students/<rafael>/report-cards/2025"
++CARD=$(get "/api/students/${RAFAEL_ID}/report-cards/2025" 200 "${TOKEN}")
++jq -e '.year == 2025 and .className == "7EF" and ([.terms[].term] == [1,2,3]) and (.terms[0].subjects | length) == 12' \
++  <<<"${CARD}" >/dev/null || fail "boletim inesperado: ${CARD}"
++
++echo "==> rotas protegidas sem token: 401"
++get /api/me 401 >/dev/null
++
++echo "==> GET /docs-json"
++get /docs-json 200 | jq -e '.paths | has("/api/students/{id}/report-cards/{year}")' >/dev/null \
++  || fail "Swagger sem as rotas"
++
++echo "==> log em JSON, sem senha, CPF nem token"
++sleep 0.3
++jq -e 'select(.msg == "request completed" and .req.id == "smoke-login-1")' "${LOG_FILE}" >/dev/null \
++  || fail "log JSON da requisição de login não encontrado"
++for secret in "\"${PASSWORD}\"" "${CPF}" "${CPF_DIGITS}" "${TOKEN}" "Bearer"; do
++  if grep -qF -- "${secret}" "${LOG_FILE}"; then
++    fail "o log contém dado sensível (${secret:0:6}…)"
++  fi
++done
++
++echo "SMOKE OK"
+diff --git a/api/src/app.module.ts b/api/src/app.module.ts
+index e485d2b..e04cdf5 100644
+--- a/api/src/app.module.ts
++++ b/api/src/app.module.ts
+@@ -1,24 +1,26 @@
+ import { Module } from '@nestjs/common';
+ import { ConfigModule } from '@nestjs/config';
+ import { validateEnv } from './config/env.validation';
++import { AppLoggerModule } from './infra/logger/logger.module';
+ import { PrismaModule } from './infra/prisma/prisma.module';
+ import { AuthModule } from './modules/auth/auth.module';
+ import { GuardiansModule } from './modules/guardians/guardians.module';
+ import { HealthModule } from './modules/health/health.module';
+ import { StudentsModule } from './modules/students/students.module';
+ 
+ @Module({
+   imports: [
+     ConfigModule.forRoot({
+       isGlobal: true,
+       cache: true,
+       validate: validateEnv,
+     }),
++    AppLoggerModule,
+     PrismaModule,
+     AuthModule,
+     HealthModule,
+     GuardiansModule,
+     StudentsModule,
+   ],
+ })
+ export class AppModule {}
+diff --git a/api/src/app.setup.ts b/api/src/app.setup.ts
+index e01b6e7..d461f09 100644
+--- a/api/src/app.setup.ts
++++ b/api/src/app.setup.ts
+@@ -1,26 +1,42 @@
+ import { INestApplication, ValidationPipe } from '@nestjs/common';
+ import { ConfigService } from '@nestjs/config';
++import type { Express } from 'express';
++import { Logger } from 'nestjs-pino';
++import { setupSwagger } from './app.swagger';
+ import {
+   EnvironmentVariables,
+   parseCorsOrigins,
+ } from './config/env.validation';
++import { parseTrustProxy } from './config/trust-proxy';
+ 
+ export const API_PREFIX = 'api';
+ 
+ /** Configuração HTTP comum ao main.ts e aos testes e2e. */
+ export function configureApp(app: INestApplication): void {
+   const config = app.get(ConfigService<EnvironmentVariables, true>);
+ 
++  app.useLogger(app.get(Logger));
++  // Atrás de proxy, define de onde vem o req.ip (que o rate limit usa).
++  const http = app.getHttpAdapter().getInstance() as Express;
++  http.set(
++    'trust proxy',
++    parseTrustProxy(config.get('TRUST_PROXY', { infer: true })),
++  );
++
+   app.setGlobalPrefix(API_PREFIX);
+   app.useGlobalPipes(
+     new ValidationPipe({
+       whitelist: true,
+       forbidNonWhitelisted: true,
+       transform: true,
+     }),
+   );
+   app.enableCors({
+     origin: parseCorsOrigins(config.get('CORS_ORIGINS', { infer: true })),
++    exposedHeaders: ['x-request-id'],
+   });
++  if (config.get('SWAGGER_ENABLED', { infer: true })) {
++    setupSwagger(app);
++  }
+   app.enableShutdownHooks();
+ }
+diff --git a/api/src/app.swagger.ts b/api/src/app.swagger.ts
+new file mode 100644
+index 0000000..7ba7bde
+--- /dev/null
++++ b/api/src/app.swagger.ts
+@@ -0,0 +1,34 @@
++import { INestApplication } from '@nestjs/common';
++import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
++import { BEARER_AUTH } from './shared/swagger/api-docs';
++
++/** UI em /docs e o OpenAPI em /docs-json, fora do prefixo /api. */
++export const SWAGGER_PATH = 'docs';
++
++export function setupSwagger(app: INestApplication): void {
++  const config = new DocumentBuilder()
++    .setTitle('FIAP School API')
++    .setDescription(
++      [
++        'Agenda e boletim dos alunos para os responsáveis.',
++        '',
++        '1. `POST /api/auth/login` com um responsável do seed, por exemplo',
++        '   CPF `969.294.560-04` e senha `123456` (Gustavo).',
++        '2. Copie o `accessToken` e cole em **Authorize**.',
++        '3. Pegue o id de um aluno em `GET /api/me` e use nas rotas `/api/students/{id}`.',
++      ].join('\n'),
++    )
++    .setVersion('1.0')
++    .addBearerAuth(
++      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
++      BEARER_AUTH,
++    )
++    .build();
++
++  SwaggerModule.setup(
++    SWAGGER_PATH,
++    app,
++    () => SwaggerModule.createDocument(app, config),
++    { swaggerOptions: { persistAuthorization: true } },
++  );
++}
+diff --git a/api/src/config/env.validation.spec.ts b/api/src/config/env.validation.spec.ts
+index cf657fd..6a7aafb 100644
+--- a/api/src/config/env.validation.spec.ts
++++ b/api/src/config/env.validation.spec.ts
+@@ -8,20 +8,23 @@ const validEnv = {
+ describe('validateEnv', () => {
+   it('aplica os padrões de porta, expiração do token e CORS', () => {
+     expect(validateEnv(validEnv)).toMatchObject({
+       DATABASE_URL: 'file:./dev.db',
+       JWT_SECRET: 'segredo',
+       PORT: 3333,
+       JWT_EXPIRES_IN: '7d',
+       CORS_ORIGINS: '*',
+       LOGIN_THROTTLE_LIMIT: 5,
+       LOGIN_THROTTLE_TTL_MS: 60000,
++      LOG_LEVEL: 'info',
++      SWAGGER_ENABLED: true,
++      TRUST_PROXY: 'false',
+     });
+   });
+ 
+   it('converte a porta de texto para número', () => {
+     expect(validateEnv({ ...validEnv, PORT: '4000' }).PORT).toBe(4000);
+   });
+ 
+   it.each(['DATABASE_URL', 'JWT_SECRET'])(
+     'recusa a configuração sem %s',
+     (key) => {
+@@ -75,20 +78,69 @@ describe('validateEnv', () => {
+ 
+   it.each([
+     ['LOGIN_THROTTLE_LIMIT', '0'],
+     ['LOGIN_THROTTLE_LIMIT', 'abc'],
+     ['LOGIN_THROTTLE_TTL_MS', '0'],
+   ])('recusa %s = "%s"', (key, value) => {
+     expect(() => validateEnv({ ...validEnv, [key]: value })).toThrow(key);
+   });
+ });
+ 
++describe('validateEnv: logs, Swagger e proxy', () => {
++  it.each(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])(
++    'aceita LOG_LEVEL "%s"',
++    (level) => {
++      expect(validateEnv({ ...validEnv, LOG_LEVEL: level }).LOG_LEVEL).toBe(
++        level,
++      );
++    },
++  );
++
++  it.each(['verbose', 'INFO', ''])('recusa LOG_LEVEL "%s"', (level) => {
++    expect(() => validateEnv({ ...validEnv, LOG_LEVEL: level })).toThrow(
++      'LOG_LEVEL',
++    );
++  });
++
++  it.each([
++    ['true', true],
++    ['false', false],
++    ['TRUE', true],
++    [' false ', false],
++  ])('lê SWAGGER_ENABLED "%s" como %p', (value, expected) => {
++    expect(
++      validateEnv({ ...validEnv, SWAGGER_ENABLED: value }).SWAGGER_ENABLED,
++    ).toBe(expected);
++  });
++
++  it.each(['sim', '0', ''])('recusa SWAGGER_ENABLED "%s"', (value) => {
++    expect(() => validateEnv({ ...validEnv, SWAGGER_ENABLED: value })).toThrow(
++      'SWAGGER_ENABLED',
++    );
++  });
++
++  it.each(['true', '1', 'loopback, 10.0.0.0/8'])(
++    'aceita TRUST_PROXY "%s"',
++    (value) => {
++      expect(validateEnv({ ...validEnv, TRUST_PROXY: value }).TRUST_PROXY).toBe(
++        value,
++      );
++    },
++  );
++
++  it.each(['-1', 'sim', '10.0.0.0/40'])('recusa TRUST_PROXY "%s"', (value) => {
++    expect(() => validateEnv({ ...validEnv, TRUST_PROXY: value })).toThrow(
++      'TRUST_PROXY',
++    );
++  });
++});
++
+ describe('parseCorsOrigins', () => {
+   it('libera todas as origens com *', () => {
+     expect(parseCorsOrigins('*')).toBe('*');
+   });
+ 
+   it('separa a lista por vírgula e ignora espaços e itens vazios', () => {
+     expect(
+       parseCorsOrigins(' http://localhost:8081, https://app.example.com ,'),
+     ).toEqual(['http://localhost:8081', 'https://app.example.com']);
+   });
+diff --git a/api/src/config/env.validation.ts b/api/src/config/env.validation.ts
+index 65dd63f..60a54b1 100644
+--- a/api/src/config/env.validation.ts
++++ b/api/src/config/env.validation.ts
+@@ -1,22 +1,77 @@
+ import 'reflect-metadata';
+-import { plainToInstance } from 'class-transformer';
++import { plainToInstance, Transform } from 'class-transformer';
+ import {
++  IsBoolean,
++  IsIn,
+   IsInt,
+   IsNotEmpty,
+   IsOptional,
+   IsString,
+   Matches,
+   Max,
+   Min,
++  ValidateBy,
+   validateSync,
+ } from 'class-validator';
++import { parseTrustProxy } from './trust-proxy';
++
++export const LOG_LEVELS = [
++  'fatal',
++  'error',
++  'warn',
++  'info',
++  'debug',
++  'trace',
++  'silent',
++] as const;
++export type LogLevel = (typeof LOG_LEVELS)[number];
++
++/**
++ * "true"/"false" (sem diferenciar maiúsculas). Outro texto segue como está
++ * para o IsBoolean recusar; a conversão implícita faria "false" virar true.
++ */
++function toBoolean({
++  obj,
++  key,
++}: {
++  obj: Record<string, unknown>;
++  key: string;
++}) {
++  const raw = obj[key];
++  if (typeof raw !== 'string') {
++    return raw;
++  }
++  const normalized = raw.trim().toLowerCase();
++  if (normalized === 'true') return true;
++  if (normalized === 'false') return false;
++  return raw;
++}
++
++function IsTrustProxy() {
++  return ValidateBy({
++    name: 'isTrustProxy',
++    validator: {
++      validate: (value: unknown) => {
++        if (typeof value !== 'string') return false;
++        try {
++          parseTrustProxy(value);
++          return true;
++        } catch {
++          return false;
++        }
++      },
++      defaultMessage: () =>
++        'TRUST_PROXY deve ser false, true, número de saltos ou lista de IPs/sub-redes',
++    },
++  });
++}
+ 
+ export class EnvironmentVariables {
+   @IsString()
+   @IsNotEmpty()
+   DATABASE_URL!: string;
+ 
+   @IsInt()
+   @Min(1)
+   @Max(65535)
+   PORT: number = 3333;
+@@ -40,20 +95,36 @@ export class EnvironmentVariables {
+ 
+   /** Tentativas de login por IP dentro da janela LOGIN_THROTTLE_TTL_MS. */
+   @IsInt()
+   @Min(1)
+   LOGIN_THROTTLE_LIMIT: number = 5;
+ 
+   @IsInt()
+   @Min(1)
+   LOGIN_THROTTLE_TTL_MS: number = 60000;
+ 
++  /** Nível do pino. Nos testes é "silent". */
++  @IsIn(LOG_LEVELS)
++  LOG_LEVEL: LogLevel = 'info';
++
++  /** Swagger em /docs e /docs-json. */
++  @Transform(toBoolean)
++  @IsBoolean()
++  SWAGGER_ENABLED: boolean = true;
++
++  /**
++   * `trust proxy` do express, que decide o req.ip (usado pelo rate limit):
++   * false, true, número de saltos ou lista de IPs/sub-redes. Ver trust-proxy.ts.
++   */
++  @IsTrustProxy()
++  TRUST_PROXY: string = 'false';
++
+   @IsOptional()
+   @IsString()
+   NODE_ENV?: string;
+ }
+ 
+ export function validateEnv(
+   config: Record<string, unknown>,
+ ): EnvironmentVariables {
+   const env = plainToInstance(EnvironmentVariables, config, {
+     enableImplicitConversion: true,
+diff --git a/api/src/config/trust-proxy.spec.ts b/api/src/config/trust-proxy.spec.ts
+new file mode 100644
+index 0000000..8ad33b1
+--- /dev/null
++++ b/api/src/config/trust-proxy.spec.ts
+@@ -0,0 +1,54 @@
++import { parseTrustProxy } from './trust-proxy';
++
++describe('parseTrustProxy', () => {
++  it.each(['false', 'FALSE', ' false ', ''])(
++    'desliga com "%s" (padrão: não confia em proxy)',
++    (value) => {
++      expect(parseTrustProxy(value)).toBe(false);
++    },
++  );
++
++  it.each(['true', 'True'])('confia em qualquer proxy com "%s"', (value) => {
++    expect(parseTrustProxy(value)).toBe(true);
++  });
++
++  it.each([
++    ['0', 0],
++    ['1', 1],
++    ['2', 2],
++  ])('número de saltos: "%s" vira %d', (value, hops) => {
++    expect(parseTrustProxy(value)).toBe(hops);
++  });
++
++  it('aceita lista de IPs, sub-redes e os nomes do express', () => {
++    expect(
++      parseTrustProxy(
++        ' loopback, 10.0.0.0/8 ,172.16.0.1, ::1, fd00::/8, uniquelocal, linklocal,',
++      ),
++    ).toEqual([
++      'loopback',
++      '10.0.0.0/8',
++      '172.16.0.1',
++      '::1',
++      'fd00::/8',
++      'uniquelocal',
++      'linklocal',
++    ]);
++  });
++
++  it.each([
++    '-1',
++    '1.5',
++    'sim',
++    'proxy.example.com',
++    '10.0.0.0/33',
++    '::1/129',
++    '10.0.0.0/',
++    '10.0.0.0/8/1',
++    '999.0.0.1',
++    'loopback, abc',
++    ',',
++  ])('recusa "%s"', (value) => {
++    expect(() => parseTrustProxy(value)).toThrow('TRUST_PROXY');
++  });
++});
+diff --git a/api/src/config/trust-proxy.ts b/api/src/config/trust-proxy.ts
+new file mode 100644
+index 0000000..774bb6f
+--- /dev/null
++++ b/api/src/config/trust-proxy.ts
+@@ -0,0 +1,56 @@
++import { isIP } from 'node:net';
++
++/** Valor aceito pelo `app.set('trust proxy', ...)` do express. */
++export type TrustProxySetting = boolean | number | string[];
++
++/** Nomes de faixa que o express (proxy-addr) já conhece. */
++const NAMED_RANGES = new Set(['loopback', 'linklocal', 'uniquelocal']);
++
++function isAddressOrSubnet(entry: string): boolean {
++  if (NAMED_RANGES.has(entry)) {
++    return true;
++  }
++  const [address, prefix, ...rest] = entry.split('/');
++  const version = isIP(address);
++  if (version === 0 || rest.length > 0) {
++    return false;
++  }
++  if (prefix === undefined) {
++    return true;
++  }
++  const maxPrefix = version === 4 ? 32 : 128;
++  return /^\d{1,3}$/.test(prefix) && Number(prefix) <= maxPrefix;
++}
++
++/**
++ * Lê a env TRUST_PROXY: `false` (padrão), `true`, número de saltos ou lista
++ * separada por vírgula de IPs, sub-redes (CIDR) e `loopback`, `linklocal`,
++ * `uniquelocal`. Valor fora disso lança erro, para o boot falhar cedo em vez
++ * de o express quebrar (ou confiar em quem não devia) depois.
++ */
++export function parseTrustProxy(value: string): TrustProxySetting {
++  const normalized = value.trim().toLowerCase();
++
++  if (normalized === '' || normalized === 'false') {
++    return false;
++  }
++  if (normalized === 'true') {
++    return true;
++  }
++  if (/^\d+$/.test(normalized)) {
++    return Number(normalized);
++  }
++
++  const entries = normalized
++    .split(',')
++    .map((entry) => entry.trim())
++    .filter(Boolean);
++  const invalid = entries.find((entry) => !isAddressOrSubnet(entry));
++
++  if (entries.length === 0 || invalid !== undefined) {
++    throw new Error(
++      `TRUST_PROXY inválido ("${invalid ?? value}"): use false, true, número de saltos ou lista de IPs/sub-redes.`,
++    );
++  }
++  return entries;
++}
+diff --git a/api/src/infra/logger/logger.config.spec.ts b/api/src/infra/logger/logger.config.spec.ts
+new file mode 100644
+index 0000000..04149d3
+--- /dev/null
++++ b/api/src/infra/logger/logger.config.spec.ts
+@@ -0,0 +1,157 @@
++import { IncomingMessage, ServerResponse } from 'node:http';
++import { Writable } from 'node:stream';
++import pino from 'pino';
++import type { Options } from 'pino-http';
++import {
++  buildLoggerParams,
++  buildPinoHttpOptions,
++  shouldUsePrettyLogs,
++} from './logger.config';
++
++const JSON_SETTINGS = { level: 'info', pretty: false } as const;
++
++/** Stream que guarda cada linha de log já como objeto. */
++function captureStream() {
++  const lines: Record<string, unknown>[] = [];
++  const stream = new Writable({
++    write(chunk: Buffer, _encoding, done) {
++      for (const line of chunk.toString().split('\n').filter(Boolean)) {
++        lines.push(JSON.parse(line) as Record<string, unknown>);
++      }
++      done();
++    },
++  });
++  return { lines, stream };
++}
++
++function fakeExchange(headers: Record<string, string | string[]> = {}) {
++  const setHeader = jest.fn();
++  const req = { headers } as unknown as IncomingMessage;
++  const res = { setHeader } as unknown as ServerResponse;
++  return { req, res, setHeader };
++}
++
++describe('shouldUsePrettyLogs', () => {
++  it.each([undefined, '', 'development'])(
++    'usa pino-pretty com NODE_ENV=%p',
++    (nodeEnv) => {
++      expect(shouldUsePrettyLogs(nodeEnv)).toBe(true);
++    },
++  );
++
++  it.each(['production', 'test'])('usa JSON com NODE_ENV=%p', (nodeEnv) => {
++    expect(shouldUsePrettyLogs(nodeEnv)).toBe(false);
++  });
++});
++
++describe('buildPinoHttpOptions', () => {
++  it('remove do log authorization, cookie, senha, CPF e token', () => {
++    const { lines, stream } = captureStream();
++    const logger = pino(buildPinoHttpOptions(JSON_SETTINGS), stream);
++
++    logger.info(
++      {
++        req: {
++          method: 'POST',
++          url: '/api/auth/login',
++          headers: {
++            authorization: 'Bearer eyJ.segredo',
++            cookie: 'sessao=abc',
++            'user-agent': 'jest',
++          },
++          body: { cpf: '96929456004', password: '123456' },
++        },
++        res: { statusCode: 200, headers: { 'set-cookie': 'sessao=abc' } },
++        result: { accessToken: 'eyJ.token' },
++      },
++      'request completed',
++    );
++
++    const [line] = lines;
++    const output = JSON.stringify(line);
++    for (const secret of ['eyJ', 'sessao=abc', '96929456004', '123456']) {
++      expect(output).not.toContain(secret);
++    }
++    // O resto do request continua no log.
++    expect(line).toMatchObject({
++      msg: 'request completed',
++      req: { method: 'POST', headers: { 'user-agent': 'jest' } },
++      res: { statusCode: 200 },
++    });
++  });
++
++  it('usa o nível configurado', () => {
++    expect(buildPinoHttpOptions({ level: 'silent', pretty: false }).level).toBe(
++      'silent',
++    );
++  });
++
++  it('gera o request-id e devolve no header x-request-id', () => {
++    const { genReqId } = buildPinoHttpOptions(JSON_SETTINGS);
++    const { req, res, setHeader } = fakeExchange();
++
++    const id = genReqId!(req, res);
++
++    expect(typeof id).toBe('string');
++    expect(setHeader).toHaveBeenCalledWith('x-request-id', id);
++  });
++
++  it('reaproveita o x-request-id válido do cliente', () => {
++    const { genReqId } = buildPinoHttpOptions(JSON_SETTINGS);
++    const { req, res, setHeader } = fakeExchange({ 'x-request-id': 'app-42' });
++
++    expect(genReqId!(req, res)).toBe('app-42');
++    expect(setHeader).toHaveBeenCalledWith('x-request-id', 'app-42');
++  });
++
++  it('troca o x-request-id inválido do cliente', () => {
++    const { genReqId } = buildPinoHttpOptions(JSON_SETTINGS);
++    const { req, res } = fakeExchange({ 'x-request-id': 'a\nb' });
++
++    expect(genReqId!(req, res)).not.toBe('a\nb');
++  });
++
++  it.each([
++    [500, undefined, 'error'],
++    [200, new Error('falhou'), 'error'],
++    [404, undefined, 'warn'],
++    [401, undefined, 'warn'],
++    [200, undefined, 'info'],
++    [304, undefined, 'info'],
++  ])('status %d (erro: %p) vira nível %s', (statusCode, error, level) => {
++    const { customLogLevel } = buildPinoHttpOptions(JSON_SETTINGS);
++    const { req } = fakeExchange();
++    const res = { statusCode } as ServerResponse;
++
++    expect(customLogLevel!(req, res, error)).toBe(level);
++  });
++
++  it('em dev formata com pino-pretty', () => {
++    expect(
++      buildPinoHttpOptions({ level: 'info', pretty: true }).transport,
++    ).toMatchObject({ target: 'pino-pretty' });
++  });
++
++  it('em produção sai JSON (sem transport)', () => {
++    expect(buildPinoHttpOptions(JSON_SETTINGS).transport).toBeUndefined();
++  });
++});
++
++describe('buildLoggerParams', () => {
++  it('sem destino, passa só as opções do pino-http', () => {
++    const params = buildLoggerParams(JSON_SETTINGS);
++
++    expect(Array.isArray(params.pinoHttp)).toBe(false);
++    expect((params.pinoHttp as Options).level).toBe('info');
++  });
++
++  it('com destino (testes), escreve nele em JSON mesmo pedindo pretty', () => {
++    const { stream } = captureStream();
++    const params = buildLoggerParams({ level: 'info', pretty: true }, stream);
++
++    expect(Array.isArray(params.pinoHttp)).toBe(true);
++    const [options, destination] = params.pinoHttp as [Options, Writable];
++    expect(destination).toBe(stream);
++    expect(options.transport).toBeUndefined();
++  });
++});
+diff --git a/api/src/infra/logger/logger.config.ts b/api/src/infra/logger/logger.config.ts
+new file mode 100644
+index 0000000..3e5fa34
+--- /dev/null
++++ b/api/src/infra/logger/logger.config.ts
+@@ -0,0 +1,76 @@
++import type { IncomingMessage, ServerResponse } from 'node:http';
++import type { Params } from 'nestjs-pino';
++import type { DestinationStream, LevelWithSilent } from 'pino';
++import type { Options } from 'pino-http';
++import { REQUEST_ID_HEADER, resolveRequestId } from './request-id';
++
++export interface LoggerSettings {
++  level: LevelWithSilent;
++  /** pino-pretty (dev) ou JSON (produção, testes). */
++  pretty: boolean;
++}
++
++/**
++ * Removidos do log (não só mascarados). O pino-http não loga o corpo da
++ * requisição; os caminhos de `body` e os coringas são defesa extra caso alguém
++ * passe a logar o corpo ou um objeto com esses campos.
++ */
++export const REDACTED_LOG_PATHS = [
++  'req.headers.authorization',
++  'req.headers.cookie',
++  'req.body.password',
++  'req.body.cpf',
++  'res.headers["set-cookie"]',
++  '*.accessToken',
++  '*.password',
++  '*.cpf',
++];
++
++/** JSON em produção e nos testes; pino-pretty no desenvolvimento local. */
++export function shouldUsePrettyLogs(nodeEnv: string | undefined): boolean {
++  return nodeEnv !== 'production' && nodeEnv !== 'test';
++}
++
++export function buildPinoHttpOptions({
++  level,
++  pretty,
++}: LoggerSettings): Options<IncomingMessage, ServerResponse> {
++  return {
++    level,
++    redact: { paths: REDACTED_LOG_PATHS, remove: true },
++    genReqId: (req, res) => {
++      const id = resolveRequestId(req.headers[REQUEST_ID_HEADER]);
++      res.setHeader(REQUEST_ID_HEADER, id);
++      return id;
++    },
++    customLogLevel: (_req, res, error) => {
++      if (error || res.statusCode >= 500) {
++        return 'error';
++      }
++      return res.statusCode >= 400 ? 'warn' : 'info';
++    },
++    // Logs feitos dentro da requisição levam só o reqId, não o req inteiro.
++    quietReqLogger: true,
++    transport: pretty
++      ? {
++          target: 'pino-pretty',
++          options: { singleLine: true, ignore: 'pid,hostname' },
++        }
++      : undefined,
++  };
++}
++
++/**
++ * Parâmetros do nestjs-pino. Com `destination` (usado nos testes para ler o
++ * log), escreve nele em JSON: transport e stream próprio não se combinam.
++ */
++export function buildLoggerParams(
++  settings: LoggerSettings,
++  destination?: DestinationStream,
++): Params {
++  if (destination) {
++    const options = buildPinoHttpOptions({ ...settings, pretty: false });
++    return { pinoHttp: [options, destination] };
++  }
++  return { pinoHttp: buildPinoHttpOptions(settings) };
++}
+diff --git a/api/src/infra/logger/logger.module.ts b/api/src/infra/logger/logger.module.ts
+new file mode 100644
+index 0000000..c3c2ba2
+--- /dev/null
++++ b/api/src/infra/logger/logger.module.ts
+@@ -0,0 +1,35 @@
++import { Module } from '@nestjs/common';
++import { ConfigService } from '@nestjs/config';
++import { LoggerModule } from 'nestjs-pino';
++import type { DestinationStream } from 'pino';
++import { EnvironmentVariables } from '../../config/env.validation';
++import { buildLoggerParams, shouldUsePrettyLogs } from './logger.config';
++
++/**
++ * Destino do log. `null` = stdout (ou pino-pretty em dev). Os e2e trocam por
++ * um stream próprio com `overrideProvider` para ler o que foi logado.
++ */
++export const LOG_DESTINATION = Symbol('LOG_DESTINATION');
++
++@Module({
++  imports: [
++    LoggerModule.forRootAsync({
++      providers: [{ provide: LOG_DESTINATION, useValue: null }],
++      inject: [ConfigService, LOG_DESTINATION],
++      useFactory: (
++        config: ConfigService<EnvironmentVariables, true>,
++        destination: DestinationStream | null,
++      ) =>
++        buildLoggerParams(
++          {
++            level: config.get('LOG_LEVEL', { infer: true }),
++            pretty: shouldUsePrettyLogs(
++              config.get('NODE_ENV', { infer: true }),
++            ),
++          },
++          destination ?? undefined,
++        ),
++    }),
++  ],
++})
++export class AppLoggerModule {}
+diff --git a/api/src/infra/logger/request-id.spec.ts b/api/src/infra/logger/request-id.spec.ts
+new file mode 100644
+index 0000000..61af304
+--- /dev/null
++++ b/api/src/infra/logger/request-id.spec.ts
+@@ -0,0 +1,45 @@
++import { REQUEST_ID_HEADER, resolveRequestId } from './request-id';
++
++const UUID_V4 =
++  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
++
++describe('resolveRequestId', () => {
++  it('usa o header x-request-id', () => {
++    expect(REQUEST_ID_HEADER).toBe('x-request-id');
++  });
++
++  it.each([
++    'abc-123',
++    'A1_b2.c3',
++    '0f8fad5b-d9cb-469f-a165-70867728950e',
++    'x'.repeat(64),
++  ])('reaproveita o id que o cliente mandou: "%s"', (incoming) => {
++    expect(resolveRequestId(incoming)).toBe(incoming);
++  });
++
++  it('gera um UUID quando o cliente não manda id', () => {
++    expect(resolveRequestId(undefined)).toMatch(UUID_V4);
++  });
++
++  it('gera um id diferente a cada requisição', () => {
++    expect(resolveRequestId(undefined)).not.toBe(resolveRequestId(undefined));
++  });
++
++  it.each([
++    ['vazio', ''],
++    ['longo demais', 'x'.repeat(65)],
++    ['com espaço', 'abc 123'],
++    ['com quebra de linha (injeção no log)', 'abc\n{"level":60}'],
++    ['com aspas', 'abc"def'],
++    ['com acento', 'requisição'],
++    ['com barra', '../etc'],
++  ])('troca por um UUID o id %s', (_, incoming) => {
++    const id = resolveRequestId(incoming);
++    expect(id).not.toBe(incoming);
++    expect(id).toMatch(UUID_V4);
++  });
++
++  it('troca por um UUID quando o header vem repetido (array)', () => {
++    expect(resolveRequestId(['a', 'b'])).toMatch(UUID_V4);
++  });
++});
+diff --git a/api/src/infra/logger/request-id.ts b/api/src/infra/logger/request-id.ts
+new file mode 100644
+index 0000000..25c9e88
+--- /dev/null
++++ b/api/src/infra/logger/request-id.ts
+@@ -0,0 +1,19 @@
++import { randomUUID } from 'node:crypto';
++
++export const REQUEST_ID_HEADER = 'x-request-id';
++
++/**
++ * Só letras e dígitos ASCII, `-`, `_` e `.`, até 64: um id vindo do cliente
++ * não pode quebrar a linha do log nem crescer sem limite.
++ */
++const SAFE_REQUEST_ID = /^[A-Za-z0-9._-]{1,64}$/;
++
++/** Reaproveita o `x-request-id` do cliente se for seguro; senão, gera um UUID. */
++export function resolveRequestId(
++  incoming: string | string[] | undefined,
++): string {
++  if (typeof incoming === 'string' && SAFE_REQUEST_ID.test(incoming)) {
++    return incoming;
++  }
++  return randomUUID();
++}
+diff --git a/api/src/main.ts b/api/src/main.ts
+index be6b34a..78ab2af 100644
+--- a/api/src/main.ts
++++ b/api/src/main.ts
+@@ -1,15 +1,16 @@
+ import { NestFactory } from '@nestjs/core';
+ import { ConfigService } from '@nestjs/config';
+ import { AppModule } from './app.module';
+ import { configureApp } from './app.setup';
+ import { EnvironmentVariables } from './config/env.validation';
+ 
+ async function bootstrap(): Promise<void> {
+-  const app = await NestFactory.create(AppModule);
++  // Guarda os logs do boot até o pino assumir (configureApp → useLogger).
++  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+   configureApp(app);
+ 
+   const config = app.get(ConfigService<EnvironmentVariables, true>);
+   await app.listen(config.get('PORT', { infer: true }));
+ }
+ 
+ void bootstrap();
+diff --git a/api/src/modules/auth/controllers/auth.controller.ts b/api/src/modules/auth/controllers/auth.controller.ts
+index 6156f55..5ed8a74 100644
+--- a/api/src/modules/auth/controllers/auth.controller.ts
++++ b/api/src/modules/auth/controllers/auth.controller.ts
+@@ -1,18 +1,48 @@
+ import { Body, Controller, HttpCode, Post, UseGuards } from '@nestjs/common';
++import {
++  ApiBadRequestResponse,
++  ApiOkResponse,
++  ApiOperation,
++  ApiTags,
++  ApiTooManyRequestsResponse,
++  ApiUnauthorizedResponse,
++} from '@nestjs/swagger';
+ import { ThrottlerGuard } from '@nestjs/throttler';
+ import { Public } from '../../../shared/decorators/public';
++import { ErrorResponse } from '../../../shared/swagger/error-response';
+ import { LoginDto } from '../dto/login.dto';
++import { LoginResponse } from '../dto/login.response';
+ import { LoginOutput, LoginUseCase } from '../use-cases/login.use-case';
+ 
++@ApiTags('auth')
+ @Controller('auth')
+ export class AuthController {
+   constructor(private readonly loginUseCase: LoginUseCase) {}
+ 
+   @Public()
+   @UseGuards(ThrottlerGuard)
+   @Post('login')
+   @HttpCode(200)
++  @ApiOperation({
++    summary: 'Login do responsável com CPF e senha',
++    description:
++      'Devolve o JWT (validade de JWT_EXPIRES_IN). Rate limit por IP: LOGIN_THROTTLE_LIMIT tentativas por LOGIN_THROTTLE_TTL_MS.',
++  })
++  @ApiOkResponse({ type: LoginResponse })
++  @ApiBadRequestResponse({
++    type: ErrorResponse,
++    description: 'CPF inválido, senha vazia ou campo a mais no corpo.',
++  })
++  @ApiUnauthorizedResponse({
++    type: ErrorResponse,
++    description:
++      'CPF não cadastrado ou senha errada (mesma mensagem nos dois casos).',
++  })
++  @ApiTooManyRequestsResponse({
++    type: ErrorResponse,
++    description: 'Muitas tentativas de login do mesmo IP.',
++  })
+   login(@Body() body: LoginDto): Promise<LoginOutput> {
+     return this.loginUseCase.execute(body);
+   }
+ }
+diff --git a/api/src/modules/auth/dto/login.dto.ts b/api/src/modules/auth/dto/login.dto.ts
+index 3da10ca..0086f59 100644
+--- a/api/src/modules/auth/dto/login.dto.ts
++++ b/api/src/modules/auth/dto/login.dto.ts
+@@ -1,17 +1,23 @@
++import { ApiProperty } from '@nestjs/swagger';
+ import { Transform } from 'class-transformer';
+ import { Length } from 'class-validator';
+ import { IsCpf, normalizeCpf } from '../../../shared/decorators/is-cpf';
+ 
+ export const PASSWORD_INVALID_MESSAGE = 'Informe a senha (até 128 caracteres).';
+ 
+ export class LoginDto {
+   /** Com ou sem máscara; chega ao use case só com dígitos. */
++  @ApiProperty({
++    description: 'CPF com dígitos verificadores válidos, com ou sem máscara.',
++    example: '969.294.560-04',
++  })
+   @Transform(({ value }) => normalizeCpf(value))
+   @IsCpf()
+   cpf!: string;
+ 
+   // Um só validador (o Length já recusa o que não é texto), para a resposta
+   // trazer uma mensagem só. 128 limita o trabalho do bcrypt, que usa 72 bytes.
++  @ApiProperty({ minLength: 1, maxLength: 128, example: '123456' })
+   @Length(1, 128, { message: PASSWORD_INVALID_MESSAGE })
+   password!: string;
+ }
+diff --git a/api/src/modules/auth/dto/login.response.ts b/api/src/modules/auth/dto/login.response.ts
+new file mode 100644
+index 0000000..7e215de
+--- /dev/null
++++ b/api/src/modules/auth/dto/login.response.ts
+@@ -0,0 +1,24 @@
++import { ApiProperty } from '@nestjs/swagger';
++import type { LoginOutput } from '../use-cases/login.use-case';
++
++export class LoginGuardianResponse {
++  @ApiProperty({ example: 'cmhz0guardian00000000001' })
++  id!: string;
++
++  @ApiProperty({ example: 'Gustavo' })
++  firstName!: string;
++
++  @ApiProperty({ example: 'da Silva' })
++  lastName!: string;
++}
++
++export class LoginResponse implements LoginOutput {
++  @ApiProperty({
++    description: 'JWT (HS256). Envie como `Authorization: Bearer <token>`.',
++    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
++  })
++  accessToken!: string;
++
++  @ApiProperty({ type: LoginGuardianResponse })
++  guardian!: LoginGuardianResponse;
++}
+diff --git a/api/src/modules/guardians/controllers/me.controller.ts b/api/src/modules/guardians/controllers/me.controller.ts
+index c51c250..b48ab77 100644
+--- a/api/src/modules/guardians/controllers/me.controller.ts
++++ b/api/src/modules/guardians/controllers/me.controller.ts
+@@ -1,16 +1,25 @@
+ import { Controller, Get } from '@nestjs/common';
++import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+ import {
+   type AuthenticatedGuardian,
+   CurrentGuardian,
+ } from '../../../shared/decorators/current-guardian';
++import { ApiAuthenticated } from '../../../shared/swagger/api-docs';
++import { MeResponse } from '../dto/me.response';
+ import { GetMeOutput, GetMeUseCase } from '../use-cases/get-me.use-case';
+ 
++@ApiTags('me')
++@ApiAuthenticated()
+ @Controller('me')
+ export class MeController {
+   constructor(private readonly getMeUseCase: GetMeUseCase) {}
+ 
+   @Get()
++  @ApiOperation({
++    summary: 'Responsável logado e os alunos vinculados a ele',
++  })
++  @ApiOkResponse({ type: MeResponse })
+   me(@CurrentGuardian() guardian: AuthenticatedGuardian): Promise<GetMeOutput> {
+     return this.getMeUseCase.execute({ guardianId: guardian.id });
+   }
+ }
+diff --git a/api/src/modules/guardians/dto/me.response.ts b/api/src/modules/guardians/dto/me.response.ts
+new file mode 100644
+index 0000000..41847ef
+--- /dev/null
++++ b/api/src/modules/guardians/dto/me.response.ts
+@@ -0,0 +1,49 @@
++import { ApiProperty } from '@nestjs/swagger';
++import type { GuardianStudentSummary } from '../repositories/guardian-profiles.repository';
++import type { GetMeOutput } from '../use-cases/get-me.use-case';
++
++export class GuardianStudentResponse implements GuardianStudentSummary {
++  @ApiProperty({
++    description: 'Id do aluno, usado nas rotas /students/{id}.',
++    example: 'cmhz0student000000000001',
++  })
++  id!: string;
++
++  @ApiProperty({ example: 12567 })
++  rm!: number;
++
++  @ApiProperty({ example: 'Rafael' })
++  firstName!: string;
++
++  @ApiProperty({ example: 'da Silva' })
++  lastName!: string;
++
++  @ApiProperty({ example: '7EF' })
++  className!: string;
++
++  @ApiProperty({ example: 'Matutino' })
++  period!: string;
++}
++
++export class MeResponse implements GetMeOutput {
++  @ApiProperty({ example: 'cmhz0guardian00000000001' })
++  id!: string;
++
++  @ApiProperty({ example: 'Gustavo' })
++  firstName!: string;
++
++  @ApiProperty({ example: 'da Silva' })
++  lastName!: string;
++
++  @ApiProperty({
++    description: 'Sempre mascarado: só os 6 dígitos do meio aparecem.',
++    example: '***.294.560-**',
++  })
++  cpf!: string;
++
++  @ApiProperty({
++    type: [GuardianStudentResponse],
++    description: 'Ordenados pelo nome. Vazio quando não há aluno vinculado.',
++  })
++  students!: GuardianStudentResponse[];
++}
+diff --git a/api/src/modules/health/controllers/health.controller.ts b/api/src/modules/health/controllers/health.controller.ts
+index 33ce903..e75a3bf 100644
+--- a/api/src/modules/health/controllers/health.controller.ts
++++ b/api/src/modules/health/controllers/health.controller.ts
+@@ -1,11 +1,16 @@
+ import { Controller, Get } from '@nestjs/common';
++import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+ import { Public } from '../../../shared/decorators/public';
++import { HealthResponse } from '../dto/health.response';
+ 
++@ApiTags('health')
+ @Public()
+ @Controller('health')
+ export class HealthController {
+   @Get()
++  @ApiOperation({ summary: 'A API está no ar' })
++  @ApiOkResponse({ type: HealthResponse })
+   check(): { status: 'ok' } {
+     return { status: 'ok' };
+   }
+ }
+diff --git a/api/src/modules/health/dto/health.response.ts b/api/src/modules/health/dto/health.response.ts
+new file mode 100644
+index 0000000..b96422d
+--- /dev/null
++++ b/api/src/modules/health/dto/health.response.ts
+@@ -0,0 +1,6 @@
++import { ApiProperty } from '@nestjs/swagger';
++
++export class HealthResponse {
++  @ApiProperty({ enum: ['ok'], example: 'ok' })
++  status!: 'ok';
++}
+diff --git a/api/src/modules/students/controllers/students.controller.ts b/api/src/modules/students/controllers/students.controller.ts
+index f751883..443a959 100644
+--- a/api/src/modules/students/controllers/students.controller.ts
++++ b/api/src/modules/students/controllers/students.controller.ts
+@@ -1,44 +1,93 @@
+ import { Controller, Get, Param } from '@nestjs/common';
++import {
++  ApiBadRequestResponse,
++  ApiNotFoundResponse,
++  ApiOkResponse,
++  ApiOperation,
++  ApiParam,
++  ApiTags,
++} from '@nestjs/swagger';
+ import { RawParam } from '../../../shared/decorators/raw-param';
+ import { StudentOwnership } from '../../../shared/guards/student-ownership.guard';
+ import { ParseYearPipe } from '../../../shared/pipes/parse-year.pipe';
++import { ApiStudentRoute } from '../../../shared/swagger/api-docs';
++import { ErrorResponse } from '../../../shared/swagger/error-response';
++import { AgendaDayResponse } from '../dto/agenda.response';
++import {
++  ReportCardResponse,
++  ReportCardSummaryResponse,
++} from '../dto/report-card.response';
+ import type { ReportCardSummary } from '../repositories/students.repository';
+ import {
+   ReportCard,
+   GetReportCardUseCase,
+ } from '../use-cases/get-report-card.use-case';
+ import {
+   AgendaDay,
+   GetStudentAgendaUseCase,
+ } from '../use-cases/get-student-agenda.use-case';
+ import { ListReportCardsUseCase } from '../use-cases/list-report-cards.use-case';
+ 
+ /** Todas as rotas são de um aluno (`:id`) e passam pelo guard de ownership. */
++@ApiTags('students')
++@ApiStudentRoute()
++@ApiParam({
++  name: 'id',
++  description: 'Id do aluno (vem em `students` do GET /api/me).',
++  example: 'cmhz0student000000000001',
++})
+ @StudentOwnership()
+ @Controller('students/:id')
+ export class StudentsController {
+   constructor(
+     private readonly getStudentAgenda: GetStudentAgendaUseCase,
+     private readonly listReportCards: ListReportCardsUseCase,
+     private readonly getReportCard: GetReportCardUseCase,
+   ) {}
+ 
+   @Get('agenda')
++  @ApiOperation({
++    summary: 'Agenda da semana do aluno',
++    description:
++      'Dias em ordem de data e aulas por horário; dia sem aula vem com `lessons: []`.',
++  })
++  @ApiOkResponse({ type: [AgendaDayResponse] })
+   agenda(@Param('id') id: string): Promise<AgendaDay[]> {
+     return this.getStudentAgenda.execute({ studentId: id });
+   }
+ 
+   @Get('report-cards')
++  @ApiOperation({
++    summary: 'Anos com boletim do aluno (mais recente primeiro)',
++  })
++  @ApiOkResponse({ type: [ReportCardSummaryResponse] })
+   reportCards(@Param('id') id: string): Promise<ReportCardSummary[]> {
+     return this.listReportCards.execute({ studentId: id });
+   }
+ 
+   @Get('report-cards/:year')
++  @ApiOperation({
++    summary: 'Boletim do aluno no ano (notas e faltas por trimestre)',
++  })
++  @ApiParam({
++    name: 'year',
++    description: 'Ano com 4 dígitos.',
++    schema: { type: 'string', pattern: '^\\d{4}$', example: '2025' },
++  })
++  @ApiOkResponse({ type: ReportCardResponse })
++  @ApiBadRequestResponse({
++    type: ErrorResponse,
++    description: 'Ano fora do formato de 4 dígitos.',
++  })
++  @ApiNotFoundResponse({
++    type: ErrorResponse,
++    description: 'O aluno não tem boletim nesse ano.',
++  })
+   reportCard(
+     @Param('id') id: string,
+     // RawParam, e não Param: o pipe precisa do texto cru (ver raw-param.ts).
+     @RawParam('year', ParseYearPipe) year: number,
+   ): Promise<ReportCard> {
+     return this.getReportCard.execute({ studentId: id, year });
+   }
+ }
+diff --git a/api/src/modules/students/dto/agenda.response.ts b/api/src/modules/students/dto/agenda.response.ts
+new file mode 100644
+index 0000000..3fff973
+--- /dev/null
++++ b/api/src/modules/students/dto/agenda.response.ts
+@@ -0,0 +1,27 @@
++import { ApiProperty } from '@nestjs/swagger';
++import type {
++  AgendaDay,
++  AgendaLesson,
++} from '../use-cases/get-student-agenda.use-case';
++
++export class AgendaLessonResponse implements AgendaLesson {
++  @ApiProperty({ example: '07:15' })
++  startTime!: string;
++
++  @ApiProperty({ example: '08:00' })
++  endTime!: string;
++
++  @ApiProperty({ example: 'Matemática I' })
++  subject!: string;
++}
++
++export class AgendaDayResponse implements AgendaDay {
++  @ApiProperty({ format: 'date', example: '2025-03-17' })
++  date!: string;
++
++  @ApiProperty({
++    type: [AgendaLessonResponse],
++    description: 'Ordenadas por horário. Vazia em dia sem aula.',
++  })
++  lessons!: AgendaLessonResponse[];
++}
+diff --git a/api/src/modules/students/dto/report-card.response.ts b/api/src/modules/students/dto/report-card.response.ts
+new file mode 100644
+index 0000000..8269ad5
+--- /dev/null
++++ b/api/src/modules/students/dto/report-card.response.ts
+@@ -0,0 +1,58 @@
++import { ApiProperty } from '@nestjs/swagger';
++import type { ReportCardSummary } from '../repositories/students.repository';
++import type {
++  ReportCard,
++  ReportCardSubject,
++  ReportCardTerm,
++} from '../use-cases/get-report-card.use-case';
++
++export class ReportCardSummaryResponse implements ReportCardSummary {
++  @ApiProperty({ example: 2025 })
++  year!: number;
++
++  @ApiProperty({ example: '7EF' })
++  className!: string;
++}
++
++export class ReportCardSubjectResponse implements ReportCardSubject {
++  @ApiProperty({ example: 'Língua Portuguesa' })
++  name!: string;
++
++  @ApiProperty({
++    type: Number,
++    nullable: true,
++    description: 'null = ainda não avaliado.',
++    example: 9.5,
++  })
++  grade!: number | null;
++
++  @ApiProperty({
++    type: Number,
++    nullable: true,
++    description: 'null = ainda não avaliado.',
++    example: 0,
++  })
++  absences!: number | null;
++}
++
++export class ReportCardTermResponse implements ReportCardTerm {
++  @ApiProperty({ enum: [1, 2, 3], example: 1 })
++  term!: number;
++
++  @ApiProperty({ type: [ReportCardSubjectResponse] })
++  subjects!: ReportCardSubjectResponse[];
++}
++
++export class ReportCardResponse implements ReportCard {
++  @ApiProperty({ example: 2025 })
++  year!: number;
++
++  @ApiProperty({ example: '7EF' })
++  className!: string;
++
++  @ApiProperty({
++    type: [ReportCardTermResponse],
++    description: 'Sempre os trimestres 1, 2 e 3, avaliados ou não.',
++  })
++  terms!: ReportCardTermResponse[];
++}
+diff --git a/api/src/shared/swagger/api-docs.ts b/api/src/shared/swagger/api-docs.ts
+new file mode 100644
+index 0000000..4a69c42
+--- /dev/null
++++ b/api/src/shared/swagger/api-docs.ts
+@@ -0,0 +1,34 @@
++import { applyDecorators } from '@nestjs/common';
++import {
++  ApiBearerAuth,
++  ApiForbiddenResponse,
++  ApiUnauthorizedResponse,
++} from '@nestjs/swagger';
++import { ErrorResponse } from './error-response';
++
++/** Nome do esquema de segurança do Swagger (botão Authorize). */
++export const BEARER_AUTH = 'bearer';
++
++/** Rota com JWT: Bearer no Swagger e o 401 documentado. */
++export function ApiAuthenticated() {
++  return applyDecorators(
++    ApiBearerAuth(BEARER_AUTH),
++    ApiUnauthorizedResponse({
++      type: ErrorResponse,
++      description:
++        'Sem token, token inválido/expirado ou responsável removido.',
++    }),
++  );
++}
++
++/** Rota de um aluno: além do JWT, o aluno precisa ser do responsável. */
++export function ApiStudentRoute() {
++  return applyDecorators(
++    ApiAuthenticated(),
++    ApiForbiddenResponse({
++      type: ErrorResponse,
++      description:
++        'O aluno não é vinculado ao responsável logado (ou não existe).',
++    }),
++  );
++}
+diff --git a/api/src/shared/swagger/error-response.ts b/api/src/shared/swagger/error-response.ts
+new file mode 100644
+index 0000000..5377a18
+--- /dev/null
++++ b/api/src/shared/swagger/error-response.ts
+@@ -0,0 +1,17 @@
++import { ApiProperty } from '@nestjs/swagger';
++
++/** Corpo de erro padrão do Nest (HttpException). */
++export class ErrorResponse {
++  @ApiProperty({ example: 401 })
++  statusCode!: number;
++
++  @ApiProperty({
++    oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }],
++    description: 'Texto, ou lista de textos nos erros de validação (400).',
++    example: 'Usuário ou senha inválida.',
++  })
++  message!: string | string[];
++
++  @ApiProperty({ example: 'Unauthorized', required: false })
++  error?: string;
++}
+diff --git a/api/test/auth-throttle.e2e-spec.ts b/api/test/auth-throttle.e2e-spec.ts
+index 30d5611..a16220b 100644
+--- a/api/test/auth-throttle.e2e-spec.ts
++++ b/api/test/auth-throttle.e2e-spec.ts
+@@ -31,16 +31,25 @@ describe('Rate limit do login (e2e)', () => {
+ 
+     const blocked = await attempt();
+     expect(blocked.status).toBe(429);
+     expect(blocked.body).toMatchObject({
+       statusCode: 429,
+       message:
+         'Muitas tentativas de login. Aguarde um pouco e tente novamente.',
+     });
+   });
+ 
++  it('sem TRUST_PROXY, o X-Forwarded-For não troca o IP do cliente', async () => {
++    const response = await request(app.getHttpServer())
++      .post('/api/auth/login')
++      .set('X-Forwarded-For', '198.51.100.7')
++      .send({ cpf: '969.294.560-04', password: 'errada' });
++
++    expect(response.status).toBe(429);
++  });
++
+   it('o limite vale só para o login', async () => {
+     for (let i = 0; i < 5; i++) {
+       await request(app.getHttpServer()).get('/api/health').expect(200);
+     }
+   });
+ });
+diff --git a/api/test/health.e2e-spec.ts b/api/test/health.e2e-spec.ts
+index 1b2ee73..a644249 100644
+--- a/api/test/health.e2e-spec.ts
++++ b/api/test/health.e2e-spec.ts
+@@ -25,11 +25,21 @@ describe('Health (e2e)', () => {
+     await request(app.getHttpServer()).get('/health').expect(404);
+   });
+ 
+   it('libera o CORS para a origem configurada', async () => {
+     const response = await request(app.getHttpServer())
+       .get('/api/health')
+       .set('Origin', 'http://localhost:8081');
+ 
+     expect(response.headers['access-control-allow-origin']).toBe('*');
+   });
++
++  it('expõe o x-request-id ao navegador (CORS)', async () => {
++    const response = await request(app.getHttpServer())
++      .get('/api/health')
++      .set('Origin', 'http://localhost:8081');
++
++    expect(response.headers['access-control-expose-headers']).toBe(
++      'x-request-id',
++    );
++  });
+ });
+diff --git a/api/test/logging.e2e-spec.ts b/api/test/logging.e2e-spec.ts
+new file mode 100644
+index 0000000..abef4eb
+--- /dev/null
++++ b/api/test/logging.e2e-spec.ts
+@@ -0,0 +1,134 @@
++import { INestApplication } from '@nestjs/common';
++import request from 'supertest';
++import { App } from 'supertest/types';
++import { ACCOUNTS } from './setup/auth-helpers';
++import { createLogCapture } from './setup/log-capture';
++
++// O test-env.ts deixa o log em silêncio. Aqui ele volta ao nível de produção
++// antes de o AppModule ser importado (import dinâmico), e o stream é capturado.
++process.env.LOG_LEVEL = 'info';
++
++const UUID_V4 =
++  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
++
++interface RequestLog {
++  level: number;
++  msg: string;
++  req: { id: string; method: string; url: string; headers: object };
++  res: { statusCode: number };
++}
++
++describe('Logs de requisição (e2e)', () => {
++  let app: INestApplication<App>;
++  const capture = createLogCapture();
++
++  beforeAll(async () => {
++    const { createTestApp } = await import('./setup/create-test-app.js');
++    app = await createTestApp({ logDestination: capture.stream });
++  });
++
++  afterAll(async () => {
++    await app.close();
++  });
++
++  const requestLogs = () =>
++    capture.lines.filter(
++      (line) => 'req' in line && 'res' in line,
++    ) as unknown as RequestLog[];
++
++  const findRequestLog = (id: string) =>
++    requestLogs().find((line) => line.req.id === id);
++
++  it('login, /me e boletim não deixam senha, CPF nem token no log', async () => {
++    const login = await request(app.getHttpServer())
++      .post('/api/auth/login')
++      .set('Cookie', 'sessao=cookie-secreto')
++      .send(ACCOUNTS.gustavo)
++      .expect(200);
++    const token = (login.body as { accessToken: string }).accessToken;
++    const me = await request(app.getHttpServer())
++      .get('/api/me')
++      .set('Authorization', `Bearer ${token}`)
++      .expect(200);
++    const [student] = (me.body as { students: Array<{ id: string }> }).students;
++    await request(app.getHttpServer())
++      .get(`/api/students/${student.id}/report-cards/2025`)
++      .set('Authorization', `Bearer ${token}`)
++      .expect(200);
++    // Senha errada também passa pelo log (nível warn).
++    await request(app.getHttpServer())
++      .post('/api/auth/login')
++      .send({ cpf: ACCOUNTS.gustavo.cpf, password: 'senha-errada-999' })
++      .expect(401);
++
++    const log = capture.text();
++    expect(requestLogs().length).toBeGreaterThanOrEqual(4);
++    for (const secret of [
++      `"${ACCOUNTS.gustavo.password}"`,
++      'senha-errada-999',
++      ACCOUNTS.gustavo.cpf,
++      '96929456004',
++      token,
++      token.split('.')[1],
++      'Bearer',
++      'cookie-secreto',
++    ]) {
++      expect(log).not.toContain(secret);
++    }
++  });
++
++  it('loga método, rota e status da requisição', async () => {
++    const response = await request(app.getHttpServer())
++      .get('/api/health')
++      .expect(200);
++
++    const entry = findRequestLog(response.headers['x-request-id']);
++    expect(entry).toMatchObject({
++      level: 30,
++      msg: 'request completed',
++      req: { method: 'GET', url: '/api/health' },
++      res: { statusCode: 200 },
++    });
++  });
++
++  it('erro do cliente (4xx) sai como warn', async () => {
++    const response = await request(app.getHttpServer())
++      .get('/api/me')
++      .expect(401);
++
++    expect(findRequestLog(response.headers['x-request-id'])?.level).toBe(40);
++  });
++
++  it('gera um x-request-id (UUID) e devolve no header', async () => {
++    const response = await request(app.getHttpServer()).get('/api/health');
++
++    expect(response.headers['x-request-id']).toMatch(UUID_V4);
++  });
++
++  it('reaproveita o x-request-id válido do app', async () => {
++    const response = await request(app.getHttpServer())
++      .get('/api/health')
++      .set('x-request-id', 'app-req-123');
++
++    expect(response.headers['x-request-id']).toBe('app-req-123');
++    expect(findRequestLog('app-req-123')).toBeDefined();
++  });
++
++  it('troca o x-request-id inválido por um UUID', async () => {
++    const response = await request(app.getHttpServer())
++      .get('/api/health')
++      .set('x-request-id', 'x'.repeat(65));
++
++    expect(response.headers['x-request-id']).toMatch(UUID_V4);
++  });
++
++  it('usa o pino como logger do Nest (logs de boot em JSON)', () => {
++    expect(
++      capture.lines.some(
++        (line) =>
++          line.context === 'RoutesResolver' ||
++          line.context === 'RouterExplorer',
++      ),
++    ).toBe(true);
++  });
++});
+diff --git a/api/test/setup/create-test-app.ts b/api/test/setup/create-test-app.ts
+index 601d0e6..b0b8a06 100644
+--- a/api/test/setup/create-test-app.ts
++++ b/api/test/setup/create-test-app.ts
+@@ -1,24 +1,32 @@
++import { Writable } from 'node:stream';
+ import { INestApplication, Type } from '@nestjs/common';
+ import { Test } from '@nestjs/testing';
+ import { App } from 'supertest/types';
+ import { AppModule } from '../../src/app.module';
+ import { configureApp } from '../../src/app.setup';
++import { LOG_DESTINATION } from '../../src/infra/logger/logger.module';
+ 
+ interface TestAppOptions {
+   /** Controllers só de teste, montados junto com o AppModule. */
+   controllers?: Type[];
++  /** Para onde o pino escreve (ver log-capture.ts). Padrão: stdout. */
++  logDestination?: Writable;
+ }
+ 
+ export async function createTestApp(
+   options: TestAppOptions = {},
+ ): Promise<INestApplication<App>> {
+-  const moduleRef = await Test.createTestingModule({
++  const builder = Test.createTestingModule({
+     imports: [AppModule],
+     controllers: options.controllers ?? [],
+-  }).compile();
++  });
++  if (options.logDestination) {
++    builder.overrideProvider(LOG_DESTINATION).useValue(options.logDestination);
++  }
++  const moduleRef = await builder.compile();
+ 
+   const app = moduleRef.createNestApplication<INestApplication<App>>();
+   configureApp(app);
+   await app.init();
+   return app;
+ }
+diff --git a/api/test/setup/log-capture.ts b/api/test/setup/log-capture.ts
+new file mode 100644
+index 0000000..52d48b6
+--- /dev/null
++++ b/api/test/setup/log-capture.ts
+@@ -0,0 +1,25 @@
++import { Writable } from 'node:stream';
++
++export interface LogCapture {
++  /** Cada linha do log já como objeto. */
++  lines: Record<string, unknown>[];
++  stream: Writable;
++  /** Tudo o que foi logado, como texto, para procurar segredos. */
++  text(): string;
++}
++
++/** Destino do pino nos e2e: guarda o que seria escrito no stdout. */
++export function createLogCapture(): LogCapture {
++  const lines: Record<string, unknown>[] = [];
++  const raw: string[] = [];
++  const stream = new Writable({
++    write(chunk: Buffer, _encoding, done) {
++      for (const line of chunk.toString().split('\n').filter(Boolean)) {
++        raw.push(line);
++        lines.push(JSON.parse(line) as Record<string, unknown>);
++      }
++      done();
++    },
++  });
++  return { lines, stream, text: () => raw.join('\n') };
++}
+diff --git a/api/test/setup/test-env.ts b/api/test/setup/test-env.ts
+index 6a83518..66a5b6f 100644
+--- a/api/test/setup/test-env.ts
++++ b/api/test/setup/test-env.ts
+@@ -1,10 +1,15 @@
+ // Carregado antes de cada arquivo e2e: o ConfigModule não sobrescreve o que já
+ // está em process.env, então estes valores vencem o .env local.
+ process.env.DATABASE_URL = 'file:./test.db';
+ process.env.JWT_SECRET = 'segredo-dos-testes-e2e';
+ process.env.JWT_EXPIRES_IN = '7d';
+ process.env.CORS_ORIGINS = '*';
+ // Os e2e fazem dezenas de logins do mesmo IP. O limite real (5/min) é testado
+ // em auth-throttle.e2e-spec.ts, que baixa este valor antes de subir o app.
+ process.env.LOGIN_THROTTLE_LIMIT = '1000';
+ process.env.LOGIN_THROTTLE_TTL_MS = '60000';
++// Sem log nos e2e (logging.e2e-spec.ts liga e captura o próprio stream), sem
++// proxy confiável e com Swagger: os arquivos que mudam isso voltam ao padrão.
++process.env.LOG_LEVEL = 'silent';
++process.env.TRUST_PROXY = 'false';
++process.env.SWAGGER_ENABLED = 'true';
+diff --git a/api/test/swagger-disabled.e2e-spec.ts b/api/test/swagger-disabled.e2e-spec.ts
+new file mode 100644
+index 0000000..1f7271f
+--- /dev/null
++++ b/api/test/swagger-disabled.e2e-spec.ts
+@@ -0,0 +1,27 @@
++import { INestApplication } from '@nestjs/common';
++import request from 'supertest';
++import { App } from 'supertest/types';
++
++// Desliga o Swagger antes de importar o AppModule (a env é lida no import).
++process.env.SWAGGER_ENABLED = 'false';
++
++describe('Swagger desligado por env (e2e)', () => {
++  let app: INestApplication<App>;
++
++  beforeAll(async () => {
++    const { createTestApp } = await import('./setup/create-test-app.js');
++    app = await createTestApp();
++  });
++
++  afterAll(async () => {
++    await app.close();
++  });
++
++  it.each(['/docs', '/docs-json'])('%s responde 404', async (path) => {
++    await request(app.getHttpServer()).get(path).expect(404);
++  });
++
++  it('a API continua no ar', async () => {
++    await request(app.getHttpServer()).get('/api/health').expect(200);
++  });
++});
+diff --git a/api/test/swagger.e2e-spec.ts b/api/test/swagger.e2e-spec.ts
+new file mode 100644
+index 0000000..243f4ad
+--- /dev/null
++++ b/api/test/swagger.e2e-spec.ts
+@@ -0,0 +1,138 @@
++import { INestApplication } from '@nestjs/common';
++import request from 'supertest';
++import { App } from 'supertest/types';
++import { createTestApp } from './setup/create-test-app';
++
++interface OpenApiOperation {
++  tags?: string[];
++  security?: Array<Record<string, string[]>>;
++  responses: Record<string, unknown>;
++  requestBody?: unknown;
++}
++
++interface OpenApiDocument {
++  paths: Record<string, Record<string, OpenApiOperation>>;
++  components: {
++    securitySchemes: Record<string, unknown>;
++    schemas: Record<string, { properties?: Record<string, unknown> }>;
++  };
++}
++
++const ROUTES = [
++  ['post', '/api/auth/login'],
++  ['get', '/api/health'],
++  ['get', '/api/me'],
++  ['get', '/api/students/{id}/agenda'],
++  ['get', '/api/students/{id}/report-cards'],
++  ['get', '/api/students/{id}/report-cards/{year}'],
++] as const;
++
++describe('Swagger (e2e)', () => {
++  let app: INestApplication<App>;
++  let doc: OpenApiDocument;
++
++  beforeAll(async () => {
++    app = await createTestApp();
++    const response = await request(app.getHttpServer())
++      .get('/docs-json')
++      .expect(200);
++    doc = response.body as OpenApiDocument;
++  });
++
++  afterAll(async () => {
++    await app.close();
++  });
++
++  const operation = (method: string, path: string) => doc.paths[path]?.[method];
++
++  it('a UI em /docs é pública e fica fora do prefixo /api', async () => {
++    const response = await request(app.getHttpServer()).get('/docs');
++
++    expect(response.status).toBe(200);
++    expect(response.text).toContain('swagger-ui');
++  });
++
++  it('lista exatamente as 6 rotas da API', () => {
++    const listed = Object.entries(doc.paths).flatMap(([path, methods]) =>
++      Object.keys(methods).map((method) => `${method} ${path}`),
++    );
++
++    expect(listed.sort()).toEqual(
++      ROUTES.map(([method, path]) => `${method} ${path}`).sort(),
++    );
++  });
++
++  it('não lista a rota de teste dos e2e', () => {
++    expect(Object.keys(doc.paths)).not.toContain('/api/e2e-protected');
++  });
++
++  it('tem o esquema Bearer (JWT) para o botão Authorize', () => {
++    expect(doc.components.securitySchemes).toMatchObject({
++      bearer: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
++    });
++  });
++
++  it.each(
++    ROUTES.filter(
++      ([, path]) => path.startsWith('/api/students') || path === '/api/me',
++    ),
++  )('%s %s exige o Bearer e documenta o 401', (method, path) => {
++    const op = operation(method, path);
++    expect(op.security).toEqual([{ bearer: [] }]);
++    expect(op.responses).toHaveProperty('401');
++  });
++
++  it.each([
++    ['post', '/api/auth/login'],
++    ['get', '/api/health'],
++  ])('%s %s é pública (sem Bearer)', (method, path) => {
++    expect(operation(method, path).security).toBeUndefined();
++  });
++
++  it('cada rota tem tag e resposta de sucesso com esquema', () => {
++    for (const [method, path] of ROUTES) {
++      const op = operation(method, path);
++      expect(op.tags?.length).toBeGreaterThan(0);
++      expect(op.responses['200']).toHaveProperty('content');
++    }
++  });
++
++  it('o login documenta corpo (com exemplo do seed), 400, 401 e 429', () => {
++    const op = operation('post', '/api/auth/login');
++    expect(Object.keys(op.responses).sort()).toEqual([
++      '200',
++      '400',
++      '401',
++      '429',
++    ]);
++    expect(doc.components.schemas.LoginDto.properties).toMatchObject({
++      cpf: { type: 'string', example: '969.294.560-04' },
++      password: { type: 'string', example: '123456' },
++    });
++  });
++
++  it('as rotas do aluno documentam 403, e o boletim também 400 e 404', () => {
++    for (const [method, path] of ROUTES.filter(([, p]) =>
++      p.startsWith('/api/students'),
++    )) {
++      expect(operation(method, path).responses).toHaveProperty('403');
++    }
++    expect(
++      Object.keys(
++        operation('get', '/api/students/{id}/report-cards/{year}').responses,
++      ).sort(),
++    ).toEqual(['200', '400', '401', '403', '404']);
++  });
++
++  it('descreve os campos das respostas (DTOs de saída)', () => {
++    expect(doc.components.schemas.MeResponse.properties).toHaveProperty(
++      'students',
++    );
++    expect(doc.components.schemas.ReportCardResponse.properties).toHaveProperty(
++      'terms',
++    );
++    expect(doc.components.schemas.AgendaDayResponse.properties).toHaveProperty(
++      'lessons',
++    );
++  });
++});
+diff --git a/api/test/trust-proxy.e2e-spec.ts b/api/test/trust-proxy.e2e-spec.ts
+new file mode 100644
+index 0000000..5c6b248
+--- /dev/null
++++ b/api/test/trust-proxy.e2e-spec.ts
+@@ -0,0 +1,34 @@
++import { INestApplication } from '@nestjs/common';
++import request from 'supertest';
++import { App } from 'supertest/types';
++
++// Um proxy na frente (TRUST_PROXY=1): o IP do cliente vem do X-Forwarded-For.
++process.env.TRUST_PROXY = '1';
++process.env.LOGIN_THROTTLE_LIMIT = '2';
++
++describe('trust proxy (e2e)', () => {
++  let app: INestApplication<App>;
++
++  beforeAll(async () => {
++    const { createTestApp } = await import('./setup/create-test-app.js');
++    app = await createTestApp();
++  });
++
++  afterAll(async () => {
++    await app.close();
++  });
++
++  const attemptFrom = (ip: string) =>
++    request(app.getHttpServer())
++      .post('/api/auth/login')
++      .set('X-Forwarded-For', ip)
++      .send({ cpf: '969.294.560-04', password: 'errada' });
++
++  it('o rate limit separa os clientes pelo IP que o proxy repassa', async () => {
++    expect((await attemptFrom('203.0.113.1')).status).toBe(401);
++    expect((await attemptFrom('203.0.113.1')).status).toBe(401);
++    expect((await attemptFrom('203.0.113.1')).status).toBe(429);
++
++    expect((await attemptFrom('203.0.113.2')).status).toBe(401);
++  });
++});
+diff --git a/docker-compose.yml b/docker-compose.yml
+new file mode 100644
+index 0000000..e9cd920
+--- /dev/null
++++ b/docker-compose.yml
+@@ -0,0 +1,34 @@
++# Sobe a API com um comando: `docker compose up --build`
++# Swagger em http://localhost:3333/docs · health em http://localhost:3333/api/health
++# O banco SQLite fica no volume `api-data`. A cada boot o container roda
++# migrate deploy + seed, que recria os dados do JSON (os ids mudam e tokens
++# antigos passam a dar 401). `docker compose down -v` apaga o volume.
++name: fiap-school
++
++services:
++  api:
++    build:
++      context: ./api
++    volumes:
++      - api-data:/app/data
++    environment:
++      PORT: "3333"
++      DATABASE_URL: "file:/app/data/fiap-school.db"
++      # Só para rodar local. Fora daqui, use um segredo longo e aleatório.
++      JWT_SECRET: "troque-este-segredo-local"
++      JWT_EXPIRES_IN: "7d"
++      CORS_ORIGINS: "*"
++      LOGIN_THROTTLE_LIMIT: "5"
++      LOGIN_THROTTLE_TTL_MS: "60000"
++      LOG_LEVEL: "info"
++      SWAGGER_ENABLED: "true"
++      # Sem proxy na frente. Atrás de um reverse proxy, use 1 (ou a lista de IPs dele).
++      TRUST_PROXY: "false"
++    # Todas as interfaces de propósito: o app num celular da mesma rede chega
++    # pelo IP da máquina. Para só esta máquina, use "127.0.0.1:3333:3333".
++    ports:
++      - "0.0.0.0:3333:3333"
++    restart: unless-stopped
++
++volumes:
++  api-data:

@@ -1,0 +1,86 @@
+import { Easing, FadeInDown, ReduceMotion } from 'react-native-reanimated';
+
+/** Durações e curvas das animações (01-design.md, 1.8). */
+export const motion = {
+  /** Saída do texto do botão quando vira spinner (01-design.md, 4.2). */
+  instant: 100,
+  fast: 150,
+  base: 220,
+  slow: 320,
+  stagger: 40,
+  /** Saídas curtas: lista do dropdown e troca de dia (01-design.md, 4.5). */
+  exitFast: 120,
+  /** Teto do stagger: no máximo 6 itens escalonados por lista (1.8). */
+  maxStaggered: 6,
+  /** Chevron aberto (4.5). */
+  chevronOpenDeg: 180,
+  /** Pulso do skeleton: 0,5 ↔ 1 em 800 ms; parado em 0,7 com reduzir movimento (4.8). */
+  skeleton: { duration: 800, min: 0.5, reduced: 0.7 },
+  easeOut: Easing.out(Easing.cubic),
+  easeIn: Easing.in(Easing.cubic),
+  press: { damping: 18, stiffness: 260, mass: 1 },
+  /** Opacidade de ações de texto pressionadas (barra, dropdown, acordeão). */
+  pressedOpacity: 0.6,
+  /** Escala do botão pressionado. */
+  pressScale: 0.98,
+  /** Deslocamento das entradas `FadeInDown` (campos do login e erro). */
+  enterOffset: 12,
+  enterOffsetSmall: 8,
+  /** Ilustração do estado vazio entra de 0,96 para 1 (01-design.md, 4.5). */
+  illustrationScaleFrom: 0.96,
+  /** Shake do formulário em erro (01-design.md, 4.2): 6 passos de 50 ms. */
+  shake: { offsets: [-10, 10, -8, 8, -4, 0], step: 50 },
+  /** Shake curto do estado de erro quando o retry falha de novo (4.8). */
+  shakeShort: { offsets: [-6, 6, -3, 0], step: 50 },
+  /** Seleção de aluno: o modal fecha 120 ms depois da borda acender (4.7). */
+  selectStudentBackDelay: 120,
+  /** Atraso entre cards da seleção de aluno (4.7) e dos trimestres (4.6). */
+  cardStagger: 60,
+  /** Atraso entre disciplinas na 1ª abertura do trimestre (4.6). */
+  subjectStagger: 20,
+  /** Ícone da aba que ficou ativa: 1 → 1.12 → 1 (4.4). */
+  tabIconPop: 1.12,
+  /** Splash animada (01-design.md, 3.1.3 a 3.1.6). */
+  splash: {
+    minDuration: 1200,
+    minDurationReduced: 600,
+    loopStartAt: 1500,
+    hardTimeout: 10_000,
+    meTimeout: 8000,
+    wipe: { delay: 80, duration: 600 },
+    wipeEasing: Easing.bezier(0.65, 0, 0.35, 1),
+    scanFadeIn: 80,
+    scanFadeOut: 120,
+    scaleFrom: 0.96,
+    scaleDuration: 800,
+    badgeAt: 620,
+    badgeFadeIn: 120,
+    badgeScaleFrom: 0.4,
+    badgeSpring: { damping: 12, stiffness: 180, mass: 0.8 },
+    loopTrack: 1000,
+    loopTrackSegment: 0.25,
+    badgeBreath: 1600,
+    badgeBreathScale: 1.04,
+    fadeInReduced: 200,
+    exitScaleTo: 0.92,
+    exitDuration: 250,
+    exitToLoginEasing: Easing.bezier(0.2, 0, 0, 1),
+  },
+} as const;
+
+/**
+ * Entrada padrão das telas (01-design.md, 4.x): fade de baixo para cima em
+ * `base`, `easeOut`, 8 pt, respeitando o reduzir movimento do sistema.
+ */
+export function enterDown(
+  tokens: Pick<typeof motion, 'base' | 'easeOut' | 'enterOffsetSmall'>,
+  delay = 0,
+) {
+  return FadeInDown.duration(tokens.base)
+    .delay(delay)
+    .easing(tokens.easeOut)
+    .withInitialValues({
+      transform: [{ translateY: tokens.enterOffsetSmall }],
+    })
+    .reduceMotion(ReduceMotion.System);
+}

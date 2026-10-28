@@ -1,0 +1,41 @@
+# Sobe a API com um comando: `docker compose up --build`
+# Swagger em http://localhost:3333/docs · health em http://localhost:3333/api/health
+# O banco SQLite fica no volume `api-data`. A cada boot o container roda
+# migrate deploy + seed; o seed só popula o banco vazio, então ids e tokens
+# sobrevivem a um restart. SEED_RESET=true recria os dados do JSON a cada boot.
+# `docker compose down -v` apaga o volume.
+name: fiap-school
+
+services:
+  api:
+    build:
+      context: ./api
+    volumes:
+      - api-data:/app/data
+    environment:
+      PORT: "3333"
+      DATABASE_URL: "file:/app/data/fiap-school.db"
+      # Vazio = o container gera um segredo aleatório na primeira subida e guarda
+      # no volume (api-data/jwt-secret), reaproveitado nos próximos boots. Para
+      # usar o seu: JWT_SECRET="$(openssl rand -base64 48)" docker compose up
+      JWT_SECRET: "${JWT_SECRET:-}"
+      JWT_EXPIRES_IN: "7d"
+      CORS_ORIGINS: "*"
+      # Rate limit do login: sobrescreva na linha de comando (ex.: Maestro).
+      LOGIN_THROTTLE_LIMIT: "${LOGIN_THROTTLE_LIMIT:-5}"
+      LOGIN_THROTTLE_TTL_MS: "${LOGIN_THROTTLE_TTL_MS:-60000}"
+      LOGIN_THROTTLE_CPF_LIMIT: "${LOGIN_THROTTLE_CPF_LIMIT:-10}"
+      LOGIN_THROTTLE_CPF_TTL_MS: "${LOGIN_THROTTLE_CPF_TTL_MS:-900000}"
+      LOG_LEVEL: "info"
+      SWAGGER_ENABLED: "true"
+      # Sem proxy na frente. Atrás de um reverse proxy, use 1 (ou a lista de IPs dele).
+      TRUST_PROXY: "false"
+      SEED_RESET: "false"
+    # Todas as interfaces de propósito: o app num celular da mesma rede chega
+    # pelo IP da máquina. Para só esta máquina, use "127.0.0.1:3333:3333".
+    ports:
+      - "0.0.0.0:3333:3333"
+    restart: unless-stopped
+
+volumes:
+  api-data:

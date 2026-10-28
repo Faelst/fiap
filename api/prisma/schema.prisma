@@ -1,0 +1,107 @@
+// Modelo derivado do JSON oficial do teste (prisma/seed-data/responsaveis.json).
+// A URL do banco fica no prisma.config.ts (DATABASE_URL).
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Guardian {
+  id           String            @id @default(cuid())
+  firstName    String
+  lastName     String
+  /// Só dígitos (11).
+  cpf          String            @unique
+  email        String            @unique
+  passwordHash String
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  students     GuardianStudent[]
+}
+
+model Student {
+  id          String            @id @default(cuid())
+  rm          Int               @unique
+  firstName   String
+  lastName    String
+  /// Turma atual, ex.: "7EF".
+  className   String
+  /// "Matutino" ou "Tarde".
+  period      String
+  guardians   GuardianStudent[]
+  agendaDays  AgendaDay[]
+  reportCards ReportCard[]
+}
+
+model GuardianStudent {
+  guardianId String
+  studentId  String
+  /// Posição do aluno na lista do responsável, na ordem do JSON. O /me ordena por ela.
+  position   Int      @default(0)
+  guardian   Guardian @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@id([guardianId, studentId])
+  @@index([studentId])
+}
+
+/// Um dia da agenda do aluno. Existe mesmo sem aula (sábado e domingo do JSON).
+model AgendaDay {
+  id        String   @id @default(cuid())
+  studentId String
+  /// "YYYY-MM-DD".
+  date      String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  lessons   Lesson[]
+
+  @@unique([studentId, date])
+}
+
+model Lesson {
+  id          String    @id @default(cuid())
+  agendaDayId String
+  /// "HH:MM".
+  startTime   String
+  /// "HH:MM".
+  endTime     String
+  subject     String
+  /// Posição da aula no dia, na ordem do JSON.
+  order       Int
+  agendaDay   AgendaDay @relation(fields: [agendaDayId], references: [id], onDelete: Cascade)
+
+  @@unique([agendaDayId, order])
+}
+
+model ReportCard {
+  id          String       @id @default(cuid())
+  studentId   String
+  year        Int
+  /// Turma naquele ano, ex.: "6EF" em 2024.
+  className   String
+  student     Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  termResults TermResult[]
+
+  @@unique([studentId, year])
+}
+
+/// Nota e faltas de uma disciplina em um trimestre. null = ainda não avaliado.
+model TermResult {
+  id           String     @id @default(cuid())
+  reportCardId String
+  /// Trimestre: 1, 2 ou 3.
+  term         Int
+  subject      String
+  grade        Float?
+  absences     Int?
+  /// Posição da disciplina no trimestre, na ordem do JSON.
+  order        Int
+  reportCard   ReportCard @relation(fields: [reportCardId], references: [id], onDelete: Cascade)
+
+  @@unique([reportCardId, term, order])
+  @@unique([reportCardId, term, subject])
+}

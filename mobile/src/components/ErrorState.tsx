@@ -1,0 +1,79 @@
+import { useEffect } from 'react';
+import { AccessibilityInfo } from 'react-native';
+import Animated from 'react-native-reanimated';
+
+import { strings } from '../constants/strings';
+import { useShakeStyle } from '../hooks/useShakeStyle';
+import { Box, enterDown, Text, useTheme } from '../theme';
+import { SecondaryButton } from './SecondaryButton';
+
+type ErrorStateProps = {
+  title: string;
+  description: string;
+  onRetry: () => void;
+  retrying: boolean;
+  testID: string;
+  /** Muda a cada retry que falha: dispara o shake curto (4.8). */
+  shakeKey?: number;
+  /**
+   * Se o leitor de tela deve ouvir o erro agora. As abas ficam montadas, então
+   * cada tela passa `useIsFocused()`: só a visível anuncia, e a outra anuncia
+   * quando o usuário chega nela. Fora de um navigator (BootError), `true`.
+   */
+  announce: boolean;
+};
+
+/**
+ * Erro com TENTAR DE NOVO (01-design.md, 2.14): título em `emptyState`,
+ * descrição e o botão secundário. Sem ilustração, para não parecer "vazio".
+ * O leitor de tela ouve o erro quando ele aparece e a cada retry que falha
+ * (3.8); o spinner do retry não repete o anúncio.
+ */
+export function ErrorState({
+  title,
+  description,
+  onRetry,
+  retrying,
+  testID,
+  shakeKey = 0,
+  announce,
+}: ErrorStateProps) {
+  const { motion, spacing } = useTheme();
+  const shakeStyle = useShakeStyle(shakeKey, 'short');
+  const spoken = `${title} ${description}`;
+
+  // Anúncio explícito nas duas plataformas, sem live region (que no Android
+  // só avisa mudança numa view que já existia e leria duas vezes).
+  useEffect(() => {
+    if (announce) AccessibilityInfo.announceForAccessibility(spoken);
+  }, [spoken, shakeKey, announce]);
+  const enter = (index: number) => enterDown(motion, index * motion.stagger);
+
+  return (
+    <Animated.View testID={testID} style={shakeStyle}>
+      <Box
+        alignItems="center"
+        paddingHorizontal="huge"
+        style={{ marginTop: spacing.section }}
+      >
+        <Animated.View entering={enter(0)}>
+          <Text variant="emptyState">{title}</Text>
+        </Animated.View>
+        <Animated.View entering={enter(1)} style={{ marginTop: spacing.s }}>
+          <Text variant="body" textAlign="center">
+            {description}
+          </Text>
+        </Animated.View>
+        <Animated.View entering={enter(2)} style={{ marginTop: spacing.l }}>
+          <SecondaryButton
+            testID={`${testID}-retry`}
+            label={strings.common.retry}
+            accessibilityLabel={strings.common.retryAccessibilityLabel}
+            loading={retrying}
+            onPress={onRetry}
+          />
+        </Animated.View>
+      </Box>
+    </Animated.View>
+  );
+}

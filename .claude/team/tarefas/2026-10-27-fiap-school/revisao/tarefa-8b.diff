@@ -1,0 +1,1917 @@
+36b80bb chore(mobile): splash nativa só com fundo preto
+7c53a20 feat(mobile): splash animada com o logo FIAP
+f8e0e5f feat(mobile): tokens da splash e /me da abertura com timeout próprio
+ .../main/java/br/com/fiap/school/MainActivity.kt   |   2 +-
+ .../src/main/res/drawable-hdpi/bootsplash_logo.png | Bin 3490 -> 311 bytes
+ .../src/main/res/drawable-mdpi/bootsplash_logo.png | Bin 2819 -> 210 bytes
+ .../main/res/drawable-xhdpi/bootsplash_logo.png    | Bin 5077 -> 451 bytes
+ .../main/res/drawable-xxhdpi/bootsplash_logo.png   | Bin 9241 -> 853 bytes
+ .../main/res/drawable-xxxhdpi/bootsplash_logo.png  | Bin 14562 -> 1416 bytes
+ mobile/assets/bootsplash-blank.png                 | Bin 0 -> 69 bytes
+ mobile/assets/bootsplash/logo.png                  | Bin 3549 -> 117 bytes
+ mobile/assets/bootsplash/logo@1,5x.png             | Bin 6138 -> 118 bytes
+ mobile/assets/bootsplash/logo@2x.png               | Bin 9316 -> 118 bytes
+ mobile/assets/bootsplash/logo@3x.png               | Bin 17862 -> 118 bytes
+ mobile/assets/bootsplash/logo@4x.png               | Bin 28772 -> 120 bytes
+ mobile/assets/bootsplash/manifest.json             |   4 +-
+ mobile/ios/FiapSchool/AppDelegate.swift            |   2 +-
+ mobile/ios/FiapSchool/BootSplash.storyboard        |  10 +-
+ .../Contents.json                                  |   0
+ .../Contents.json                                  |   6 +-
+ .../BootSplashLogo-068042.imageset/logo-068042.png | Bin 0 -> 117 bytes
+ .../logo-068042@2x.png                             | Bin 0 -> 118 bytes
+ .../logo-068042@3x.png                             | Bin 0 -> 118 bytes
+ .../BootSplashLogo-0730a4.imageset/logo-0730a4.png | Bin 3549 -> 0 bytes
+ .../logo-0730a4@2x.png                             | Bin 9316 -> 0 bytes
+ .../logo-0730a4@3x.png                             | Bin 17862 -> 0 bytes
+ mobile/src/app/Navigation.tsx                      |  19 +-
+ mobile/src/app/__tests__/App.test.tsx              |  90 +++++-
+ mobile/src/features/auth/LoginScreen.tsx           |  71 ++++-
+ .../features/auth/__tests__/LoginScreen.test.tsx   |  36 +++
+ .../auth/api/__tests__/loadMeOnBoot.test.ts        |  46 ++++
+ mobile/src/features/auth/api/loadMeOnBoot.ts       |  22 ++
+ mobile/src/features/auth/services/auth.service.ts  |  12 +-
+ mobile/src/features/splash/BootErrorScreen.tsx     |  26 ++
+ mobile/src/features/splash/SplashScreen.tsx        | 177 ++++++++++++
+ .../splash/__tests__/SplashScreen.test.tsx         |  97 +++++++
+ .../splash/__tests__/useSplashViewModel.test.tsx   | 304 +++++++++++++++++++++
+ mobile/src/features/splash/useSplashAnimation.ts   | 243 ++++++++++++++++
+ mobile/src/features/splash/useSplashViewModel.ts   | 143 ++++++++++
+ mobile/src/features/students/NoStudentScreen.tsx   |  25 ++
+ mobile/src/navigation/RootStack.tsx                |  55 +++-
+ mobile/src/navigation/types.ts                     |  13 +-
+ mobile/src/stores/boot.store.ts                    |  13 +
+ mobile/src/theme/motion.ts                         |  26 ++
+ mobile/src/theme/sizes.ts                          |   8 +
+ 42 files changed, 1398 insertions(+), 52 deletions(-)
+diff --git a/mobile/android/app/src/main/java/br/com/fiap/school/MainActivity.kt b/mobile/android/app/src/main/java/br/com/fiap/school/MainActivity.kt
+index 4c47fa2..97995a3 100644
+--- a/mobile/android/app/src/main/java/br/com/fiap/school/MainActivity.kt
++++ b/mobile/android/app/src/main/java/br/com/fiap/school/MainActivity.kt
+@@ -7,21 +7,21 @@ import com.facebook.react.ReactActivityDelegate
+ import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
+ import com.facebook.react.defaults.DefaultReactActivityDelegate
+ import com.swmansion.rnscreens.fragment.restoration.RNScreensFragmentFactory
+ import com.zoontek.rnbootsplash.RNBootSplash
+ 
+ class MainActivity : ReactActivity() {
+ 
+   override fun onCreate(savedInstanceState: Bundle?) {
+     // react-native-screens: restaura fragments sem estado ao recriar a activity.
+     supportFragmentManager.fragmentFactory = RNScreensFragmentFactory()
+-    // Splash nativa (react-native-bootsplash); o JS a esconde quando a navegação fica pronta.
++    // Splash nativa (react-native-bootsplash); só fundo preto; a SplashScreen JS a esconde no primeiro layout.
+     RNBootSplash.init(this, R.style.BootTheme)
+     super.onCreate(savedInstanceState)
+   }
+ 
+   /**
+    * Returns the name of the main component registered from JavaScript. This is used to schedule
+    * rendering of the component.
+    */
+   override fun getMainComponentName(): String = "FiapSchool"
+ 
+diff --git a/mobile/assets/bootsplash/manifest.json b/mobile/assets/bootsplash/manifest.json
+index 768941b..aef3f2f 100644
+--- a/mobile/assets/bootsplash/manifest.json
++++ b/mobile/assets/bootsplash/manifest.json
+@@ -1,7 +1,7 @@
+ {
+   "background": "#000000",
+   "logo": {
+-    "width": 306,
+-    "height": 49
++    "width": 4,
++    "height": 4
+   }
+ }
+diff --git a/mobile/ios/FiapSchool/AppDelegate.swift b/mobile/ios/FiapSchool/AppDelegate.swift
+index 1264afc..42660b7 100644
+--- a/mobile/ios/FiapSchool/AppDelegate.swift
++++ b/mobile/ios/FiapSchool/AppDelegate.swift
+@@ -24,21 +24,21 @@ class AppDelegate: ExpoAppDelegate, ExpoReactNativeFactoryProvider {
+     reactNativeDelegate = delegate
+     reactNativeFactory = factory
+ 
+     // A janela é criada e o React Native é iniciado pelo SceneDelegate
+     // (ciclo de vida por cena, exigido pelo SDK do iOS 27).
+     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+   }
+ }
+ 
+ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
+-  // Splash nativa (react-native-bootsplash); o JS a esconde quando a navegação fica pronta.
++  // Splash nativa (react-native-bootsplash); só fundo preto; a SplashScreen JS a esconde no primeiro layout.
+   override func customize(_ rootView: UIView) {
+     super.customize(rootView)
+     RNBootSplash.initWithStoryboard("BootSplash", rootView: rootView)
+   }
+ 
+   override func sourceURL(for bridge: RCTBridge) -> URL? {
+     bridge.bundleURL ?? bundleURL()
+   }
+ 
+   override func bundleURL() -> URL? {
+diff --git a/mobile/ios/FiapSchool/BootSplash.storyboard b/mobile/ios/FiapSchool/BootSplash.storyboard
+index 4593e3e..f54185b 100644
+--- a/mobile/ios/FiapSchool/BootSplash.storyboard
++++ b/mobile/ios/FiapSchool/BootSplash.storyboard
+@@ -10,37 +10,37 @@
+     </dependencies>
+     <scenes>
+         <!--View Controller-->
+         <scene sceneID="EHf-IW-A2E">
+             <objects>
+                 <viewController modalTransitionStyle="crossDissolve" id="01J-lp-oVM" sceneMemberID="viewController">
+                     <view key="view" autoresizesSubviews="NO" contentMode="scaleToFill" id="Ze5-6b-2t3">
+                         <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
+                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                         <subviews>
+-                            <imageView autoresizesSubviews="NO" clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="BootSplashLogo-0730a4" translatesAutoresizingMaskIntoConstraints="NO" id="3lX-Ut-9ad">
+-                                <rect key="frame" x="34.5" y="309" width="306" height="49"/>
++                            <imageView autoresizesSubviews="NO" clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="BootSplashLogo-068042" translatesAutoresizingMaskIntoConstraints="NO" id="3lX-Ut-9ad">
++                                <rect key="frame" x="185.5" y="331.5" width="4" height="4"/>
+                                 <accessibility key="accessibilityConfiguration">
+                                     <accessibilityTraits key="traits" image="YES" notEnabled="YES"/>
+                                 </accessibility>
+                             </imageView>
+                         </subviews>
+                         <viewLayoutGuide key="safeArea" id="Bcu-3y-fUS"/>
+-                        <color key="backgroundColor" name="BootSplashBackground-0730a4"/>
++                        <color key="backgroundColor" name="BootSplashBackground-068042"/>
+                         <constraints>
+                             <constraint firstItem="3lX-Ut-9ad" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="Fh9-Fy-1nT"/>
+                             <constraint firstItem="3lX-Ut-9ad" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="nvB-Ic-PnI"/>
+                         </constraints>
+                     </view>
+                 </viewController>
+                 <placeholder placeholderIdentifier="IBFirstResponder" id="iYj-Kq-Ea1" userLabel="First Responder" sceneMemberID="firstResponder"/>
+             </objects>
+             <point key="canvasLocation" x="0.0" y="0.0"/>
+         </scene>
+     </scenes>
+     <resources>
+-        <image name="BootSplashLogo-0730a4" width="306" height="49"/>
+-        <namedColor name="BootSplashBackground-0730a4">
++        <image name="BootSplashLogo-068042" width="4" height="4"/>
++        <namedColor name="BootSplashBackground-068042">
+             <color red="0.00000000000000" green="0.00000000000000" blue="0.00000000000000" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+         </namedColor>
+     </resources>
+ </document>
+diff --git a/mobile/ios/FiapSchool/Colors.xcassets/BootSplashBackground-0730a4.colorset/Contents.json b/mobile/ios/FiapSchool/Colors.xcassets/BootSplashBackground-068042.colorset/Contents.json
+similarity index 100%
+rename from mobile/ios/FiapSchool/Colors.xcassets/BootSplashBackground-0730a4.colorset/Contents.json
+rename to mobile/ios/FiapSchool/Colors.xcassets/BootSplashBackground-068042.colorset/Contents.json
+diff --git a/mobile/ios/FiapSchool/Images.xcassets/BootSplashLogo-0730a4.imageset/Contents.json b/mobile/ios/FiapSchool/Images.xcassets/BootSplashLogo-068042.imageset/Contents.json
+similarity index 69%
+rename from mobile/ios/FiapSchool/Images.xcassets/BootSplashLogo-0730a4.imageset/Contents.json
+rename to mobile/ios/FiapSchool/Images.xcassets/BootSplashLogo-068042.imageset/Contents.json
+index b94feff..63ecd60 100644
+--- a/mobile/ios/FiapSchool/Images.xcassets/BootSplashLogo-0730a4.imageset/Contents.json
++++ b/mobile/ios/FiapSchool/Images.xcassets/BootSplashLogo-068042.imageset/Contents.json
+@@ -1,23 +1,23 @@
+ {
+   "images": [
+     {
+       "idiom": "universal",
+-      "filename": "logo-0730a4.png",
++      "filename": "logo-068042.png",
+       "scale": "1x"
+     },
+     {
+       "idiom": "universal",
+-      "filename": "logo-0730a4@2x.png",
++      "filename": "logo-068042@2x.png",
+       "scale": "2x"
+     },
+     {
+       "idiom": "universal",
+-      "filename": "logo-0730a4@3x.png",
++      "filename": "logo-068042@3x.png",
+       "scale": "3x"
+     }
+   ],
+   "info": {
+     "author": "xcode",
+     "version": 1
+   }
+ }
+diff --git a/mobile/src/app/Navigation.tsx b/mobile/src/app/Navigation.tsx
+index 2e2a790..130be09 100644
+--- a/mobile/src/app/Navigation.tsx
++++ b/mobile/src/app/Navigation.tsx
+@@ -1,41 +1,32 @@
+ import {
+   DarkTheme,
+   NavigationContainer,
+   type Theme as NavigationTheme,
+ } from '@react-navigation/native';
+-import BootSplash from 'react-native-bootsplash';
+ 
+ import { RootStack } from '../navigation/RootStack';
+-import { useSessionStore } from '../stores/session.store';
+ import { theme } from '../theme';
+ 
+ const navigationTheme: NavigationTheme = {
+   ...DarkTheme,
+   colors: {
+     ...DarkTheme.colors,
+     primary: theme.colors.primary,
+     background: theme.colors.background,
+     card: theme.colors.surface,
+     text: theme.colors.text,
+     border: theme.colors.surface,
+   },
+ };
+ 
+-const hideSplash = () => {
+-  BootSplash.hide({ fade: true });
+-};
+-
++/**
++ * A splash JS é a primeira rota e esconde a nativa (só fundo preto) no
++ * primeiro layout; a sessão é lida enquanto ela anima.
++ */
+ export function Navigation() {
+-  const loading = useSessionStore(state => state.status === 'loading');
+-
+-  // Enquanto o keychain é lido, a splash nativa continua na tela.
+-  if (loading) {
+-    return null;
+-  }
+-
+   return (
+-    <NavigationContainer theme={navigationTheme} onReady={hideSplash}>
++    <NavigationContainer theme={navigationTheme}>
+       <RootStack />
+     </NavigationContainer>
+   );
+ }
+diff --git a/mobile/src/app/__tests__/App.test.tsx b/mobile/src/app/__tests__/App.test.tsx
+index a5432a9..819eaa3 100644
+--- a/mobile/src/app/__tests__/App.test.tsx
++++ b/mobile/src/app/__tests__/App.test.tsx
+@@ -1,62 +1,136 @@
+ import { act, fireEvent, render, screen } from '@testing-library/react-native';
++import { http, HttpResponse } from 'msw';
+ import BootSplash from 'react-native-bootsplash';
+ 
+ import { createSecureStorage } from '../../services/storage/secureStorage';
++import { useBootStore } from '../../stores/boot.store';
+ import { useSessionStore } from '../../stores/session.store';
++import { API_URL, meWithoutStudents } from '../../test/fixtures';
++import { server } from '../../test/msw/server';
++import { queryClient } from '../queryClient';
+ import { App } from '../App';
+ 
++/** A splash tem duração mínima de 1200 ms (timers reais aqui, por causa do MSW). */
++const AFTER_SPLASH = { timeout: 4000 };
++
++const layout = {
++  nativeEvent: { layout: { x: 0, y: 0, width: 414, height: 736 } },
++};
++
+ describe('App', () => {
+   beforeEach(async () => {
+     await useSessionStore.getState().signOut();
+     useSessionStore.setState({ status: 'loading', signOutReason: null });
++    useBootStore.setState({ splashDone: false });
++    queryClient.clear();
+     (BootSplash.hide as jest.Mock).mockClear();
+   });
+ 
+-  it('sem token abre no Login e esconde a splash nativa', async () => {
++  it('abre na splash JS, esconde a nativa sem fade e, sem token, vai ao Login', async () => {
+     await render(<App />);
+ 
+-    expect(await screen.findByTestId('login-screen')).toBeOnTheScreen();
++    const splash = await screen.findByTestId('splash-screen');
++    await fireEvent(splash, 'layout', layout);
++    expect(BootSplash.hide).toHaveBeenCalledWith({ fade: false });
++
++    expect(
++      await screen.findByTestId('login-screen', {}, AFTER_SPLASH),
++    ).toBeOnTheScreen();
++    expect(screen.queryByTestId('splash-screen')).toBeNull();
+     expect(useSessionStore.getState().status).toBe('signedOut');
+-    expect(BootSplash.hide).toHaveBeenCalledWith({ fade: true });
+   });
+ 
+-  it('com token no keychain abre direto nas abas e a seleção de aluno abre em modal', async () => {
++  it('com token e /me com aluno abre nas abas e a seleção de aluno abre em modal', async () => {
+     await createSecureStorage().setToken('jwt-salvo');
+ 
+     await render(<App />);
+ 
+-    expect(await screen.findByTestId('agenda-screen')).toBeOnTheScreen();
++    expect(
++      await screen.findByTestId('agenda-screen', {}, AFTER_SPLASH),
++    ).toBeOnTheScreen();
+     expect(screen.queryByTestId('login-screen')).toBeNull();
+ 
+     await act(() =>
+       fireEvent.press(screen.getByTestId('header-switch-student-button')),
+     );
+     expect(
+       await screen.findByTestId('select-student-screen'),
+     ).toBeOnTheScreen();
+   });
+ 
+-  it('quando a sessão acaba (logout ou 401) volta ao Login', async () => {
++  it('com token e /me sem aluno abre no NoStudent', async () => {
++    await createSecureStorage().setToken('jwt-salvo');
++    server.use(
++      http.get(`${API_URL}/me`, () => HttpResponse.json(meWithoutStudents)),
++    );
++
++    await render(<App />);
++
++    expect(
++      await screen.findByTestId('no-student-screen', {}, AFTER_SPLASH),
++    ).toBeOnTheScreen();
++  });
++
++  it('com token e API fora do ar abre no BootError', async () => {
++    await createSecureStorage().setToken('jwt-salvo');
++    server.use(http.get(`${API_URL}/me`, () => HttpResponse.error()));
++
++    await render(<App />);
++
++    expect(
++      await screen.findByTestId('boot-error-screen', {}, AFTER_SPLASH),
++    ).toBeOnTheScreen();
++  });
++
++  it('com token expirado (/me 401) limpa a sessão e vai ao Login', async () => {
++    await createSecureStorage().setToken('jwt-vencido');
++    server.use(
++      http.get(`${API_URL}/me`, () =>
++        HttpResponse.json(
++          { statusCode: 401, message: 'Unauthorized' },
++          { status: 401 },
++        ),
++      ),
++    );
++
++    await render(<App />);
++
++    expect(
++      await screen.findByTestId('login-screen', {}, AFTER_SPLASH),
++    ).toBeOnTheScreen();
++    expect(useSessionStore.getState()).toMatchObject({
++      status: 'signedOut',
++      signOutReason: 'expired',
++    });
++    expect(await createSecureStorage().getToken()).toBeNull();
++  });
++
++  it('quando a sessão acaba (logout ou 401) volta ao Login, sem passar pela splash', async () => {
+     await createSecureStorage().setToken('jwt-salvo');
+     await render(<App />);
+-    expect(await screen.findByTestId('agenda-screen')).toBeOnTheScreen();
++    expect(
++      await screen.findByTestId('agenda-screen', {}, AFTER_SPLASH),
++    ).toBeOnTheScreen();
+ 
+     await act(() => useSessionStore.getState().signOut('expired'));
+ 
+     expect(await screen.findByTestId('login-screen')).toBeOnTheScreen();
++    expect(screen.queryByTestId('splash-screen')).toBeNull();
+   });
+ 
+   it('SAIR no Boletim apaga o token e volta ao Login', async () => {
+     await createSecureStorage().setToken('jwt-salvo');
+     await render(<App />);
+-    expect(await screen.findByTestId('agenda-screen')).toBeOnTheScreen();
++    expect(
++      await screen.findByTestId('agenda-screen', {}, AFTER_SPLASH),
++    ).toBeOnTheScreen();
+ 
+     await act(() => fireEvent.press(screen.getByTestId('tab-boletim')));
+     await act(() =>
+       fireEvent.press(screen.getByTestId('header-logout-button')),
+     );
+ 
+     expect(await screen.findByTestId('login-screen')).toBeOnTheScreen();
+     expect(await createSecureStorage().getToken()).toBeNull();
+   });
+ });
+diff --git a/mobile/src/features/auth/LoginScreen.tsx b/mobile/src/features/auth/LoginScreen.tsx
+index b8b3119..eb81436 100644
+--- a/mobile/src/features/auth/LoginScreen.tsx
++++ b/mobile/src/features/auth/LoginScreen.tsx
+@@ -1,15 +1,70 @@
+-import { PlaceholderScreen } from '../../components/PlaceholderScreen';
++import { Image } from 'react-native';
++import Animated, {
++  FadeIn,
++  FadeInDown,
++  ReduceMotion,
++  useReducedMotion,
++} from 'react-native-reanimated';
++import { useSafeAreaInsets } from 'react-native-safe-area-context';
++
++import type { RootStackScreenProps } from '../../navigation/types';
++import { Box, Text, useTheme } from '../../theme';
++
++const logo = require('../../../assets/logo-fiap-school.png');
+ 
+ /**
+- * Placeholder. O Login real (M1, M2) é a Tarefa 9, com o `useLoginMutation`.
+- * Desde a Tarefa 8 a sessão decide a navegação: sem token o app abre aqui.
++ * Placeholder. O Login real (M1, M2) é a Tarefa 9, com o `useLoginViewModel`.
++ * O logo já fica onde o design manda (inset de cima + hero, centralizado),
++ * porque a splash desliza o logo dela até aqui (01-design.md, 3.1.5). Vindo
++ * da splash, o logo não anima no primeiro frame; vindo do logout, entra com
++ * fade (4.1).
+  */
+-export function LoginScreen() {
++export function LoginScreen({ route }: RootStackScreenProps<'Login'>) {
++  const fromSplash = route.params?.fromSplash === true;
++  const reducedMotion = useReducedMotion();
++  const insets = useSafeAreaInsets();
++  const { motion, sizes, spacing } = useTheme();
++
++  const logoEntering = fromSplash
++    ? reducedMotion
++      ? FadeIn.duration(motion.fast)
++      : undefined
++    : FadeIn.duration(motion.base).reduceMotion(ReduceMotion.System);
++
+   return (
+-    <PlaceholderScreen
++    <Box
+       testID="login-screen"
+-      title="Login"
+-      description="O formulário de CPF e senha entra na Tarefa 9."
+-    />
++      flex={1}
++      backgroundColor="background"
++      alignItems="center"
++      style={{ paddingTop: insets.top + spacing.hero }}
++    >
++      <Animated.View entering={logoEntering}>
++        <Image
++          testID="login-logo"
++          source={logo}
++          accessibilityRole="image"
++          accessibilityLabel="FIAP School"
++          style={sizes.logoLogin}
++        />
++      </Animated.View>
++      <Animated.View
++        entering={FadeInDown.duration(motion.base)
++          .easing(motion.easeOut)
++          .reduceMotion(ReduceMotion.System)}
++      >
++        <Box
++          alignItems="center"
++          paddingHorizontal="huge"
++          paddingTop="hero"
++          gap="l"
++        >
++          <Text variant="sectionTitle">Login</Text>
++          <Text variant="body" textAlign="center">
++            O formulário de CPF e senha entra na Tarefa 9.
++          </Text>
++        </Box>
++      </Animated.View>
++    </Box>
+   );
+ }
+diff --git a/mobile/src/features/auth/__tests__/LoginScreen.test.tsx b/mobile/src/features/auth/__tests__/LoginScreen.test.tsx
+new file mode 100644
+index 0000000..bc88d24
+--- /dev/null
++++ b/mobile/src/features/auth/__tests__/LoginScreen.test.tsx
+@@ -0,0 +1,36 @@
++import { ThemeProvider } from '@shopify/restyle';
++import { render, screen } from '@testing-library/react-native';
++import { StyleSheet } from 'react-native';
++
++import type { RootStackScreenProps } from '../../../navigation/types';
++import { theme } from '../../../theme';
++import { LoginScreen } from '../LoginScreen';
++
++type Props = RootStackScreenProps<'Login'>;
++
++const renderLogin = (params: Props['route']['params']) =>
++  render(
++    <ThemeProvider theme={theme}>
++      <LoginScreen
++        navigation={{} as Props['navigation']}
++        route={{ key: 'Login-1', name: 'Login', params } as Props['route']}
++      />
++    </ThemeProvider>,
++  );
++
++describe('LoginScreen (placeholder)', () => {
++  it('desenha o logo 306×49 no topo + hero, onde a splash o deixa', async () => {
++    await renderLogin({ fromSplash: true });
++
++    const logo = screen.getByTestId('login-logo');
++    expect(logo).toHaveProp('accessibilityLabel', 'FIAP School');
++    expect(StyleSheet.flatten(logo.props.style)).toMatchObject({
++      width: 306,
++      height: 49,
++    });
++    // Insets do mock = 0: o topo do logo fica em spacing.hero (80).
++    expect(
++      StyleSheet.flatten(screen.getByTestId('login-screen').props.style),
++    ).toMatchObject({ paddingTop: 80, alignItems: 'center' });
++  });
++});
+diff --git a/mobile/src/features/auth/api/__tests__/loadMeOnBoot.test.ts b/mobile/src/features/auth/api/__tests__/loadMeOnBoot.test.ts
+new file mode 100644
+index 0000000..90fe327
+--- /dev/null
++++ b/mobile/src/features/auth/api/__tests__/loadMeOnBoot.test.ts
+@@ -0,0 +1,46 @@
++import { delay, http, HttpResponse } from 'msw';
++
++import { queryClient, queryKeys } from '../../../../app/queryClient';
++import { useSessionStore } from '../../../../stores/session.store';
++import { API_URL, loginResponse, meResponse } from '../../../../test/fixtures';
++import { server } from '../../../../test/msw/server';
++import { loadMeOnBoot } from '../loadMeOnBoot';
++
++describe('loadMeOnBoot', () => {
++  beforeEach(async () => {
++    await useSessionStore.getState().signOut();
++    queryClient.clear();
++    await useSessionStore.getState().signIn('jwt-1', loginResponse.guardian);
++  });
++
++  it('devolve o /me e já deixa no cache da query do /me', async () => {
++    const me = await loadMeOnBoot({ timeoutMs: 8000 });
++
++    expect(me).toEqual(meResponse);
++    expect(queryClient.getQueryData(queryKeys.me())).toEqual(meResponse);
++  });
++
++  it('API que não responde dentro do timeout vira erro de rede', async () => {
++    server.use(
++      http.get(`${API_URL}/me`, async () => {
++        await delay(300);
++        return HttpResponse.json(meResponse);
++      }),
++    );
++
++    await expect(loadMeOnBoot({ timeoutMs: 20 })).rejects.toMatchObject({
++      name: 'ApiError',
++      kind: 'network',
++    });
++    expect(queryClient.getQueryData(queryKeys.me())).toBeUndefined();
++  });
++
++  it('signal abortado vira canceled', async () => {
++    const controller = new AbortController();
++    controller.abort();
++
++    await expect(
++      loadMeOnBoot({ timeoutMs: 8000, signal: controller.signal }),
++    ).rejects.toMatchObject({ kind: 'canceled' });
++  });
++});
+diff --git a/mobile/src/features/auth/api/loadMeOnBoot.ts b/mobile/src/features/auth/api/loadMeOnBoot.ts
+new file mode 100644
+index 0000000..1c49a33
+--- /dev/null
++++ b/mobile/src/features/auth/api/loadMeOnBoot.ts
+@@ -0,0 +1,22 @@
++import { queryClient, queryKeys } from '../../../app/queryClient';
++import type { Me } from '../schemas';
++import { getMe } from '../services/auth.service';
++
++type LoadMeOnBootOptions = {
++  timeoutMs: number;
++  signal?: AbortSignal;
++};
++
++/**
++ * `GET /me` da abertura do app (splash): sem retry, com timeout próprio e
++ * cancelável. O resultado vai para o cache do `useMeQuery`, então a primeira
++ * tela autenticada não repete o request.
++ */
++export async function loadMeOnBoot({
++  timeoutMs,
++  signal,
++}: LoadMeOnBootOptions): Promise<Me> {
++  const me = await getMe(signal, { timeoutMs });
++  queryClient.setQueryData(queryKeys.me(), me);
++  return me;
++}
+diff --git a/mobile/src/features/auth/services/auth.service.ts b/mobile/src/features/auth/services/auth.service.ts
+index b26a692..9d35c15 100644
+--- a/mobile/src/features/auth/services/auth.service.ts
++++ b/mobile/src/features/auth/services/auth.service.ts
+@@ -14,14 +14,22 @@ export async function login({
+   cpf,
+   password,
+ }: LoginInput): Promise<LoginResponse> {
+   const { data } = await http.post('/auth/login', {
+     cpf: onlyDigits(cpf),
+     password,
+   });
+   return parseResponse(loginResponseSchema, data, 'POST /auth/login');
+ }
+ 
+-export async function getMe(signal?: AbortSignal): Promise<Me> {
+-  const { data } = await http.get('/me', { signal });
++export type GetMeOptions = {
++  /** Sobrescreve o timeout padrão do client (a splash usa um menor). */
++  timeoutMs?: number;
++};
++
++export async function getMe(
++  signal?: AbortSignal,
++  { timeoutMs }: GetMeOptions = {},
++): Promise<Me> {
++  const { data } = await http.get('/me', { signal, timeout: timeoutMs });
+   return parseResponse(meSchema, data, 'GET /me');
+ }
+diff --git a/mobile/src/features/splash/BootErrorScreen.tsx b/mobile/src/features/splash/BootErrorScreen.tsx
+new file mode 100644
+index 0000000..65c2c82
+--- /dev/null
++++ b/mobile/src/features/splash/BootErrorScreen.tsx
+@@ -0,0 +1,26 @@
++import { PlaceholderScreen } from '../../components/PlaceholderScreen';
++import { useSessionStore } from '../../stores/session.store';
++
++/**
++ * Placeholder. A tela real (01-design.md, 3.7: ErrorState com TENTAR DE NOVO,
++ * que refaz o `/me`) é das Tarefas 10/13. A rota já existe porque a splash
++ * decide por ela.
++ */
++export function BootErrorScreen() {
++  const signOut = useSessionStore(state => state.signOut);
++
++  return (
++    <PlaceholderScreen
++      testID="boot-error-screen"
++      title="Não conseguimos conectar."
++      description="Confira sua conexão e tente de novo."
++      actions={[
++        {
++          label: 'SAIR',
++          testID: 'header-logout-button',
++          onPress: () => signOut(),
++        },
++      ]}
++    />
++  );
++}
+diff --git a/mobile/src/features/splash/SplashScreen.tsx b/mobile/src/features/splash/SplashScreen.tsx
+new file mode 100644
+index 0000000..4ec809e
+--- /dev/null
++++ b/mobile/src/features/splash/SplashScreen.tsx
+@@ -0,0 +1,177 @@
++import { useCallback, useEffect, useMemo, useRef } from 'react';
++import { Image, type LayoutChangeEvent } from 'react-native';
++import BootSplash from 'react-native-bootsplash';
++import Animated from 'react-native-reanimated';
++import { useSafeAreaInsets } from 'react-native-safe-area-context';
++
++import type { RootStackScreenProps } from '../../navigation/types';
++import { Box, useTheme } from '../../theme';
++import { useSplashAnimation } from './useSplashAnimation';
++import { useSplashViewModel } from './useSplashViewModel';
++
++const logo = require('../../../assets/logo-fiap-school.png');
++
++const LABEL = 'FIAP School';
++const LOADING_LABEL = 'Carregando';
++
++/**
++ * Splash animada (01-design.md, 3.1). A nativa é só fundo preto; esta tela
++ * assume no primeiro layout, esconde a nativa sem fade e dispara a timeline.
++ */
++export function SplashScreen({ navigation }: RootStackScreenProps<'Splash'>) {
++  const { destination, showLoader, reducedMotion, onExitFinished } =
++    useSplashViewModel(navigation);
++  const { colors, sizes, spacing } = useTheme();
++  const insets = useSafeAreaInsets();
++  const { width, height } = sizes.logoLogin;
++  const animation = useSplashAnimation({ reducedMotion, trackWidth: width });
++  const { start, startLoop, exit, segmentWidth, styles } = animation;
++
++  const started = useRef(false);
++  const rootHeight = useRef(0);
++
++  const onLayout = useCallback(
++    (event: LayoutChangeEvent) => {
++      rootHeight.current = event.nativeEvent.layout.height;
++      if (started.current) return;
++      started.current = true;
++      BootSplash.hide({ fade: false });
++      start();
++    },
++    [start],
++  );
++
++  useEffect(() => {
++    if (showLoader) startLoop();
++  }, [showLoader, startLoop]);
++
++  useEffect(() => {
++    if (!destination) return;
++    // Centro da tela → posição do logo no Login (inset de cima + hero).
++    const centeredTop = (rootHeight.current - height) / 2;
++    exit({
++      destination,
++      loginOffsetY: insets.top + spacing.hero - centeredTop,
++      onFinished: onExitFinished,
++    });
++  }, [destination, exit, height, insets.top, spacing.hero, onExitFinished]);
++
++  const layers = useMemo(() => {
++    const badge = sizes.logoBadge;
++    const badgeRect = {
++      position: 'absolute' as const,
++      left: badge.x * width,
++      top: badge.y * height,
++      width: badge.width * width,
++      height: badge.height * height,
++    };
++    return {
++      logo: { width, height },
++      // A capa sangra um pouco para fora do selo: o antialias da borda rosa
++      // do PNG não aparece durante o wipe. Fora do selo o PNG é transparente,
++      // então a sobra preta some no fundo preto.
++      cover: {
++        position: 'absolute' as const,
++        left: badgeRect.left - sizes.logoBadgeBleed,
++        top: badgeRect.top - sizes.logoBadgeBleed,
++        width: badgeRect.width + sizes.logoBadgeBleed * 2,
++        height: badgeRect.height + sizes.logoBadgeBleed * 2,
++        backgroundColor: colors.background,
++      },
++      badge: { ...badgeRect, overflow: 'hidden' as const },
++      badgeImage: {
++        position: 'absolute' as const,
++        left: -badgeRect.left,
++        top: -badgeRect.top,
++        width,
++        height,
++      },
++      mask: {
++        position: 'absolute' as const,
++        top: 0,
++        left: 0,
++        width: width + sizes.scanLine.width,
++        height,
++        backgroundColor: colors.background,
++      },
++      scan: {
++        position: 'absolute' as const,
++        top: -sizes.scanLine.overhang,
++        left: 0,
++        width: sizes.scanLine.width,
++        height: height + sizes.scanLine.overhang * 2,
++        backgroundColor: colors.primary,
++      },
++      // Abaixo do logo, fora do fluxo: o logo fica no centro exato da tela.
++      track: {
++        position: 'absolute' as const,
++        top: height + spacing.l,
++        left: 0,
++        width,
++        height: sizes.splashTrack,
++        overflow: 'hidden' as const,
++        backgroundColor: colors.inputLine,
++      },
++      segment: {
++        width: segmentWidth,
++        height: '100%' as const,
++        backgroundColor: colors.primary,
++      },
++    };
++  }, [colors, sizes, spacing.l, width, height, segmentWidth]);
++
++  return (
++    <Box
++      testID="splash-screen"
++      accessibilityLabel={LABEL}
++      flex={1}
++      backgroundColor="background"
++      alignItems="center"
++      justifyContent="center"
++      onLayout={onLayout}
++    >
++      <Box width={width} height={height}>
++        <Animated.View
++          testID="splash-logo"
++          accessible
++          accessibilityRole="image"
++          accessibilityLabel={LABEL}
++          style={[layers.logo, styles.group]}
++        >
++          <Box
++            width={width}
++            height={height}
++            importantForAccessibility="no-hide-descendants"
++            accessibilityElementsHidden
++          >
++            <Box width={width} height={height} overflow="hidden">
++              <Image source={logo} style={layers.logo} />
++              <Box style={layers.cover} />
++              <Animated.View style={[layers.badge, styles.badge]}>
++                <Image source={logo} style={layers.badgeImage} />
++              </Animated.View>
++              {reducedMotion ? null : (
++                <Animated.View style={[layers.mask, styles.mask]} />
++              )}
++            </Box>
++            {reducedMotion ? null : (
++              <Animated.View style={[layers.scan, styles.scan]} />
++            )}
++          </Box>
++        </Animated.View>
++
++        <Animated.View
++          testID="splash-loading"
++          accessible={showLoader}
++          accessibilityRole="progressbar"
++          accessibilityLabel={LOADING_LABEL}
++          accessibilityElementsHidden={!showLoader}
++          importantForAccessibility={showLoader ? 'yes' : 'no-hide-descendants'}
++          style={[layers.track, styles.loader]}
++        >
++          <Animated.View style={[layers.segment, styles.segment]} />
++        </Animated.View>
++      </Box>
++    </Box>
++  );
++}
+diff --git a/mobile/src/features/splash/__tests__/SplashScreen.test.tsx b/mobile/src/features/splash/__tests__/SplashScreen.test.tsx
+new file mode 100644
+index 0000000..f493cc3
+--- /dev/null
++++ b/mobile/src/features/splash/__tests__/SplashScreen.test.tsx
+@@ -0,0 +1,97 @@
++import { ThemeProvider } from '@shopify/restyle';
++import { act, fireEvent, render, screen } from '@testing-library/react-native';
++import BootSplash from 'react-native-bootsplash';
++
++import type { RootStackScreenProps } from '../../../navigation/types';
++import { useBootStore } from '../../../stores/boot.store';
++import { useSessionStore } from '../../../stores/session.store';
++import { theme } from '../../../theme';
++import { SplashScreen } from '../SplashScreen';
++
++type Props = RootStackScreenProps<'Splash'>;
++
++const layout = {
++  nativeEvent: { layout: { x: 0, y: 0, width: 414, height: 736 } },
++};
++
++const renderSplash = async () => {
++  const navigation = { reset: jest.fn() };
++  await render(
++    <ThemeProvider theme={theme}>
++      <SplashScreen
++        navigation={navigation as unknown as Props['navigation']}
++        route={{ key: 'Splash-1', name: 'Splash' } as Props['route']}
++      />
++    </ThemeProvider>,
++  );
++  return navigation;
++};
++
++describe('SplashScreen', () => {
++  beforeEach(() => {
++    // O `scheduleOnRN` do mock dos worklets usa queueMicrotask.
++    jest.useFakeTimers({ doNotFake: ['queueMicrotask'] });
++    (BootSplash.hide as jest.Mock).mockClear();
++    useSessionStore.setState({ status: 'signedOut' });
++    useBootStore.setState({ splashDone: false });
++  });
++
++  afterEach(() => jest.useRealTimers());
++
++  it('desenha a raiz, o logo e o trilho com os rótulos de acessibilidade', async () => {
++    await renderSplash();
++
++    expect(screen.getByTestId('splash-screen')).toHaveProp(
++      'accessibilityLabel',
++      'FIAP School',
++    );
++    const logo = screen.getByTestId('splash-logo');
++    expect(logo).toHaveProp('accessibilityRole', 'image');
++    expect(logo).toHaveProp('accessibilityLabel', 'FIAP School');
++    // Um elemento só para o leitor: as camadas internas não aparecem.
++    expect(logo).toHaveProp('accessible', true);
++    const loading = screen.getByTestId('splash-loading', {
++      includeHiddenElements: true,
++    });
++    expect(loading).toHaveProp('accessibilityRole', 'progressbar');
++    expect(loading).toHaveProp('accessibilityLabel', 'Carregando');
++  });
++
++  it('o trilho só fica acessível a partir de 1500 ms, enquanto espera', async () => {
++    useSessionStore.setState({ status: 'loading' });
++    await renderSplash();
++
++    expect(screen.queryByTestId('splash-loading')).toBeNull();
++
++    await act(async () => {
++      await jest.advanceTimersByTimeAsync(1500);
++    });
++
++    expect(screen.getByTestId('splash-loading')).toBeOnTheScreen();
++  });
++
++  it('esconde a splash nativa sem fade no primeiro layout, uma vez só', async () => {
++    await renderSplash();
++    const root = screen.getByTestId('splash-screen');
++
++    await fireEvent(root, 'layout', layout);
++    await fireEvent(root, 'layout', layout);
++
++    expect(BootSplash.hide).toHaveBeenCalledTimes(1);
++    expect(BootSplash.hide).toHaveBeenCalledWith({ fade: false });
++  });
++
++  it('depois do mínimo faz a saída e troca para o Login', async () => {
++    const navigation = await renderSplash();
++    await fireEvent(screen.getByTestId('splash-screen'), 'layout', layout);
++
++    await act(async () => {
++      await jest.advanceTimersByTimeAsync(1200);
++    });
++
++    expect(navigation.reset).toHaveBeenCalledWith({
++      index: 0,
++      routes: [{ name: 'Login', params: { fromSplash: true } }],
++    });
++  });
++});
+diff --git a/mobile/src/features/splash/__tests__/useSplashViewModel.test.tsx b/mobile/src/features/splash/__tests__/useSplashViewModel.test.tsx
+new file mode 100644
+index 0000000..39b632b
+--- /dev/null
++++ b/mobile/src/features/splash/__tests__/useSplashViewModel.test.tsx
+@@ -0,0 +1,304 @@
++import { act, renderHook } from '@testing-library/react-native';
++import { useReducedMotion } from 'react-native-reanimated';
++
++import { ApiError } from '../../../services/http/errors';
++import { useBootStore } from '../../../stores/boot.store';
++import { useSessionStore } from '../../../stores/session.store';
++import { meResponse, meWithoutStudents } from '../../../test/fixtures';
++import { loadMeOnBoot } from '../../auth/api/loadMeOnBoot';
++import { useSplashViewModel } from '../useSplashViewModel';
++
++jest.mock('react-native-reanimated', () => ({
++  ...require('react-native-reanimated/mock'),
++  useReducedMotion: jest.fn(() => false),
++}));
++
++jest.mock('../../auth/api/loadMeOnBoot', () => ({
++  loadMeOnBoot: jest.fn(),
++}));
++
++const loadMe = jest.mocked(loadMeOnBoot);
++const reducedMotion = jest.mocked(useReducedMotion);
++
++/** Promessa que só termina quando o signal é abortado (API pendurada). */
++const hangUntilAborted = ({ signal }: { signal?: AbortSignal }) =>
++  new Promise<never>((_resolve, reject) => {
++    signal?.addEventListener('abort', () => reject(new ApiError('canceled')));
++  });
++
++const setup = async () => {
++  const navigation = { reset: jest.fn() };
++  const hook = await renderHook(() => useSplashViewModel(navigation));
++  return { ...hook, navigation };
++};
++
++const advance = (ms: number) =>
++  act(async () => {
++    await jest.advanceTimersByTimeAsync(ms);
++  });
++
++describe('useSplashViewModel', () => {
++  beforeEach(() => {
++    jest.useFakeTimers();
++    loadMe.mockReset();
++    reducedMotion.mockReturnValue(false);
++    useSessionStore.setState({ status: 'loading' });
++    useBootStore.setState({ splashDone: false });
++  });
++
++  afterEach(() => {
++    jest.useRealTimers();
++  });
++
++  it('sem token vai para o Login só depois da duração mínima (1200 ms)', async () => {
++    useSessionStore.setState({ status: 'signedOut' });
++    const { result } = await setup();
++
++    await advance(1199);
++    expect(result.current.destination).toBeNull();
++
++    await advance(1);
++    expect(result.current.destination).toBe('login');
++    expect(loadMe).not.toHaveBeenCalled();
++  });
++
++  it('espera o bootstrap do keychain antes de decidir', async () => {
++    const { result } = await setup();
++
++    await advance(400);
++    await act(() => useSessionStore.setState({ status: 'signedOut' }));
++    await advance(800);
++
++    expect(result.current.destination).toBe('login');
++  });
++
++  it('com token valida o /me com timeout de 8 s e vai para as abas quando há aluno', async () => {
++    useSessionStore.setState({ status: 'signedIn' });
++    loadMe.mockResolvedValue(meResponse);
++    const { result } = await setup();
++
++    await advance(1200);
++
++    expect(result.current.destination).toBe('app');
++    expect(loadMe).toHaveBeenCalledTimes(1);
++    expect(loadMe).toHaveBeenCalledWith(
++      expect.objectContaining({ timeoutMs: 8000 }),
++    );
++  });
++
++  it('com token e /me sem aluno vai para NoStudent', async () => {
++    useSessionStore.setState({ status: 'signedIn' });
++    loadMe.mockResolvedValue(meWithoutStudents);
++    const { result } = await setup();
++
++    await advance(1200);
++
++    expect(result.current.destination).toBe('noStudent');
++  });
++
++  it.each(['network', 'server', 'invalidResponse', 'forbidden'] as const)(
++    'erro %s no /me vai para BootError',
++    async kind => {
++      useSessionStore.setState({ status: 'signedIn' });
++      loadMe.mockRejectedValue(new ApiError(kind));
++      const { result } = await setup();
++
++      await advance(1200);
++
++      expect(result.current.destination).toBe('bootError');
++    },
++  );
++
++  it('/me 401 vai para o Login', async () => {
++    useSessionStore.setState({ status: 'signedIn' });
++    loadMe.mockRejectedValue(new ApiError('unauthorized', { status: 401 }));
++    const { result } = await setup();
++
++    await advance(1200);
++
++    expect(result.current.destination).toBe('login');
++  });
++
++  it('/me lento: decide quando a resposta chega, depois do mínimo', async () => {
++    useSessionStore.setState({ status: 'signedIn' });
++    loadMe.mockImplementation(
++      () =>
++        new Promise(resolve => {
++          setTimeout(() => resolve(meResponse), 3000);
++        }),
++    );
++    const { result } = await setup();
++
++    await advance(2999);
++    expect(result.current.destination).toBeNull();
++
++    await advance(1);
++    expect(result.current.destination).toBe('app');
++  });
++
++  it('canceled não é erro de tela: não vai para BootError na hora', async () => {
++    useSessionStore.setState({ status: 'signedIn' });
++    loadMe.mockRejectedValue(new ApiError('canceled'));
++    const { result } = await setup();
++
++    await advance(5000);
++
++    expect(result.current.destination).toBeNull();
++  });
++
++  it('trava de 10 s com token: vai para BootError e cancela o /me', async () => {
++    useSessionStore.setState({ status: 'signedIn' });
++    let signal: AbortSignal | undefined;
++    loadMe.mockImplementation(options => {
++      signal = options.signal;
++      return hangUntilAborted(options);
++    });
++    const { result } = await setup();
++
++    await advance(9999);
++    expect(result.current.destination).toBeNull();
++
++    await advance(1);
++    expect(result.current.destination).toBe('bootError');
++    expect(signal?.aborted).toBe(true);
++  });
++
++  it('trava de 10 s sem token (keychain não respondeu): vai para o Login', async () => {
++    const { result } = await setup();
++
++    await advance(9999);
++    expect(result.current.destination).toBeNull();
++
++    await advance(1);
++    expect(result.current.destination).toBe('login');
++  });
++
++  it('com reduzir movimento a duração mínima é 600 ms', async () => {
++    reducedMotion.mockReturnValue(true);
++    useSessionStore.setState({ status: 'signedOut' });
++    const { result } = await setup();
++
++    await advance(599);
++    expect(result.current.destination).toBeNull();
++
++    await advance(1);
++    expect(result.current.destination).toBe('login');
++    expect(result.current.reducedMotion).toBe(true);
++  });
++
++  it('desmontar antes de decidir cancela o /me e não navega', async () => {
++    useSessionStore.setState({ status: 'signedIn' });
++    let signal: AbortSignal | undefined;
++    loadMe.mockImplementation(options => {
++      signal = options.signal;
++      return hangUntilAborted(options);
++    });
++    const { unmount, navigation } = await setup();
++
++    await advance(500);
++    await act(async () => unmount());
++    await advance(10_000);
++
++    expect(signal?.aborted).toBe(true);
++    expect(navigation.reset).not.toHaveBeenCalled();
++  });
++
++  describe('loop de espera', () => {
++    it('aparece em 1500 ms se a sessão ainda não resolveu', async () => {
++      useSessionStore.setState({ status: 'signedIn' });
++      loadMe.mockImplementation(hangUntilAborted);
++      const { result } = await setup();
++
++      await advance(1499);
++      expect(result.current.showLoader).toBe(false);
++
++      await advance(1);
++      expect(result.current.showLoader).toBe(true);
++    });
++
++    it('não aparece quando o destino sai no mínimo', async () => {
++      useSessionStore.setState({ status: 'signedOut' });
++      const { result } = await setup();
++
++      await advance(3000);
++
++      expect(result.current.destination).toBe('login');
++      expect(result.current.showLoader).toBe(false);
++    });
++
++    it('some quando a sessão resolve depois dele', async () => {
++      useSessionStore.setState({ status: 'signedIn' });
++      loadMe.mockImplementation(
++        () =>
++          new Promise(resolve => {
++            setTimeout(() => resolve(meResponse), 2500);
++          }),
++      );
++      const { result } = await setup();
++
++      await advance(1500);
++      expect(result.current.showLoader).toBe(true);
++
++      await advance(1000);
++      expect(result.current.destination).toBe('app');
++      expect(result.current.showLoader).toBe(false);
++    });
++  });
++
++  describe('fim da saída', () => {
++    it('Login: reset com fromSplash e a splash sai do stack', async () => {
++      useSessionStore.setState({ status: 'signedOut' });
++      const { result, navigation } = await setup();
++      await advance(1200);
++
++      await act(() => result.current.onExitFinished());
++
++      expect(navigation.reset).toHaveBeenCalledWith({
++        index: 0,
++        routes: [{ name: 'Login', params: { fromSplash: true } }],
++      });
++      expect(useBootStore.getState().splashDone).toBe(true);
++    });
++
++    it.each([
++      [meResponse, 'App', { screen: 'Agenda', fromSplash: true }],
++      [meWithoutStudents, 'NoStudent', { fromSplash: true }],
++    ] as const)('/me ok: reset para %#', async (me, name, params) => {
++      useSessionStore.setState({ status: 'signedIn' });
++      loadMe.mockResolvedValue(me);
++      const { result, navigation } = await setup();
++      await advance(1200);
++
++      await act(() => result.current.onExitFinished());
++
++      expect(navigation.reset).toHaveBeenCalledWith({
++        index: 0,
++        routes: [{ name, params }],
++      });
++    });
++
++    it('BootError: reset para BootError', async () => {
++      useSessionStore.setState({ status: 'signedIn' });
++      loadMe.mockRejectedValue(new ApiError('network'));
++      const { result, navigation } = await setup();
++      await advance(1200);
++
++      await act(() => result.current.onExitFinished());
++
++      expect(navigation.reset).toHaveBeenCalledWith({
++        index: 0,
++        routes: [{ name: 'BootError', params: { fromSplash: true } }],
++      });
++    });
++
++    it('sem destino ainda, não navega', async () => {
++      useSessionStore.setState({ status: 'signedOut' });
++      const { result, navigation } = await setup();
++
++      await act(() => result.current.onExitFinished());
++
++      expect(navigation.reset).not.toHaveBeenCalled();
++      expect(useBootStore.getState().splashDone).toBe(false);
++    });
++  });
++});
+diff --git a/mobile/src/features/splash/useSplashAnimation.ts b/mobile/src/features/splash/useSplashAnimation.ts
+new file mode 100644
+index 0000000..2452964
+--- /dev/null
++++ b/mobile/src/features/splash/useSplashAnimation.ts
+@@ -0,0 +1,243 @@
++import { useCallback } from 'react';
++import {
++  cancelAnimation,
++  Easing,
++  useAnimatedStyle,
++  useSharedValue,
++  withDelay,
++  withRepeat,
++  withSequence,
++  withSpring,
++  withTiming,
++} from 'react-native-reanimated';
++import { scheduleOnRN } from 'react-native-worklets';
++
++import { useTheme } from '../../theme';
++import type { SplashDestination } from './useSplashViewModel';
++
++type Options = {
++  reducedMotion: boolean;
++  /** Largura do trilho de espera (a do logo). */
++  trackWidth: number;
++};
++
++type ExitOptions = {
++  destination: SplashDestination;
++  /** Deslocamento do centro até a posição do logo do Login. */
++  loginOffsetY: number;
++  onFinished: () => void;
++};
++
++const linear = Easing.linear;
++
++/**
++ * Timeline da splash (01-design.md, 3.1.3 a 3.1.6), toda em shared values no
++ * UI thread. Cada função dispara as animações de uma vez; o JS não participa
++ * enquanto elas rodam. O fim da saída volta ao JS por `scheduleOnRN`.
++ */
++export function useSplashAnimation({ reducedMotion, trackWidth }: Options) {
++  const { motion, sizes } = useTheme();
++  const splash = motion.splash;
++  const segmentWidth = trackWidth * splash.loopTrackSegment;
++  const segmentCenter = (trackWidth - segmentWidth) / 2;
++
++  // Com reduzir movimento, o logo já nasce montado (selo à vista, escala 1)
++  // e só a opacidade do grupo anima.
++  const groupOpacity = useSharedValue(reducedMotion ? 0 : 1);
++  const groupScale = useSharedValue(reducedMotion ? 1 : splash.scaleFrom);
++  const groupY = useSharedValue(0);
++  const wipeX = useSharedValue(0);
++  const scanOpacity = useSharedValue(0);
++  const badgeOpacity = useSharedValue(reducedMotion ? 1 : 0);
++  const badgeScale = useSharedValue(reducedMotion ? 1 : splash.badgeScaleFrom);
++  const badgeBreath = useSharedValue(1);
++  const loaderOpacity = useSharedValue(0);
++  const loaderX = useSharedValue(reducedMotion ? segmentCenter : -segmentWidth);
++
++  const start = useCallback(() => {
++    if (reducedMotion) {
++      groupOpacity.set(
++        withTiming(1, { duration: splash.fadeInReduced, easing: linear }),
++      );
++      return;
++    }
++    const { delay, duration } = splash.wipe;
++    wipeX.set(
++      withDelay(
++        delay,
++        withTiming(sizes.logoLogin.width + sizes.scanLine.width, {
++          duration,
++          easing: splash.wipeEasing,
++        }),
++      ),
++    );
++    scanOpacity.set(
++      withDelay(
++        delay,
++        withSequence(
++          withTiming(1, { duration: splash.scanFadeIn, easing: linear }),
++          withDelay(
++            duration - splash.scanFadeIn - splash.scanFadeOut,
++            withTiming(0, { duration: splash.scanFadeOut, easing: linear }),
++          ),
++        ),
++      ),
++    );
++    groupScale.set(
++      withDelay(
++        delay,
++        withTiming(1, {
++          duration: splash.scaleDuration,
++          easing: motion.easeOut,
++        }),
++      ),
++    );
++    badgeOpacity.set(
++      withDelay(
++        splash.badgeAt,
++        withTiming(1, { duration: splash.badgeFadeIn, easing: linear }),
++      ),
++    );
++    badgeScale.set(
++      withDelay(splash.badgeAt, withSpring(1, splash.badgeSpring)),
++    );
++  }, [
++    reducedMotion,
++    splash,
++    sizes.logoLogin.width,
++    sizes.scanLine.width,
++    motion.easeOut,
++    groupOpacity,
++    wipeX,
++    scanOpacity,
++    groupScale,
++    badgeOpacity,
++    badgeScale,
++  ]);
++
++  const startLoop = useCallback(() => {
++    loaderOpacity.set(withTiming(1, { duration: motion.fast }));
++    if (reducedMotion) {
++      // Trilho parado, segmento no centro.
++      return;
++    }
++    loaderX.set(
++      withRepeat(
++        withTiming(trackWidth, {
++          duration: splash.loopTrack,
++          easing: Easing.inOut(Easing.cubic),
++        }),
++        -1,
++        false,
++      ),
++    );
++    const half = splash.badgeBreath / 2;
++    const breathEasing = Easing.inOut(Easing.sin);
++    badgeBreath.set(
++      withRepeat(
++        withSequence(
++          withTiming(splash.badgeBreathScale, {
++            duration: half,
++            easing: breathEasing,
++          }),
++          withTiming(1, { duration: half, easing: breathEasing }),
++        ),
++        -1,
++        false,
++      ),
++    );
++  }, [
++    reducedMotion,
++    trackWidth,
++    splash,
++    motion.fast,
++    loaderOpacity,
++    loaderX,
++    badgeBreath,
++  ]);
++
++  const exit = useCallback(
++    ({ destination, loginOffsetY, onFinished }: ExitOptions) => {
++      // Para o loop sem esperar o ciclo acabar.
++      cancelAnimation(loaderX);
++      cancelAnimation(badgeBreath);
++      loaderOpacity.set(withTiming(0, { duration: motion.fast }));
++      badgeBreath.set(withTiming(1, { duration: motion.fast }));
++
++      const done = (finished?: boolean) => {
++        'worklet';
++        if (finished) scheduleOnRN(onFinished);
++      };
++
++      if (reducedMotion) {
++        groupOpacity.set(
++          withTiming(0, { duration: motion.fast, easing: linear }, done),
++        );
++        return;
++      }
++      if (destination === 'login') {
++        groupY.set(
++          withTiming(
++            loginOffsetY,
++            { duration: motion.slow, easing: splash.exitToLoginEasing },
++            done,
++          ),
++        );
++        return;
++      }
++      const config = { duration: splash.exitDuration, easing: motion.easeIn };
++      groupScale.set(withTiming(splash.exitScaleTo, config));
++      groupOpacity.set(withTiming(0, config, done));
++    },
++    [
++      reducedMotion,
++      splash,
++      motion.fast,
++      motion.slow,
++      motion.easeIn,
++      loaderX,
++      badgeBreath,
++      loaderOpacity,
++      groupOpacity,
++      groupY,
++      groupScale,
++    ],
++  );
++
++  const groupStyle = useAnimatedStyle(() => ({
++    opacity: groupOpacity.get(),
++    transform: [{ translateY: groupY.get() }, { scale: groupScale.get() }],
++  }));
++  const maskStyle = useAnimatedStyle(() => ({
++    transform: [{ translateX: wipeX.get() }],
++  }));
++  const scanStyle = useAnimatedStyle(() => ({
++    opacity: scanOpacity.get(),
++    transform: [{ translateX: wipeX.get() }],
++  }));
++  const badgeStyle = useAnimatedStyle(() => ({
++    opacity: badgeOpacity.get(),
++    transform: [{ scale: badgeScale.get() * badgeBreath.get() }],
++  }));
++  const loaderStyle = useAnimatedStyle(() => ({
++    opacity: loaderOpacity.get(),
++  }));
++  const segmentStyle = useAnimatedStyle(() => ({
++    transform: [{ translateX: loaderX.get() }],
++  }));
++
++  return {
++    start,
++    startLoop,
++    exit,
++    segmentWidth,
++    styles: {
++      group: groupStyle,
++      mask: maskStyle,
++      scan: scanStyle,
++      badge: badgeStyle,
++      loader: loaderStyle,
++      segment: segmentStyle,
++    },
++  };
++}
+diff --git a/mobile/src/features/splash/useSplashViewModel.ts b/mobile/src/features/splash/useSplashViewModel.ts
+new file mode 100644
+index 0000000..718b05a
+--- /dev/null
++++ b/mobile/src/features/splash/useSplashViewModel.ts
+@@ -0,0 +1,143 @@
++import { useCallback, useEffect, useState } from 'react';
++import { useReducedMotion } from 'react-native-reanimated';
++
++import type { RootStackScreenProps } from '../../navigation/types';
++import { ApiError } from '../../services/http/errors';
++import { useBootStore } from '../../stores/boot.store';
++import {
++  useSessionStore,
++  type SessionStatus,
++} from '../../stores/session.store';
++import { motion } from '../../theme';
++import { loadMeOnBoot } from '../auth/api/loadMeOnBoot';
++
++export type SplashDestination = 'login' | 'app' | 'noStudent' | 'bootError';
++
++type SplashNavigation = Pick<
++  RootStackScreenProps<'Splash'>['navigation'],
++  'reset'
++>;
++
++const { minDuration, minDurationReduced, loopStartAt, hardTimeout, meTimeout } =
++  motion.splash;
++
++/** Rota de cada destino. Todas sabem que vieram da splash (entram sem animação do stack). */
++const ROUTES = {
++  login: { name: 'Login', params: { fromSplash: true } },
++  app: { name: 'App', params: { screen: 'Agenda', fromSplash: true } },
++  noStudent: { name: 'NoStudent', params: { fromSplash: true } },
++  bootError: { name: 'BootError', params: { fromSplash: true } },
++} as const;
++
++/** Espera o `bootstrap` ler o keychain (status sai de `loading`). */
++function waitForSession(signal: AbortSignal): Promise<SessionStatus> {
++  return new Promise(resolve => {
++    const current = useSessionStore.getState().status;
++    if (current !== 'loading') {
++      resolve(current);
++      return;
++    }
++    const unsubscribe = useSessionStore.subscribe(({ status }) => {
++      if (status !== 'loading') {
++        unsubscribe();
++        resolve(status);
++      }
++    });
++    signal.addEventListener('abort', unsubscribe);
++  });
++}
++
++/**
++ * Destino pela sessão: sem token → Login; com token, o `/me` decide.
++ * `null` quando o `/me` foi cancelado (não é erro de tela).
++ */
++async function resolveDestination(
++  signal: AbortSignal,
++): Promise<SplashDestination | null> {
++  const status = await waitForSession(signal);
++  if (status !== 'signedIn') {
++    return 'login';
++  }
++  try {
++    const me = await loadMeOnBoot({ timeoutMs: meTimeout, signal });
++    return me.students.length > 0 ? 'app' : 'noStudent';
++  } catch (error) {
++    const kind = error instanceof ApiError ? error.kind : 'unknown';
++    if (kind === 'canceled') return null;
++    // O interceptor já encerrou a sessão (expirada); o Login mostra o aviso.
++    if (kind === 'unauthorized') return 'login';
++    return 'bootError';
++  }
++}
++
++const wait = (ms: number) =>
++  new Promise<void>(resolve => {
++    setTimeout(resolve, ms);
++  });
++
++/**
++ * Splash (01-design.md, 3.1.5). A sessão é lida em paralelo com a animação;
++ * o destino só aparece depois da duração mínima, e uma trava de 10 s garante
++ * que o app nunca fica preso aqui. A View anima a saída e chama
++ * `onExitFinished` no fim, que troca de tela.
++ */
++export function useSplashViewModel(navigation: SplashNavigation) {
++  const reducedMotion = useReducedMotion();
++  const finishSplash = useBootStore(state => state.finishSplash);
++  const [destination, setDestination] = useState<SplashDestination | null>(
++    null,
++  );
++  const [loaderDue, setLoaderDue] = useState(false);
++
++  useEffect(() => {
++    const controller = new AbortController();
++    let decided = false;
++
++    const decide = (next: SplashDestination | null) => {
++      if (decided || next === null) return;
++      decided = true;
++      clearTimeout(hardTimer);
++      clearTimeout(loaderTimer);
++      controller.abort();
++      setDestination(next);
++    };
++
++    // Folga de 300 ms depois do mínimo: o loop não pisca quando a resposta
++    // chega logo em seguida.
++    const loaderTimer = setTimeout(() => {
++      if (!decided) setLoaderDue(true);
++    }, loopStartAt);
++
++    // Keychain ou /me que não respondem: com token é erro, sem token é Login.
++    const hardTimer = setTimeout(() => {
++      const signedIn = useSessionStore.getState().status === 'signedIn';
++      decide(signedIn ? 'bootError' : 'login');
++    }, hardTimeout);
++
++    Promise.all([
++      resolveDestination(controller.signal),
++      wait(reducedMotion ? minDurationReduced : minDuration),
++    ]).then(([next]) => decide(next));
++
++    return () => {
++      decided = true;
++      clearTimeout(hardTimer);
++      clearTimeout(loaderTimer);
++      controller.abort();
++    };
++  }, [reducedMotion]);
++
++  const onExitFinished = useCallback(() => {
++    if (!destination) return;
++    navigation.reset({ index: 0, routes: [ROUTES[destination]] });
++    finishSplash();
++  }, [destination, finishSplash, navigation]);
++
++  return {
++    destination,
++    /** Trilho de espera: só enquanto a sessão não resolveu, a partir de 1500 ms. */
++    showLoader: loaderDue && destination === null,
++    reducedMotion,
++    onExitFinished,
++  };
++}
+diff --git a/mobile/src/features/students/NoStudentScreen.tsx b/mobile/src/features/students/NoStudentScreen.tsx
+new file mode 100644
+index 0000000..f5c5ff1
+--- /dev/null
++++ b/mobile/src/features/students/NoStudentScreen.tsx
+@@ -0,0 +1,25 @@
++import { PlaceholderScreen } from '../../components/PlaceholderScreen';
++import { useSessionStore } from '../../stores/session.store';
++
++/**
++ * Placeholder. A tela real (01-design.md, 3.6: barra com SAIR, saudação e
++ * EmptyState) é a Tarefa 10. A rota já existe porque a splash decide por ela.
++ */
++export function NoStudentScreen() {
++  const signOut = useSessionStore(state => state.signOut);
++
++  return (
++    <PlaceholderScreen
++      testID="no-student-screen"
++      title="Nenhum aluno vinculado"
++      description="Não encontramos alunos ligados ao seu CPF. Fale com a secretaria da FIAP School para fazer o vínculo."
++      actions={[
++        {
++          label: 'SAIR',
++          testID: 'header-logout-button',
++          onPress: () => signOut(),
++        },
++      ]}
++    />
++  );
++}
+diff --git a/mobile/src/navigation/RootStack.tsx b/mobile/src/navigation/RootStack.tsx
+index c9edc95..2d87e23 100644
+--- a/mobile/src/navigation/RootStack.tsx
++++ b/mobile/src/navigation/RootStack.tsx
+@@ -1,46 +1,89 @@
+-import { createNativeStackNavigator } from '@react-navigation/native-stack';
++import {
++  createNativeStackNavigator,
++  type NativeStackNavigationOptions,
++} from '@react-navigation/native-stack';
+ 
+ import { LoginScreen } from '../features/auth/LoginScreen';
++import { BootErrorScreen } from '../features/splash/BootErrorScreen';
++import { SplashScreen } from '../features/splash/SplashScreen';
++import { NoStudentScreen } from '../features/students/NoStudentScreen';
+ import { SelectStudentScreen } from '../features/students/SelectStudentScreen';
++import { useBootStore } from '../stores/boot.store';
+ import { useSessionStore } from '../stores/session.store';
+ import { useTheme } from '../theme';
+ import { AppTabs } from './AppTabs';
+ import type { RootStackParamList } from './types';
+ 
+ const Stack = createNativeStackNavigator<RootStackParamList>();
+ 
++/** Quem vem do fim da splash entra sem a animação do stack (a splash já saiu). */
++const fromSplashOptions = ({
++  route,
++}: {
++  route: { params?: { fromSplash?: boolean } };
++}): NativeStackNavigationOptions =>
++  route.params?.fromSplash ? { animation: 'none' } : {};
++
+ /**
+- * Stack raiz. A sessão decide as telas: sem sessão só existe o Login; com
+- * sessão, as abas e a seleção de aluno. Quando o logout ou um 401 encerra a
+- * sessão, o React Navigation troca para o Login sozinho.
++ * Stack raiz. A splash é a primeira rota até entregar o app a outra tela
++ * (`reset`) e depois sai da lista. Fora isso, a sessão decide as telas: sem
++ * sessão só existe o Login; com sessão, as abas, a seleção de aluno e os
++ * estados de início. Quando o logout ou um 401 encerra a sessão, o React
++ * Navigation troca para o Login sozinho.
+  */
+ export function RootStack() {
+   const { colors } = useTheme();
+   const signedIn = useSessionStore(state => state.status === 'signedIn');
++  const splashDone = useBootStore(state => state.splashDone);
+ 
+   return (
+     <Stack.Navigator
+       screenOptions={{
+         headerShown: false,
+         animation: 'fade',
+         contentStyle: { backgroundColor: colors.background },
+       }}
+     >
++      {splashDone ? null : (
++        <Stack.Screen
++          name="Splash"
++          component={SplashScreen}
++          options={{ animation: 'none' }}
++        />
++      )}
+       {signedIn ? (
+         <>
+-          <Stack.Screen name="App" component={AppTabs} />
++          <Stack.Screen
++            name="App"
++            component={AppTabs}
++            options={fromSplashOptions}
++          />
+           <Stack.Screen
+             name="SelectStudent"
+             component={SelectStudentScreen}
+             options={{
+               presentation: 'fullScreenModal',
+               animation: 'slide_from_bottom',
+             }}
+           />
++          <Stack.Screen
++            name="NoStudent"
++            component={NoStudentScreen}
++            options={fromSplashOptions}
++          />
++          <Stack.Screen
++            name="BootError"
++            component={BootErrorScreen}
++            options={fromSplashOptions}
++          />
+         </>
+       ) : (
+-        <Stack.Screen name="Login" component={LoginScreen} />
++        <Stack.Screen
++          name="Login"
++          component={LoginScreen}
++          options={fromSplashOptions}
++        />
+       )}
+     </Stack.Navigator>
+   );
+ }
+diff --git a/mobile/src/navigation/types.ts b/mobile/src/navigation/types.ts
+index 0cb5b56..e89b259 100644
+--- a/mobile/src/navigation/types.ts
++++ b/mobile/src/navigation/types.ts
+@@ -3,24 +3,33 @@ import type {
+   CompositeScreenProps,
+   NavigatorScreenParams,
+ } from '@react-navigation/native';
+ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+ 
+ export type AppTabsParamList = {
+   Agenda: undefined;
+   Boletim: undefined;
+ };
+ 
++/**
++ * `fromSplash`: a tela veio do fim da splash. Ela entra sem a animação do
++ * stack (a splash já fez a saída) e o Login não mexe no logo no 1º frame.
++ */
++export type FromSplashParams = { fromSplash?: boolean } | undefined;
++
+ export type RootStackParamList = {
+-  Login: undefined;
+-  App: NavigatorScreenParams<AppTabsParamList>;
++  Splash: undefined;
++  Login: FromSplashParams;
++  App: (NavigatorScreenParams<AppTabsParamList> & FromSplashParams) | undefined;
+   SelectStudent: undefined;
++  NoStudent: FromSplashParams;
++  BootError: FromSplashParams;
+ };
+ 
+ export type RootStackScreenProps<T extends keyof RootStackParamList> =
+   NativeStackScreenProps<RootStackParamList, T>;
+ 
+ export type AppTabsScreenProps<T extends keyof AppTabsParamList> =
+   CompositeScreenProps<
+     BottomTabScreenProps<AppTabsParamList, T>,
+     RootStackScreenProps<keyof RootStackParamList>
+   >;
+diff --git a/mobile/src/stores/boot.store.ts b/mobile/src/stores/boot.store.ts
+new file mode 100644
+index 0000000..7825b37
+--- /dev/null
++++ b/mobile/src/stores/boot.store.ts
+@@ -0,0 +1,13 @@
++import { create } from 'zustand';
++
++type BootState = {
++  /** A splash já entregou o app a outra tela; sai do stack e não volta. */
++  splashDone: boolean;
++  finishSplash: () => void;
++};
++
++/** Estado da abertura do app. Não é persistido: cada abertura passa pela splash. */
++export const useBootStore = create<BootState>()(set => ({
++  splashDone: false,
++  finishSplash: () => set({ splashDone: true }),
++}));
+diff --git a/mobile/src/theme/motion.ts b/mobile/src/theme/motion.ts
+index e880f54..dc803b9 100644
+--- a/mobile/src/theme/motion.ts
++++ b/mobile/src/theme/motion.ts
+@@ -2,11 +2,37 @@ import { Easing } from 'react-native-reanimated';
+ 
+ /** Durações e curvas das animações (01-design.md, 1.8). */
+ export const motion = {
+   fast: 150,
+   base: 220,
+   slow: 320,
+   stagger: 40,
+   easeOut: Easing.out(Easing.cubic),
+   easeIn: Easing.in(Easing.cubic),
+   press: { damping: 18, stiffness: 260, mass: 1 },
++  /** Splash animada (01-design.md, 3.1.3 a 3.1.6). */
++  splash: {
++    minDuration: 1200,
++    minDurationReduced: 600,
++    loopStartAt: 1500,
++    hardTimeout: 10_000,
++    meTimeout: 8000,
++    wipe: { delay: 80, duration: 600 },
++    wipeEasing: Easing.bezier(0.65, 0, 0.35, 1),
++    scanFadeIn: 80,
++    scanFadeOut: 120,
++    scaleFrom: 0.96,
++    scaleDuration: 800,
++    badgeAt: 620,
++    badgeFadeIn: 120,
++    badgeScaleFrom: 0.4,
++    badgeSpring: { damping: 12, stiffness: 180, mass: 0.8 },
++    loopTrack: 1000,
++    loopTrackSegment: 0.25,
++    badgeBreath: 1600,
++    badgeBreathScale: 1.04,
++    fadeInReduced: 200,
++    exitScaleTo: 0.92,
++    exitDuration: 250,
++    exitToLoginEasing: Easing.bezier(0.2, 0, 0, 1),
++  },
+ } as const;
+diff --git a/mobile/src/theme/sizes.ts b/mobile/src/theme/sizes.ts
+index aa342bc..deebc28 100644
+--- a/mobile/src/theme/sizes.ts
++++ b/mobile/src/theme/sizes.ts
+@@ -10,13 +10,21 @@ export const sizes = {
+   tabBar: 64,
+   touchTarget: 44,
+   icon: 24,
+   chevron: 14,
+   logoutIcon: 10,
+   bullet: 6,
+   bulletSlot: 16,
+   logoHeader: { width: 100, height: 16 },
+   logoLogin: { width: 306, height: 49 },
+   illustration: { width: 328, height: 208 },
++  /** Selo SCHOOL dentro do PNG do logo, em proporção (vale em qualquer tamanho). */
++  logoBadge: { x: 0.672, y: 0.35, width: 0.328, height: 0.4 },
++  /** Sobra da capa do selo na splash (esconde o antialias da borda). */
++  logoBadgeBleed: 1,
++  /** Linha teal da splash: largura e quanto passa do logo em cima e embaixo. */
++  scanLine: { width: 2, overhang: 8 },
++  /** Espessura do trilho de espera da splash. */
++  splashTrack: 1,
+   contentMaxWidth: 600,
+   formMaxWidth: 318,
+ } as const;

@@ -1,0 +1,1925 @@
+db80724 feat(mobile): tela Boletim com acordeões por trimestre e troca de ano
+e091687 feat(mobile): componentes Accordion e skeleton do boletim
+ mobile/src/components/Accordion.tsx                | 139 +++++++
+ mobile/src/components/BoletimSkeleton.tsx          |  57 +++
+ mobile/src/components/__tests__/Accordion.test.tsx | 109 ++++++
+ .../components/__tests__/BoletimSkeleton.test.tsx  |  55 +++
+ mobile/src/constants/strings.ts                    |  25 ++
+ .../src/features/report-card/ReportCardScreen.tsx  | 126 +++++-
+ .../__tests__/ReportCardScreen.test.tsx            | 238 ++++++++++++
+ .../__tests__/useReportCardViewModel.test.tsx      | 425 +++++++++++++++++++++
+ .../report-card/components/SubjectAccordion.tsx    |  64 ++++
+ .../report-card/components/TermAccordion.tsx       |  70 ++++
+ .../components/__tests__/TermAccordion.test.tsx    | 186 +++++++++
+ .../features/report-card/useReportCardViewModel.ts | 209 ++++++++++
+ mobile/src/test/fixtures.ts                        |  30 ++
+ mobile/src/theme/motion.ts                         |   4 +-
+ mobile/src/theme/sizes.ts                          |   2 +
+ 15 files changed, 1732 insertions(+), 7 deletions(-)
+diff --git a/mobile/src/components/Accordion.tsx b/mobile/src/components/Accordion.tsx
+new file mode 100644
+index 0000000..52351c6
+--- /dev/null
++++ b/mobile/src/components/Accordion.tsx
+@@ -0,0 +1,139 @@
++import { useEffect, useState, type ReactElement, type ReactNode } from 'react';
++import { Pressable, StyleSheet, View } from 'react-native';
++import Animated, {
++  useAnimatedStyle,
++  useReducedMotion,
++  useSharedValue,
++  withTiming,
++} from 'react-native-reanimated';
++
++import { useTheme } from '../theme';
++import { ChevronDownIcon } from './icons/ChevronDownIcon';
++
++type AccordionProps = {
++  /** Cabeçalho; o corpo é `${testID}-content`. */
++  testID: string;
++  accessibilityLabel: string;
++  expanded: boolean;
++  onToggle: () => void;
++  /** Desenha o cabeçalho; recebe o chevron, que gira junto com a altura. */
++  renderHeader: (chevron: ReactElement) => ReactNode;
++  /** O corpo também faz fade no mesmo progresso da altura (Nota e Faltas). */
++  fadeContent?: boolean;
++  children: ReactNode;
++};
++
++/**
++ * Acordeão do Boletim (01-design.md, 2.11 e 4.6). O corpo só é montado na
++ * primeira abertura e depois fica montado (fechado, escondido do leitor de
++ * tela). Abrir e fechar animam a altura na UI thread: o corpo mede a própria
++ * altura (`onLayout`) e o container limita `maxHeight` a `altura × progresso`,
++ * com `overflow: hidden`. Aberto e parado, o limite sai, e o corpo acompanha
++ * o conteúdo (um acordeão aberto dentro dele) sem esperar outra medida. O
++ * chevron gira 0 → 180° no mesmo progresso. Com reduzir movimento, troca sem
++ * animar.
++ */
++export function Accordion({
++  testID,
++  accessibilityLabel,
++  expanded,
++  onToggle,
++  renderHeader,
++  fadeContent = false,
++  children,
++}: AccordionProps) {
++  const { colors, motion, sizes } = useTheme();
++  const reducedMotion = useReducedMotion();
++  const [mounted, setMounted] = useState(expanded);
++  if (expanded && !mounted) setMounted(true);
++
++  const progress = useSharedValue(expanded ? 1 : 0);
++  /** Aberto e com a animação terminada: sem limite de altura. */
++  const settled = useSharedValue(expanded);
++  const contentHeight = useSharedValue(0);
++
++  useEffect(() => {
++    if (expanded) {
++      progress.set(
++        withTiming(
++          1,
++          {
++            duration: reducedMotion ? 0 : motion.base,
++            easing: motion.easeOut,
++          },
++          finished => {
++            'worklet';
++            if (finished) settled.set(true);
++          },
++        ),
++      );
++    } else {
++      settled.set(false);
++      progress.set(
++        withTiming(0, {
++          duration: reducedMotion ? 0 : motion.fast,
++          easing: motion.easeIn,
++        }),
++      );
++    }
++  }, [expanded, reducedMotion, progress, settled, motion]);
++
++  const { accordionOpenMaxHeight } = sizes;
++  const bodyStyle = useAnimatedStyle(() => ({
++    maxHeight: settled.get()
++      ? accordionOpenMaxHeight
++      : contentHeight.get() * progress.get(),
++    opacity: fadeContent ? progress.get() : 1,
++  }));
++
++  const chevronStyle = useAnimatedStyle(() => ({
++    transform: [{ rotate: `${progress.get() * motion.chevronOpenDeg}deg` }],
++  }));
++
++  const chevron = (
++    <Animated.View style={chevronStyle}>
++      <ChevronDownIcon color={colors.primary} size={sizes.chevron} />
++    </Animated.View>
++  );
++
++  return (
++    <View>
++      <Pressable
++        testID={testID}
++        accessibilityRole="button"
++        accessibilityLabel={accessibilityLabel}
++        accessibilityState={{ expanded }}
++        onPress={onToggle}
++        style={({ pressed }) => ({
++          minHeight: sizes.touchTarget,
++          justifyContent: 'center',
++          opacity: pressed ? motion.pressedOpacity : 1,
++        })}
++      >
++        {renderHeader(chevron)}
++      </Pressable>
++      {mounted ? (
++        <Animated.View
++          testID={`${testID}-content`}
++          style={[styles.clip, bodyStyle]}
++          // Fechado, o corpo continua montado: o leitor de tela não o alcança.
++          accessibilityElementsHidden={!expanded}
++          importantForAccessibility={expanded ? 'auto' : 'no-hide-descendants'}
++        >
++          {/* Fica no fluxo com a altura natural (flexShrink 0): é a medida. */}
++          <View
++            onLayout={event =>
++              contentHeight.set(event.nativeEvent.layout.height)
++            }
++          >
++            {children}
++          </View>
++        </Animated.View>
++      ) : null}
++    </View>
++  );
++}
++
++const styles = StyleSheet.create({
++  clip: { overflow: 'hidden' },
++});
+diff --git a/mobile/src/components/BoletimSkeleton.tsx b/mobile/src/components/BoletimSkeleton.tsx
+new file mode 100644
+index 0000000..6a1f158
+--- /dev/null
++++ b/mobile/src/components/BoletimSkeleton.tsx
+@@ -0,0 +1,57 @@
++import Animated, { FadeOut, ReduceMotion } from 'react-native-reanimated';
++
++import { strings } from '../constants/strings';
++import { useSkeletonPulse } from '../hooks/useSkeletonPulse';
++import { Box, useTheme } from '../theme';
++import { Skeleton } from './Skeleton';
++
++type BoletimSkeletonProps = {
++  testID: string;
++  /** `false` na troca de ano: o dropdown real continua na tela. */
++  withDropdown?: boolean;
++};
++
++const TERMS = [1, 2, 3];
++
++/**
++ * Carregamento do Boletim (01-design.md, 2.13): o dropdown e os 3 cards de
++ * trimestre. Para o leitor é um só "Carregando boletim".
++ */
++export function BoletimSkeleton({
++  testID,
++  withDropdown = true,
++}: BoletimSkeletonProps) {
++  const { motion, sizes } = useTheme();
++  const pulse = useSkeletonPulse();
++
++  return (
++    <Animated.View
++      testID={testID}
++      accessible
++      accessibilityRole="progressbar"
++      accessibilityLabel={strings.boletim.loadingAccessibilityLabel}
++      exiting={FadeOut.duration(motion.fast).reduceMotion(ReduceMotion.System)}
++    >
++      {/* O pulso fica num filho: a saída (layout animation) também mexe na opacidade. */}
++      <Animated.View style={pulse}>
++        <Box
++          testID={`${testID}-blocks`}
++          importantForAccessibility="no-hide-descendants"
++          marginHorizontal="m"
++          gap="m"
++        >
++          {withDropdown ? (
++            <Skeleton testID={`${testID}-dropdown`} height={sizes.dropdown} />
++          ) : null}
++          {TERMS.map(term => (
++            <Skeleton
++              key={term}
++              testID={`${testID}-term-${term}`}
++              height={sizes.termCard}
++            />
++          ))}
++        </Box>
++      </Animated.View>
++    </Animated.View>
++  );
++}
+diff --git a/mobile/src/components/__tests__/Accordion.test.tsx b/mobile/src/components/__tests__/Accordion.test.tsx
+new file mode 100644
+index 0000000..c84be13
+--- /dev/null
++++ b/mobile/src/components/__tests__/Accordion.test.tsx
+@@ -0,0 +1,109 @@
++import { ThemeProvider } from '@shopify/restyle';
++import { fireEvent, render, screen } from '@testing-library/react-native';
++import type { PropsWithChildren } from 'react';
++import { Text } from 'react-native';
++
++import { renderWithTheme } from '../../test/renderWithTheme';
++import { theme } from '../../theme';
++import { Accordion } from '../Accordion';
++
++describe('Accordion', () => {
++  const onToggle = jest.fn();
++  const renderBody = jest.fn(() => <Text>Nota: 9,5</Text>);
++
++  beforeEach(() => {
++    onToggle.mockClear();
++    renderBody.mockClear();
++  });
++
++  const accordion = (expanded: boolean) => (
++    <Accordion
++      testID="boletim-term-1"
++      accessibilityLabel="1º trimestre"
++      expanded={expanded}
++      onToggle={onToggle}
++      renderHeader={chevron => (
++        <>
++          <Text>1º TRIMESTRE</Text>
++          {chevron}
++        </>
++      )}
++    >
++      {renderBody()}
++    </Accordion>
++  );
++
++  it('fechado: cabeçalho é um botão recolhido e o corpo não é montado', async () => {
++    await renderWithTheme(accordion(false));
++
++    const header = screen.getByTestId('boletim-term-1');
++    expect(header).toHaveTextContent('1º TRIMESTRE');
++    expect(header).toHaveAccessibleName('1º trimestre');
++    expect(header).toHaveProp('accessibilityRole', 'button');
++    expect(header).not.toBeExpanded();
++    expect(
++      screen.queryByTestId('boletim-term-1-content', {
++        includeHiddenElements: true,
++      }),
++    ).toBeNull();
++    expect(screen.queryByText('Nota: 9,5')).toBeNull();
++  });
++
++  it('o cabeçalho tem alvo de toque ≥ 44 no próprio Pressable', async () => {
++    await renderWithTheme(accordion(false));
++
++    expect(screen.getByTestId('boletim-term-1')).toHaveStyle({
++      minHeight: theme.sizes.touchTarget,
++    });
++  });
++
++  it('tocar no cabeçalho chama onToggle', async () => {
++    await renderWithTheme(accordion(false));
++
++    await fireEvent.press(screen.getByTestId('boletim-term-1'));
++
++    expect(onToggle).toHaveBeenCalledTimes(1);
++  });
++
++  it('aberto: expandido, com o corpo montado e visível', async () => {
++    await renderWithTheme(accordion(true));
++
++    expect(screen.getByTestId('boletim-term-1')).toBeExpanded();
++    expect(screen.getByTestId('boletim-term-1-content')).toBeOnTheScreen();
++    expect(screen.getByText('Nota: 9,5')).toBeOnTheScreen();
++  });
++
++  it('o corpo é montado na 1ª abertura e continua montado, escondido do leitor, ao fechar', async () => {
++    // `wrapper`: o `rerender` mantém o tema.
++    const { rerender } = await render(accordion(false), {
++      wrapper: ({ children }: PropsWithChildren) => (
++        <ThemeProvider theme={theme}>{children}</ThemeProvider>
++      ),
++    });
++    expect(
++      screen.queryByTestId('boletim-term-1-content', {
++        includeHiddenElements: true,
++      }),
++    ).toBeNull();
++
++    await rerender(accordion(true));
++    expect(screen.getByTestId('boletim-term-1-content')).toBeOnTheScreen();
++
++    await rerender(accordion(false));
++    expect(screen.getByTestId('boletim-term-1')).not.toBeExpanded();
++    expect(screen.queryByTestId('boletim-term-1-content')).toBeNull();
++    expect(
++      screen.getByTestId('boletim-term-1-content', {
++        includeHiddenElements: true,
++      }),
++    ).toBeOnTheScreen();
++  });
++
++  it('o corpo corta o que passa da altura animada', async () => {
++    await renderWithTheme(accordion(true));
++
++    expect(screen.getByTestId('boletim-term-1-content')).toHaveStyle({
++      overflow: 'hidden',
++    });
++  });
++});
+diff --git a/mobile/src/components/__tests__/BoletimSkeleton.test.tsx b/mobile/src/components/__tests__/BoletimSkeleton.test.tsx
+new file mode 100644
+index 0000000..84439ab
+--- /dev/null
++++ b/mobile/src/components/__tests__/BoletimSkeleton.test.tsx
+@@ -0,0 +1,55 @@
++import { screen } from '@testing-library/react-native';
++
++import { renderWithTheme } from '../../test/renderWithTheme';
++import { theme } from '../../theme';
++import { BoletimSkeleton } from '../BoletimSkeleton';
++
++describe('BoletimSkeleton', () => {
++  it('é um progressbar "Carregando boletim" com os blocos escondidos do leitor', async () => {
++    await renderWithTheme(<BoletimSkeleton testID="boletim-skeleton" />);
++
++    const skeleton = screen.getByTestId('boletim-skeleton');
++    expect(skeleton).toHaveProp('accessibilityRole', 'progressbar');
++    expect(skeleton).toHaveAccessibleName('Carregando boletim');
++    expect(
++      screen.getByTestId('boletim-skeleton-blocks', {
++        includeHiddenElements: true,
++      }),
++    ).toHaveProp('importantForAccessibility', 'no-hide-descendants');
++  });
++
++  it('um bloco do tamanho do dropdown e 3 cards de trimestre', async () => {
++    await renderWithTheme(<BoletimSkeleton testID="boletim-skeleton" />);
++
++    expect(
++      screen.getByTestId('boletim-skeleton-dropdown', {
++        includeHiddenElements: true,
++      }),
++    ).toHaveStyle({
++      height: theme.sizes.dropdown,
++      backgroundColor: theme.colors.surface,
++    });
++    const terms = screen.getAllByTestId(/^boletim-skeleton-term-\d$/, {
++      includeHiddenElements: true,
++    });
++    expect(terms).toHaveLength(3);
++    expect(terms[0]).toHaveStyle({ height: theme.sizes.termCard });
++  });
++
++  it('na troca de ano, só os cards (o dropdown fica na tela)', async () => {
++    await renderWithTheme(
++      <BoletimSkeleton testID="boletim-skeleton" withDropdown={false} />,
++    );
++
++    expect(
++      screen.queryByTestId('boletim-skeleton-dropdown', {
++        includeHiddenElements: true,
++      }),
++    ).toBeNull();
++    expect(
++      screen.getAllByTestId(/^boletim-skeleton-term-\d$/, {
++        includeHiddenElements: true,
++      }),
++    ).toHaveLength(3);
++  });
++});
+diff --git a/mobile/src/constants/strings.ts b/mobile/src/constants/strings.ts
+index f3726cf..8423cb1 100644
+--- a/mobile/src/constants/strings.ts
++++ b/mobile/src/constants/strings.ts
+@@ -54,20 +54,45 @@ export const strings = {
+     dayAccessibilityPrefix: 'Dia',
+     dayHint: 'Toque para escolher outro dia',
+     /** `07:15 - 08:00`. */
+     lessonTime: (start: string, end: string) => `${start} - ${end}`,
+     lessonAccessibilityLabel: (start: string, end: string, subject: string) =>
+       `Das ${start} às ${end}, ${subject}`,
+     empty: 'Sem aulas neste dia',
+     loadingAccessibilityLabel: 'Carregando agenda',
+     error: { title: 'Não foi possível carregar a agenda.' },
+   },
++  boletim: {
++    title: 'BOLETIM',
++    titleAccessibilityLabel: 'Boletim',
++    /** `7EF - 2025`. */
++    yearLabel: (className: string, year: number) => `${className} - ${year}`,
++    yearAccessibilityPrefix: 'Turma e ano',
++    yearHint: 'Toque para ver outros anos',
++    /** `1º TRIMESTRE` (ordinal `º`, U+00BA). */
++    term: (term: number) => `${term}º TRIMESTRE`,
++    termAccessibilityLabel: (term: number) => `${term}º trimestre`,
++    grade: 'Nota:',
++    absences: 'Faltas:',
++    /** "Nota 9,5, 0 faltas" / "Nota 8,0, 1 falta". */
++    resultAccessibilityLabel: (grade: string, absences: number) =>
++      `Nota ${grade}, ${absences} ${absences === 1 ? 'falta' : 'faltas'}`,
++    notReleasedAccessibilityLabel: 'Nota e faltas ainda não lançadas',
++    gradeNotReleased: 'não lançada',
++    absencesNotReleased: 'faltas não lançadas',
++    loadingAccessibilityLabel: 'Carregando boletim',
++    empty: 'Nenhum boletim disponível',
++    error: {
++      title: 'Não foi possível carregar o boletim.',
++      notFound: 'Boletim não encontrado.',
++    },
++  },
+   selectStudent: {
+     close: 'FECHAR',
+     closeAccessibilityLabel: 'Fechar',
+     title: 'Escolha o perfil\nque você quer visualizar',
+     studentInfo: (className: string, rm: number, period: string) =>
+       `${className} - RM ${rm} - ${period}`,
+     cardAccessibilityLabel: (
+       fullName: string,
+       className: string,
+       rm: number,
+diff --git a/mobile/src/features/report-card/ReportCardScreen.tsx b/mobile/src/features/report-card/ReportCardScreen.tsx
+index cdf0cd7..8cd1923 100644
+--- a/mobile/src/features/report-card/ReportCardScreen.tsx
++++ b/mobile/src/features/report-card/ReportCardScreen.tsx
+@@ -1,18 +1,132 @@
++import Animated, {
++  FadeInDown,
++  FadeOut,
++  ReduceMotion,
++} from 'react-native-reanimated';
++
++import { BoletimSkeleton } from '../../components/BoletimSkeleton';
++import { Dropdown } from '../../components/Dropdown';
++import { EmptyState } from '../../components/EmptyState';
++import { ErrorState } from '../../components/ErrorState';
+ import { Screen } from '../../components/Screen';
+-import { Box, Text } from '../../theme';
++import { SectionTitle } from '../../components/SectionTitle';
++import { strings } from '../../constants/strings';
++import { Box, useTheme } from '../../theme';
+ import { AppHeader } from '../header/AppHeader';
++import { TermAccordion } from './components/TermAccordion';
++import { useReportCardViewModel } from './useReportCardViewModel';
+ 
+-/** Boletim. O Header é real; o conteúdo (M5) é a Tarefa 12. */
++/**
++ * Boletim (M5, 01-design.md 3.4 e 4.6): título, dropdown de turma e ano e os
++ * trimestres do ano em acordeão, o skeleton ou o erro. Rola junto com o
++ * Header (que já é a `ScrollView`), por isso um `map`: são 3 trimestres de
++ * até 12 disciplinas, e o corpo de cada acordeão só monta na 1ª abertura.
++ */
+ export function ReportCardScreen() {
++  const vm = useReportCardViewModel();
++  const { motion, spacing } = useTheme();
++
++  const enterDown = (delay: number) =>
++    FadeInDown.duration(motion.base)
++      .delay(delay)
++      .easing(motion.easeOut)
++      .withInitialValues({
++        transform: [{ translateY: motion.enterOffsetSmall }],
++      })
++      .reduceMotion(ReduceMotion.System);
++
++  const errorState = (
++    <ErrorState
++      testID="boletim-error"
++      title={strings.boletim.error.title}
++      description={vm.errorDescription}
++      onRetry={vm.onRetry}
++      retrying={vm.retrying}
++      shakeKey={vm.shakeKey}
++    />
++  );
++
+   return (
+     <Screen testID="boletim-screen">
+       <AppHeader>
+-        <Box padding="xxxl" alignItems="center">
+-          <Text variant="body" textAlign="center">
+-            Notas e faltas por trimestre entram aqui.
+-          </Text>
++        <Animated.View
++          entering={enterDown(2 * motion.stagger)}
++          style={{ marginTop: spacing.section }}
++        >
++          <SectionTitle
++            testID="boletim-title"
++            title={strings.boletim.title}
++            accessibilityLabel={strings.boletim.titleAccessibilityLabel}
++          />
++        </Animated.View>
++        <Box marginTop="m" paddingBottom="l">
++          {vm.status === 'loading' ? (
++            <BoletimSkeleton testID="boletim-skeleton" />
++          ) : null}
++          {vm.status === 'error' ? errorState : null}
++          {vm.status === 'ready' && vm.isEmpty ? (
++            <EmptyState
++              testID="boletim-empty"
++              title={strings.boletim.empty}
++              illustration={false}
++            />
++          ) : null}
++          {vm.status === 'ready' && !vm.isEmpty ? (
++            <>
++              <Animated.View entering={enterDown(3 * motion.stagger)}>
++                <Dropdown
++                  testID="boletim-year-dropdown"
++                  label={vm.selectedYearLabel}
++                  options={vm.yearOptions}
++                  selectedKey={vm.selectedYearKey}
++                  onSelect={vm.onSelectYear}
++                  accessibilityLabelPrefix={
++                    strings.boletim.yearAccessibilityPrefix
++                  }
++                  accessibilityHint={strings.boletim.yearHint}
++                  marginHorizontal="m"
++                />
++              </Animated.View>
++              <Box marginTop="m">
++                {vm.termsStatus === 'loading' ? (
++                  <BoletimSkeleton
++                    testID="boletim-skeleton"
++                    withDropdown={false}
++                  />
++                ) : null}
++                {vm.termsStatus === 'error' ? errorState : null}
++                {vm.termsStatus === 'ready' ? (
++                  <Animated.View
++                    key={vm.contentKey}
++                    exiting={FadeOut.duration(motion.exitFast)
++                      .easing(motion.easeIn)
++                      .reduceMotion(ReduceMotion.System)}
++                    style={{ gap: spacing.m }}
++                  >
++                    {vm.terms.map((term, index) => (
++                      <Animated.View
++                        key={term.term}
++                        entering={enterDown(
++                          vm.contentEnterDelay + index * motion.cardStagger,
++                        )}
++                      >
++                        <TermAccordion
++                          testID={`boletim-term-${term.term}`}
++                          term={term}
++                          onToggle={() => vm.onToggleTerm(term.term)}
++                          onToggleSubject={subjectIndex =>
++                            vm.onToggleSubject(term.term, subjectIndex)
++                          }
++                        />
++                      </Animated.View>
++                    ))}
++                  </Animated.View>
++                ) : null}
++              </Box>
++            </>
++          ) : null}
+         </Box>
+       </AppHeader>
+     </Screen>
+   );
+ }
+diff --git a/mobile/src/features/report-card/__tests__/ReportCardScreen.test.tsx b/mobile/src/features/report-card/__tests__/ReportCardScreen.test.tsx
+new file mode 100644
+index 0000000..cd3c72b
+--- /dev/null
++++ b/mobile/src/features/report-card/__tests__/ReportCardScreen.test.tsx
+@@ -0,0 +1,238 @@
++import { ThemeProvider } from '@shopify/restyle';
++import { fireEvent, render, screen } from '@testing-library/react-native';
++import { http, HttpResponse } from 'msw';
++
++import { queryClient, queryKeys } from '../../../app/queryClient';
++import { createSecureStorage } from '../../../services/storage/secureStorage';
++import { useSessionStore } from '../../../stores/session.store';
++import {
++  API_URL,
++  meResponse,
++  reportCard2024,
++  reportCard2025,
++  reportCardsResponse,
++} from '../../../test/fixtures';
++import { mockMeasureInWindow } from '../../../test/measureInWindow';
++import { server } from '../../../test/msw/server';
++import { QueryWrapper } from '../../../test/queryWrapper';
++import { theme } from '../../../theme';
++import { ReportCardScreen } from '../ReportCardScreen';
++
++jest.mock('@react-navigation/native', () => ({
++  ...jest.requireActual('@react-navigation/native'),
++  useNavigation: () => ({ navigate: jest.fn() }),
++}));
++
++const listPath = `${API_URL}/students/:id/report-cards`;
++const yearPath = `${API_URL}/students/:id/report-cards/:year`;
++
++const reports: Record<string, object> = {
++  '2025': reportCard2025,
++  '2024': reportCard2024,
++};
++
++const deferred = () => {
++  let release = () => {};
++  const promise = new Promise<void>(resolve => {
++    release = resolve;
++  });
++  return { promise, release };
++};
++
++describe('ReportCardScreen', () => {
++  beforeAll(() => {
++    queryClient.setQueryDefaults(['reportCards'], { retryDelay: 0 });
++    queryClient.setQueryDefaults(['reportCard'], { retryDelay: 0 });
++  });
++
++  afterAll(() => {
++    queryClient.setQueryDefaults(['reportCards'], {});
++    queryClient.setQueryDefaults(['reportCard'], {});
++  });
++
++  beforeEach(async () => {
++    await useSessionStore.getState().signOut();
++    await createSecureStorage().setToken('jwt-salvo');
++    useSessionStore.setState({ status: 'signedIn', selectedStudentId: 's1' });
++    queryClient.clear();
++    queryClient.setQueryData(queryKeys.me(), meResponse);
++    mockMeasureInWindow({ x: 16, y: 300, width: 382, height: 45 });
++    server.use(
++      http.get(yearPath, ({ params }) =>
++        HttpResponse.json(reports[String(params.year)]),
++      ),
++    );
++  });
++
++  afterEach(() => jest.restoreAllMocks());
++
++  const renderScreen = () =>
++    render(
++      <QueryWrapper>
++        <ThemeProvider theme={theme}>
++          <ReportCardScreen />
++        </ThemeProvider>
++      </QueryWrapper>,
++    );
++
++  const press = (testID: string) => fireEvent.press(screen.getByTestId(testID));
++
++  it('título BOLETIM e skeleton enquanto carrega; depois "7EF - 2025" e os 3 trimestres fechados', async () => {
++    const gate = deferred();
++    server.use(
++      http.get(listPath, async () => {
++        await gate.promise;
++        return HttpResponse.json(reportCardsResponse);
++      }),
++    );
++    await renderScreen();
++
++    expect(screen.getByTestId('boletim-screen')).toBeOnTheScreen();
++    expect(screen.getByTestId('boletim-title')).toHaveTextContent('BOLETIM');
++    expect(screen.getByTestId('boletim-skeleton')).toBeOnTheScreen();
++    expect(screen.queryByTestId('boletim-year-dropdown')).toBeNull();
++
++    gate.release();
++    expect(
++      await screen.findByTestId('boletim-year-dropdown-label'),
++    ).toHaveTextContent('7EF - 2025');
++    expect(await screen.findByTestId('boletim-term-1')).toHaveTextContent(
++      '1º TRIMESTRE',
++    );
++    expect(screen.getByTestId('boletim-term-2')).toHaveTextContent(
++      '2º TRIMESTRE',
++    );
++    expect(screen.getByTestId('boletim-term-3')).toHaveTextContent(
++      '3º TRIMESTRE',
++    );
++    for (const term of [1, 2, 3]) {
++      expect(screen.getByTestId(`boletim-term-${term}`)).not.toBeExpanded();
++    }
++    expect(screen.queryByTestId('boletim-skeleton')).toBeNull();
++  });
++
++  it('dropdown de turma e ano com o rótulo e a dica do leitor de tela', async () => {
++    await renderScreen();
++
++    const dropdown = await screen.findByTestId('boletim-year-dropdown');
++    expect(dropdown).toHaveAccessibleName('Turma e ano: 7EF - 2025');
++    expect(dropdown).toHaveProp(
++      'accessibilityHint',
++      'Toque para ver outros anos',
++    );
++  });
++
++  it('abrir o 1º trimestre e Língua Portuguesa mostra Nota 9,5 e Faltas 0', async () => {
++    await renderScreen();
++    await screen.findByTestId('boletim-term-1');
++
++    await press('boletim-term-1');
++    expect(screen.getByTestId('boletim-term-1')).toBeExpanded();
++    expect(screen.getByTestId('boletim-term-1-subject-0')).toHaveTextContent(
++      'Língua Portuguesa',
++    );
++
++    await press('boletim-term-1-subject-0');
++    expect(screen.getByTestId('boletim-term-1-subject-0')).toBeExpanded();
++    expect(
++      screen.getByTestId('boletim-term-1-subject-0-grade', {
++        includeHiddenElements: true,
++      }),
++    ).toHaveTextContent('9,5');
++    expect(
++      screen.getByTestId('boletim-term-1-subject-0-absences', {
++        includeHiddenElements: true,
++      }),
++    ).toHaveTextContent('0');
++  });
++
++  it('2º trimestre não avaliado: Nota "-" e Faltas "-"', async () => {
++    await renderScreen();
++    await screen.findByTestId('boletim-term-2');
++
++    await press('boletim-term-2');
++    await press('boletim-term-2-subject-0');
++
++    expect(
++      screen.getByTestId('boletim-term-2-subject-0-grade', {
++        includeHiddenElements: true,
++      }),
++    ).toHaveTextContent('-');
++    expect(
++      screen.getByTestId('boletim-term-2-subject-0-absences', {
++        includeHiddenElements: true,
++      }),
++    ).toHaveTextContent('-');
++  });
++
++  it('trocar para 6EF - 2024 mostra as notas de 2024, com tudo fechado', async () => {
++    await renderScreen();
++    await screen.findByTestId('boletim-term-1');
++    await press('boletim-term-1');
++
++    await press('boletim-year-dropdown');
++    await press('boletim-year-dropdown-option-2024');
++
++    expect(screen.getByTestId('boletim-year-dropdown-label')).toHaveTextContent(
++      '6EF - 2024',
++    );
++    expect(await screen.findByTestId('boletim-term-1')).not.toBeExpanded();
++    await press('boletim-term-1');
++    await press('boletim-term-1-subject-0');
++    expect(
++      screen.getByTestId('boletim-term-1-subject-0-grade', {
++        includeHiddenElements: true,
++      }),
++    ).toHaveTextContent('7,5');
++  });
++
++  it('API fora do ar: erro sem dropdown; TENTAR DE NOVO traz o boletim', async () => {
++    server.use(http.get(listPath, () => HttpResponse.error()));
++    await renderScreen();
++
++    const error = await screen.findByTestId('boletim-error');
++    expect(error).toHaveTextContent(/Não foi possível carregar o boletim\./);
++    expect(error).toHaveTextContent(/Confira sua conexão e tente de novo\./);
++    expect(screen.queryByTestId('boletim-year-dropdown')).toBeNull();
++
++    server.use(
++      http.get(listPath, () => HttpResponse.json(reportCardsResponse)),
++    );
++    await press('boletim-error-retry');
++
++    expect(await screen.findByTestId('boletim-term-1')).toBeOnTheScreen();
++    expect(screen.queryByTestId('boletim-error')).toBeNull();
++  });
++
++  it('404 do ano: erro "Boletim não encontrado." com o dropdown na tela', async () => {
++    server.use(
++      http.get(yearPath, () =>
++        HttpResponse.json(
++          {
++            statusCode: 404,
++            message: 'Boletim não encontrado.',
++            error: 'Not Found',
++          },
++          { status: 404 },
++        ),
++      ),
++    );
++    await renderScreen();
++
++    expect(await screen.findByTestId('boletim-error')).toHaveTextContent(
++      /Boletim não encontrado\./,
++    );
++    expect(screen.getByTestId('boletim-year-dropdown')).toBeOnTheScreen();
++    expect(screen.queryByTestId('boletim-term-1')).toBeNull();
++  });
++
++  it('aluno sem boletim: "Nenhum boletim disponível", sem dropdown vazio', async () => {
++    server.use(http.get(listPath, () => HttpResponse.json([])));
++    await renderScreen();
++
++    expect(await screen.findByTestId('boletim-empty')).toHaveTextContent(
++      'Nenhum boletim disponível',
++    );
++    expect(screen.queryByTestId('boletim-year-dropdown')).toBeNull();
++  });
++});
+diff --git a/mobile/src/features/report-card/__tests__/useReportCardViewModel.test.tsx b/mobile/src/features/report-card/__tests__/useReportCardViewModel.test.tsx
+new file mode 100644
+index 0000000..c665aa5
+--- /dev/null
++++ b/mobile/src/features/report-card/__tests__/useReportCardViewModel.test.tsx
+@@ -0,0 +1,425 @@
++import { act, renderHook, waitFor } from '@testing-library/react-native';
++import { http, HttpResponse } from 'msw';
++
++import { queryClient, queryKeys } from '../../../app/queryClient';
++import { createSecureStorage } from '../../../services/storage/secureStorage';
++import { useSessionStore } from '../../../stores/session.store';
++import {
++  API_URL,
++  marinaReportCard2025,
++  marinaReportCards,
++  meResponse,
++  reportCard2024,
++  reportCard2025,
++  reportCardsResponse,
++} from '../../../test/fixtures';
++import { server } from '../../../test/msw/server';
++import { QueryWrapper } from '../../../test/queryWrapper';
++import { motion } from '../../../theme';
++import { useReportCardViewModel } from '../useReportCardViewModel';
++
++const yearsById: Record<string, object> = {
++  s1: reportCardsResponse,
++  s2: marinaReportCards,
++};
++
++const reportsById: Record<string, Record<string, object>> = {
++  s1: { '2025': reportCard2025, '2024': reportCard2024 },
++  s2: { '2025': marinaReportCard2025 },
++};
++
++const notFound = {
++  statusCode: 404,
++  message: 'Boletim não encontrado.',
++  error: 'Not Found',
++};
++
++const listPath = `${API_URL}/students/:id/report-cards`;
++const yearPath = `${API_URL}/students/:id/report-cards/:year`;
++
++const deferred = () => {
++  let release = () => {};
++  const promise = new Promise<void>(resolve => {
++    release = resolve;
++  });
++  return { promise, release };
++};
++
++describe('useReportCardViewModel', () => {
++  beforeAll(() => {
++    // Sem a espera de 1 s entre as tentativas: o retry continua acontecendo.
++    queryClient.setQueryDefaults(['reportCards'], { retryDelay: 0 });
++    queryClient.setQueryDefaults(['reportCard'], { retryDelay: 0 });
++  });
++
++  afterAll(() => {
++    queryClient.setQueryDefaults(['reportCards'], {});
++    queryClient.setQueryDefaults(['reportCard'], {});
++  });
++
++  beforeEach(async () => {
++    await useSessionStore.getState().signOut();
++    await createSecureStorage().setToken('jwt-salvo');
++    useSessionStore.setState({ status: 'signedIn', selectedStudentId: 's1' });
++    queryClient.clear();
++    queryClient.setQueryData(queryKeys.me(), meResponse);
++    server.use(
++      http.get(listPath, ({ params }) =>
++        HttpResponse.json(yearsById[String(params.id)]),
++      ),
++      http.get(yearPath, ({ params }) => {
++        const report = reportsById[String(params.id)]?.[String(params.year)];
++        return report
++          ? HttpResponse.json(report)
++          : HttpResponse.json(notFound, { status: 404 });
++      }),
++    );
++  });
++
++  const renderBoletim = () =>
++    renderHook(() => useReportCardViewModel(), { wrapper: QueryWrapper });
++
++  const renderReady = async () => {
++    const rendered = await renderBoletim();
++    await waitFor(() =>
++      expect(rendered.result.current.termsStatus).toBe('ready'),
++    );
++    return rendered;
++  };
++
++  it('carregando enquanto a lista de anos não chegou', async () => {
++    const { result } = await renderBoletim();
++
++    expect(result.current.status).toBe('loading');
++    await waitFor(() => expect(result.current.termsStatus).toBe('ready'));
++    expect(result.current.status).toBe('ready');
++  });
++
++  it('abre no ano mais recente (2025), com o rótulo "turma - ano"', async () => {
++    const { result } = await renderReady();
++
++    expect(result.current.selectedYearKey).toBe('2025');
++    expect(result.current.selectedYearLabel).toBe('7EF - 2025');
++    expect(result.current.yearOptions).toEqual([
++      { key: '2025', label: '7EF - 2025' },
++      { key: '2024', label: '6EF - 2024' },
++    ]);
++    expect(result.current.isEmpty).toBe(false);
++  });
++
++  it('abre no ano mais recente mesmo se a lista não vier em ordem', async () => {
++    server.use(
++      http.get(listPath, () =>
++        HttpResponse.json([...reportCardsResponse].reverse()),
++      ),
++    );
++
++    const { result } = await renderReady();
++
++    expect(result.current.selectedYearKey).toBe('2025');
++  });
++
++  it('mapeia os trimestres e as disciplinas para exibição, todos fechados', async () => {
++    const { result } = await renderReady();
++
++    expect(result.current.terms).toHaveLength(3);
++    const [first, second] = result.current.terms;
++    expect(first).toMatchObject({
++      term: 1,
++      title: '1º TRIMESTRE',
++      accessibilityLabel: '1º trimestre',
++      expanded: false,
++    });
++    expect(first.subjects).toEqual([
++      {
++        key: '1-0',
++        index: 0,
++        name: 'Língua Portuguesa',
++        grade: '9,5',
++        absences: '0',
++        resultAccessibilityLabel: 'Nota 9,5, 0 faltas',
++        expanded: false,
++      },
++      {
++        key: '1-1',
++        index: 1,
++        name: 'Matemática',
++        grade: '8,0',
++        absences: '2',
++        resultAccessibilityLabel: 'Nota 8,0, 2 faltas',
++        expanded: false,
++      },
++    ]);
++    expect(second.title).toBe('2º TRIMESTRE');
++    expect(second.subjects[0]).toMatchObject({
++      grade: '-',
++      absences: '-',
++      resultAccessibilityLabel: 'Nota e faltas ainda não lançadas',
++    });
++  });
++
++  it('1 falta fica no singular para o leitor de tela', async () => {
++    useSessionStore.setState({ selectedStudentId: 's2' });
++
++    const { result } = await renderReady();
++
++    expect(result.current.terms[0].subjects[0].resultAccessibilityLabel).toBe(
++      'Nota 6,5, 1 falta',
++    );
++  });
++
++  it('abre e fecha trimestre e disciplina de forma independente', async () => {
++    const { result } = await renderReady();
++
++    await act(() => result.current.onToggleTerm(1));
++    await act(() => result.current.onToggleTerm(2));
++    await act(() => result.current.onToggleSubject(1, 0));
++    await act(() => result.current.onToggleSubject(2, 0));
++
++    const expanded = () =>
++      result.current.terms.map(term => ({
++        term: term.expanded,
++        subjects: term.subjects.map(subject => subject.expanded),
++      }));
++    expect(expanded()).toEqual([
++      { term: true, subjects: [true, false] },
++      { term: true, subjects: [true] },
++      { term: false, subjects: [false] },
++    ]);
++
++    await act(() => result.current.onToggleTerm(1));
++    await act(() => result.current.onToggleSubject(2, 0));
++
++    expect(expanded()).toEqual([
++      // A disciplina continua aberta dentro do trimestre fechado.
++      { term: false, subjects: [true, false] },
++      { term: true, subjects: [false] },
++      { term: false, subjects: [false] },
++    ]);
++  });
++
++  it('trocar de ano busca o boletim daquele ano e fecha tudo', async () => {
++    const { result } = await renderReady();
++    await act(() => result.current.onToggleTerm(1));
++    await act(() => result.current.onToggleSubject(1, 0));
++
++    await act(() => result.current.onSelectYear('2024'));
++
++    expect(result.current.selectedYearKey).toBe('2024');
++    expect(result.current.selectedYearLabel).toBe('6EF - 2024');
++    // A lista fica; só os trimestres carregam.
++    expect(result.current.status).toBe('ready');
++    expect(result.current.termsStatus).toBe('loading');
++    await waitFor(() => expect(result.current.termsStatus).toBe('ready'));
++    expect(result.current.terms[0].subjects[0]).toMatchObject({
++      grade: '7,5',
++      absences: '1',
++      expanded: false,
++    });
++    expect(result.current.terms.every(term => !term.expanded)).toBe(true);
++  });
++
++  it('voltar ao ano anterior também fecha tudo', async () => {
++    const { result } = await renderReady();
++    await act(() => result.current.onSelectYear('2024'));
++    await waitFor(() => expect(result.current.termsStatus).toBe('ready'));
++    await act(() => result.current.onToggleTerm(2));
++
++    await act(() => result.current.onSelectYear('2025'));
++
++    expect(result.current.termsStatus).toBe('ready');
++    expect(result.current.terms.every(term => !term.expanded)).toBe(true);
++  });
++
++  it('ano que não está na lista é ignorado', async () => {
++    const { result } = await renderReady();
++
++    await act(() => result.current.onSelectYear('2019'));
++
++    expect(result.current.selectedYearKey).toBe('2025');
++  });
++
++  it('contentKey muda com o ano e com o aluno (os cards entram de novo)', async () => {
++    const { result } = await renderReady();
++    expect(result.current.contentKey).toBe('s1:2025');
++
++    await act(() => result.current.onSelectYear('2024'));
++    expect(result.current.contentKey).toBe('s1:2024');
++
++    await act(() => useSessionStore.getState().selectStudent('s2'));
++    await waitFor(() => expect(result.current.contentKey).toBe('s2:2025'));
++  });
++
++  it('trocar de aluno volta ao ano mais recente do novo aluno, tudo fechado', async () => {
++    const { result } = await renderReady();
++    await act(() => result.current.onSelectYear('2024'));
++    await waitFor(() => expect(result.current.termsStatus).toBe('ready'));
++    await act(() => result.current.onToggleTerm(1));
++
++    await act(() => useSessionStore.getState().selectStudent('s2'));
++    await waitFor(() =>
++      expect(result.current.terms[0]?.subjects[0]?.name).toBe('Geografia'),
++    );
++    expect(result.current.selectedYearLabel).toBe('3EF - 2025');
++    expect(result.current.yearOptions).toEqual([
++      { key: '2025', label: '3EF - 2025' },
++    ]);
++    expect(result.current.terms.every(term => !term.expanded)).toBe(true);
++
++    await act(() => useSessionStore.getState().selectStudent('s1'));
++    await waitFor(() => expect(result.current.selectedYearKey).toBe('2025'));
++    expect(result.current.terms[0].subjects[0].name).toBe('Língua Portuguesa');
++  });
++
++  it('a 1ª exibição espera a entrada do header (4 × stagger); as seguintes, não', async () => {
++    const { result } = await renderReady();
++    expect(result.current.contentEnterDelay).toBe(4 * motion.stagger);
++
++    await act(() => result.current.onSelectYear('2024'));
++    await waitFor(() => expect(result.current.termsStatus).toBe('ready'));
++    expect(result.current.contentEnterDelay).toBe(0);
++
++    await act(() => result.current.onSelectYear('2025'));
++    expect(result.current.contentEnterDelay).toBe(0);
++  });
++
++  it('aluno sem boletim: lista vazia, sem anos para escolher', async () => {
++    server.use(http.get(listPath, () => HttpResponse.json([])));
++
++    const { result } = await renderBoletim();
++
++    await waitFor(() => expect(result.current.status).toBe('ready'));
++    expect(result.current.isEmpty).toBe(true);
++    expect(result.current.yearOptions).toEqual([]);
++    expect(result.current.selectedYearKey).toBeNull();
++    expect(result.current.terms).toEqual([]);
++  });
++
++  describe('erros', () => {
++    it('API fora do ar na lista: erro de conexão, sem anos', async () => {
++      server.use(http.get(listPath, () => HttpResponse.error()));
++
++      const { result } = await renderBoletim();
++
++      await waitFor(() => expect(result.current.status).toBe('error'));
++      expect(result.current.errorDescription).toBe(
++        'Confira sua conexão e tente de novo.',
++      );
++      expect(result.current.yearOptions).toEqual([]);
++      expect(result.current.terms).toEqual([]);
++      expect(result.current.retrying).toBe(false);
++      expect(result.current.shakeKey).toBe(0);
++    });
++
++    it('API fora do ar no boletim do ano: a lista fica e os trimestres dão erro', async () => {
++      server.use(http.get(yearPath, () => HttpResponse.error()));
++
++      const { result } = await renderBoletim();
++
++      await waitFor(() => expect(result.current.termsStatus).toBe('error'));
++      expect(result.current.status).toBe('ready');
++      expect(result.current.selectedYearLabel).toBe('7EF - 2025');
++      expect(result.current.errorDescription).toBe(
++        'Confira sua conexão e tente de novo.',
++      );
++    });
++
++    it('404 do ano cai no erro com "Boletim não encontrado."', async () => {
++      server.use(
++        http.get(yearPath, () => HttpResponse.json(notFound, { status: 404 })),
++      );
++
++      const { result } = await renderBoletim();
++
++      await waitFor(() => expect(result.current.termsStatus).toBe('error'));
++      expect(result.current.errorDescription).toBe('Boletim não encontrado.');
++    });
++
++    it('TENTAR DE NOVO na lista mantém o erro com spinner e mostra o boletim quando a API volta', async () => {
++      server.use(http.get(listPath, () => HttpResponse.error()));
++      const { result } = await renderBoletim();
++      await waitFor(() => expect(result.current.status).toBe('error'));
++
++      const gate = deferred();
++      server.use(
++        http.get(listPath, async () => {
++          await gate.promise;
++          return HttpResponse.json(reportCardsResponse);
++        }),
++      );
++      let retry: Promise<void> = Promise.resolve();
++      await act(() => {
++        retry = result.current.onRetry();
++      });
++
++      expect(result.current.retrying).toBe(true);
++      expect(result.current.status).toBe('error');
++
++      gate.release();
++      await act(() => retry);
++      expect(result.current.retrying).toBe(false);
++      expect(result.current.status).toBe('ready');
++      await waitFor(() => expect(result.current.termsStatus).toBe('ready'));
++      expect(result.current.selectedYearKey).toBe('2025');
++    });
++
++    it('TENTAR DE NOVO no boletim do ano mantém o erro com spinner até a resposta', async () => {
++      server.use(http.get(yearPath, () => HttpResponse.error()));
++      const { result } = await renderBoletim();
++      await waitFor(() => expect(result.current.termsStatus).toBe('error'));
++
++      const gate = deferred();
++      server.use(
++        http.get(yearPath, async () => {
++          await gate.promise;
++          return HttpResponse.json(reportCard2025);
++        }),
++      );
++      let retry: Promise<void> = Promise.resolve();
++      await act(() => {
++        retry = result.current.onRetry();
++      });
++
++      expect(result.current.retrying).toBe(true);
++      expect(result.current.termsStatus).toBe('error');
++
++      gate.release();
++      await act(() => retry);
++      expect(result.current.retrying).toBe(false);
++      expect(result.current.termsStatus).toBe('ready');
++      expect(result.current.terms[0].subjects[0].grade).toBe('9,5');
++    });
++
++    it('TENTAR DE NOVO que falha de novo continua no erro e muda o shakeKey', async () => {
++      server.use(http.get(listPath, () => HttpResponse.error()));
++      const { result } = await renderBoletim();
++      await waitFor(() => expect(result.current.status).toBe('error'));
++
++      await act(() => result.current.onRetry());
++
++      await waitFor(() => expect(result.current.retrying).toBe(false));
++      expect(result.current.status).toBe('error');
++      expect(result.current.shakeKey).toBe(1);
++    });
++
++    it('trocar de aluno no erro zera o spinner e o shake', async () => {
++      server.use(
++        http.get(listPath, ({ params }) =>
++          params.id === 's1'
++            ? HttpResponse.error()
++            : new Promise<never>(() => {}),
++        ),
++      );
++      const { result } = await renderBoletim();
++      await waitFor(() => expect(result.current.status).toBe('error'));
++      await act(() => result.current.onRetry());
++      await waitFor(() => expect(result.current.shakeKey).toBe(1));
++
++      await act(() => useSessionStore.getState().selectStudent('s2'));
++
++      expect(result.current.status).toBe('loading');
++      expect(result.current.retrying).toBe(false);
++      expect(result.current.shakeKey).toBe(0);
++    });
++  });
++});
+diff --git a/mobile/src/features/report-card/components/SubjectAccordion.tsx b/mobile/src/features/report-card/components/SubjectAccordion.tsx
+new file mode 100644
+index 0000000..4d0e765
+--- /dev/null
++++ b/mobile/src/features/report-card/components/SubjectAccordion.tsx
+@@ -0,0 +1,64 @@
++import { Accordion } from '../../../components/Accordion';
++import { strings } from '../../../constants/strings';
++import { Box, Text } from '../../../theme';
++import type { ReportCardSubject } from '../useReportCardViewModel';
++
++type SubjectAccordionProps = {
++  subject: ReportCardSubject;
++  onToggle: () => void;
++  /** Cabeçalho; `-grade`, `-absences` e `-result` saem dele. */
++  testID: string;
++};
++
++/**
++ * Disciplina do Boletim (01-design.md, 2.11): nome em maiúsculas e chevron;
++ * aberta, "Nota:" e "Faltas:" com o valor ou `-`, num elemento só para o
++ * leitor de tela ("Nota 9,5, 0 faltas"). Nota e Faltas fazem fade junto com a
++ * altura.
++ */
++export function SubjectAccordion({
++  subject,
++  onToggle,
++  testID,
++}: SubjectAccordionProps) {
++  return (
++    <Accordion
++      testID={testID}
++      accessibilityLabel={subject.name}
++      expanded={subject.expanded}
++      onToggle={onToggle}
++      fadeContent
++      renderHeader={chevron => (
++        <Box flexDirection="row" alignItems="center" gap="m">
++          <Box flex={1}>
++            <Text variant="subject" numberOfLines={2}>
++              {subject.name}
++            </Text>
++          </Box>
++          {chevron}
++        </Box>
++      )}
++    >
++      <Box
++        testID={`${testID}-result`}
++        accessible
++        accessibilityLabel={subject.resultAccessibilityLabel}
++        gap="xs"
++        paddingBottom="s"
++      >
++        <Box flexDirection="row" gap="sm">
++          <Text variant="detail">{strings.boletim.grade}</Text>
++          <Text testID={`${testID}-grade`} variant="detail">
++            {subject.grade}
++          </Text>
++        </Box>
++        <Box flexDirection="row" gap="sm">
++          <Text variant="detail">{strings.boletim.absences}</Text>
++          <Text testID={`${testID}-absences`} variant="detail">
++            {subject.absences}
++          </Text>
++        </Box>
++      </Box>
++    </Accordion>
++  );
++}
+diff --git a/mobile/src/features/report-card/components/TermAccordion.tsx b/mobile/src/features/report-card/components/TermAccordion.tsx
+new file mode 100644
+index 0000000..a3b7da8
+--- /dev/null
++++ b/mobile/src/features/report-card/components/TermAccordion.tsx
+@@ -0,0 +1,70 @@
++import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
++
++import { Accordion } from '../../../components/Accordion';
++import { Box, Card, Text, useTheme } from '../../../theme';
++import type { ReportCardTerm } from '../useReportCardViewModel';
++import { SubjectAccordion } from './SubjectAccordion';
++
++type TermAccordionProps = {
++  term: ReportCardTerm;
++  onToggle: () => void;
++  onToggleSubject: (index: number) => void;
++  /** Cabeçalho; as disciplinas são `${testID}-subject-<i>`. */
++  testID: string;
++};
++
++/**
++ * Trimestre do Boletim (01-design.md, 2.11): card de 90 com "1º TRIMESTRE"
++ * e chevron; aberto, as disciplinas em acordeão, a 28 da borda (`xl`). Na
++ * 1ª abertura as disciplinas entram em fade escalonado (4.6).
++ */
++export function TermAccordion({
++  term,
++  onToggle,
++  onToggleSubject,
++  testID,
++}: TermAccordionProps) {
++  const { motion, sizes } = useTheme();
++
++  return (
++    <Accordion
++      testID={testID}
++      accessibilityLabel={term.accessibilityLabel}
++      expanded={term.expanded}
++      onToggle={onToggle}
++      renderHeader={chevron => (
++        <Box marginHorizontal="m">
++          <Card variant="term">
++            <Text
++              variant="termTitle"
++              maxFontSizeMultiplier={sizes.fixedHeightFontScale}
++            >
++              {term.title}
++            </Text>
++            {chevron}
++          </Card>
++        </Box>
++      )}
++    >
++      <Box paddingHorizontal="xl" paddingTop="xs" paddingBottom="s">
++        {term.subjects.map(subject => (
++          <Animated.View
++            key={subject.key}
++            entering={FadeIn.duration(motion.fast)
++              .delay(
++                Math.min(subject.index, motion.maxStaggered) *
++                  motion.subjectStagger,
++              )
++              .reduceMotion(ReduceMotion.System)}
++          >
++            <SubjectAccordion
++              testID={`${testID}-subject-${subject.index}`}
++              subject={subject}
++              onToggle={() => onToggleSubject(subject.index)}
++            />
++          </Animated.View>
++        ))}
++      </Box>
++    </Accordion>
++  );
++}
+diff --git a/mobile/src/features/report-card/components/__tests__/TermAccordion.test.tsx b/mobile/src/features/report-card/components/__tests__/TermAccordion.test.tsx
+new file mode 100644
+index 0000000..f421530
+--- /dev/null
++++ b/mobile/src/features/report-card/components/__tests__/TermAccordion.test.tsx
+@@ -0,0 +1,186 @@
++import { fireEvent, screen, within } from '@testing-library/react-native';
++
++import { renderWithTheme } from '../../../../test/renderWithTheme';
++import { theme } from '../../../../theme';
++import type { ReportCardTerm } from '../../useReportCardViewModel';
++import { SubjectAccordion } from '../SubjectAccordion';
++import { TermAccordion } from '../TermAccordion';
++
++const portugues = {
++  key: '1-0',
++  index: 0,
++  name: 'Língua Portuguesa',
++  grade: '9,5',
++  absences: '0',
++  resultAccessibilityLabel: 'Nota 9,5, 0 faltas',
++  expanded: false,
++};
++
++const notReleased = {
++  ...portugues,
++  key: '2-0',
++  grade: '-',
++  absences: '-',
++  resultAccessibilityLabel: 'Nota e faltas ainda não lançadas',
++};
++
++const term1: ReportCardTerm = {
++  term: 1,
++  title: '1º TRIMESTRE',
++  accessibilityLabel: '1º trimestre',
++  expanded: false,
++  subjects: [
++    portugues,
++    {
++      ...portugues,
++      key: '1-1',
++      index: 1,
++      name: 'Matemática',
++      grade: '8,0',
++      absences: '2',
++      resultAccessibilityLabel: 'Nota 8,0, 2 faltas',
++    },
++  ],
++};
++
++describe('SubjectAccordion', () => {
++  const onToggle = jest.fn();
++  const renderSubject = (subject = portugues) =>
++    renderWithTheme(
++      <SubjectAccordion
++        testID="boletim-term-1-subject-0"
++        subject={subject}
++        onToggle={onToggle}
++      />,
++    );
++
++  it('fechado: o nome da disciplina num botão recolhido, sem Nota e Faltas', async () => {
++    await renderSubject();
++
++    const header = screen.getByTestId('boletim-term-1-subject-0');
++    expect(header).toHaveTextContent('Língua Portuguesa');
++    expect(header).toHaveAccessibleName('Língua Portuguesa');
++    expect(header).not.toBeExpanded();
++    expect(header).toHaveStyle({ minHeight: theme.sizes.touchTarget });
++    expect(screen.queryByText('Nota:')).toBeNull();
++  });
++
++  it('nome longo quebra em até 2 linhas', async () => {
++    await renderSubject();
++
++    expect(screen.getByText('Língua Portuguesa')).toHaveProp(
++      'numberOfLines',
++      2,
++    );
++  });
++
++  it('aberto: "Nota:" 9,5 e "Faltas:" 0, lidos como um elemento só', async () => {
++    await renderSubject({ ...portugues, expanded: true });
++
++    expect(screen.getByTestId('boletim-term-1-subject-0')).toBeExpanded();
++    expect(screen.getByText('Nota:')).toBeOnTheScreen();
++    expect(screen.getByText('Faltas:')).toBeOnTheScreen();
++    expect(
++      screen.getByTestId('boletim-term-1-subject-0-grade', {
++        includeHiddenElements: true,
++      }),
++    ).toHaveTextContent('9,5');
++    expect(
++      screen.getByTestId('boletim-term-1-subject-0-absences', {
++        includeHiddenElements: true,
++      }),
++    ).toHaveTextContent('0');
++    expect(
++      screen.getByTestId('boletim-term-1-subject-0-result'),
++    ).toHaveAccessibleName('Nota 9,5, 0 faltas');
++  });
++
++  it('não avaliado: "-" na nota e nas faltas', async () => {
++    await renderSubject({ ...notReleased, expanded: true });
++
++    expect(
++      screen.getByTestId('boletim-term-1-subject-0-grade', {
++        includeHiddenElements: true,
++      }),
++    ).toHaveTextContent('-');
++    expect(
++      screen.getByTestId('boletim-term-1-subject-0-absences', {
++        includeHiddenElements: true,
++      }),
++    ).toHaveTextContent('-');
++    expect(
++      screen.getByTestId('boletim-term-1-subject-0-result'),
++    ).toHaveAccessibleName('Nota e faltas ainda não lançadas');
++  });
++
++  it('tocar na disciplina chama onToggle', async () => {
++    await renderSubject();
++
++    await fireEvent.press(screen.getByTestId('boletim-term-1-subject-0'));
++
++    expect(onToggle).toHaveBeenCalledTimes(1);
++  });
++});
++
++describe('TermAccordion', () => {
++  const onToggle = jest.fn();
++  const onToggleSubject = jest.fn();
++
++  beforeEach(() => {
++    onToggle.mockClear();
++    onToggleSubject.mockClear();
++  });
++
++  const renderTerm = (term = term1) =>
++    renderWithTheme(
++      <TermAccordion
++        testID="boletim-term-1"
++        term={term}
++        onToggle={onToggle}
++        onToggleSubject={onToggleSubject}
++      />,
++    );
++
++  it('fechado: card "1º TRIMESTRE", recolhido, sem disciplinas montadas', async () => {
++    await renderTerm();
++
++    const header = screen.getByTestId('boletim-term-1');
++    expect(header).toHaveTextContent('1º TRIMESTRE');
++    expect(header).toHaveAccessibleName('1º trimestre');
++    expect(header).not.toBeExpanded();
++    expect(
++      screen.queryByTestId('boletim-term-1-subject-0', {
++        includeHiddenElements: true,
++      }),
++    ).toBeNull();
++  });
++
++  it('tocar no trimestre chama onToggle', async () => {
++    await renderTerm();
++
++    await fireEvent.press(screen.getByTestId('boletim-term-1'));
++
++    expect(onToggle).toHaveBeenCalledTimes(1);
++  });
++
++  it('aberto: as disciplinas na ordem, cada uma com o próprio testID', async () => {
++    await renderTerm({ ...term1, expanded: true });
++
++    const content = screen.getByTestId('boletim-term-1-content');
++    expect(
++      within(content).getByTestId('boletim-term-1-subject-0'),
++    ).toHaveTextContent('Língua Portuguesa');
++    expect(
++      within(content).getByTestId('boletim-term-1-subject-1'),
++    ).toHaveTextContent('Matemática');
++  });
++
++  it('tocar numa disciplina chama onToggleSubject com o índice dela', async () => {
++    await renderTerm({ ...term1, expanded: true });
++
++    await fireEvent.press(screen.getByTestId('boletim-term-1-subject-1'));
++
++    expect(onToggleSubject).toHaveBeenCalledWith(1);
++    expect(onToggle).not.toHaveBeenCalled();
++  });
++});
+diff --git a/mobile/src/features/report-card/useReportCardViewModel.ts b/mobile/src/features/report-card/useReportCardViewModel.ts
+new file mode 100644
+index 0000000..44c2aa6
+--- /dev/null
++++ b/mobile/src/features/report-card/useReportCardViewModel.ts
+@@ -0,0 +1,209 @@
++import { useState } from 'react';
++
++import { strings } from '../../constants/strings';
++import { motion } from '../../theme';
++import { formatAbsences, formatGrade } from '../../utils/grades';
++import { useSessionStudent } from '../students/useSessionStudent';
++import { useReportCardQuery } from './api/useReportCardQuery';
++import { useReportCardsQuery } from './api/useReportCardsQuery';
++import type { ReportCardSummary, SubjectResult } from './schemas';
++
++export type ReportCardYearOption = { key: string; label: string };
++
++export type ReportCardSubject = {
++  key: string;
++  /** Posição na ordem da API: entra no testID (0 = Língua Portuguesa). */
++  index: number;
++  name: string;
++  /** `"9,5"`, `"8,0"` ou `"-"`. */
++  grade: string;
++  /** `"0"` ou `"-"`. */
++  absences: string;
++  resultAccessibilityLabel: string;
++  expanded: boolean;
++};
++
++export type ReportCardTerm = {
++  term: number;
++  title: string;
++  accessibilityLabel: string;
++  expanded: boolean;
++  subjects: ReportCardSubject[];
++};
++
++type Status = 'loading' | 'error' | 'ready';
++
++const NO_YEARS: readonly ReportCardSummary[] = [];
++const NONE: readonly string[] = [];
++
++const subjectKey = (term: number, index: number) => `${term}-${index}`;
++
++function resultAccessibilityLabel({ grade, absences }: SubjectResult) {
++  if (grade === null && absences === null) {
++    return strings.boletim.notReleasedAccessibilityLabel;
++  }
++  const gradeText =
++    grade === null ? strings.boletim.gradeNotReleased : formatGrade(grade);
++  return absences === null
++    ? `Nota ${gradeText}, ${strings.boletim.absencesNotReleased}`
++    : strings.boletim.resultAccessibilityLabel(gradeText, absences);
++}
++
++const toggle = (list: readonly string[], key: string) =>
++  list.includes(key) ? list.filter(item => item !== key) : [...list, key];
++
++/**
++ * Boletim (M5, R8): os anos do aluno em uso, o ano escolhido e os trimestres
++ * desse ano em acordeão. Abre no ano mais recente; trocar de ano busca o
++ * boletim dele e fecha todos os acordeões; trocar de aluno volta ao ano mais
++ * recente do novo aluno.
++ */
++export function useReportCardViewModel() {
++  const { student } = useSessionStudent();
++  const studentId = student?.id ?? null;
++  const yearsQuery = useReportCardsQuery(studentId);
++  const years = yearsQuery.data ?? NO_YEARS;
++
++  // Escolha do usuário e estado do TENTAR DE NOVO, válidos só para o aluno
++  // em que aconteceram.
++  const [chosenYear, setChosenYear] = useState<number | null>(null);
++  const [failedRetries, setFailedRetries] = useState(0);
++  // O refetch de uma query sem dados volta o status para `pending`; durante o
++  // TENTAR DE NOVO a tela fica no erro, com o spinner no botão (3.8).
++  const [retrying, setRetrying] = useState(false);
++  const [stateFor, setStateFor] = useState(studentId);
++  if (stateFor !== studentId) {
++    setStateFor(studentId);
++    setChosenYear(null);
++    setRetrying(false);
++    setFailedRetries(0);
++  }
++
++  const latestYear = years.reduce<number | null>(
++    (latest, { year }) => (latest === null || year > latest ? year : latest),
++    null,
++  );
++  const selected =
++    years.find(item => item.year === chosenYear) ??
++    years.find(item => item.year === latestYear) ??
++    null;
++  const selectedYear = selected?.year ?? null;
++
++  const reportQuery = useReportCardQuery(studentId, selectedYear);
++
++  const status: Status = yearsQuery.data
++    ? 'ready'
++    : yearsQuery.isError || retrying
++    ? 'error'
++    : 'loading';
++  const termsStatus: Status = reportQuery.data
++    ? 'ready'
++    : reportQuery.isError || (retrying && status === 'ready')
++    ? 'error'
++    : 'loading';
++  const inError =
++    status === 'error' || (status === 'ready' && termsStatus === 'error');
++  if (!inError && failedRetries !== 0) setFailedRetries(0);
++
++  // Acordeões abertos, válidos só para o aluno e o ano em que foram abertos.
++  const contentKey = `${studentId}:${selectedYear}`;
++  const [openFor, setOpenFor] = useState(contentKey);
++  const [openTerms, setOpenTerms] = useState<readonly string[]>(NONE);
++  const [openSubjects, setOpenSubjects] = useState<readonly string[]>(NONE);
++  if (openFor !== contentKey) {
++    setOpenFor(contentKey);
++    setOpenTerms(NONE);
++    setOpenSubjects(NONE);
++  }
++
++  // A 1ª exibição espera a entrada do header (4.3); depois da 1ª troca, nenhuma.
++  const [firstContentKey, setFirstContentKey] = useState<string | null>(null);
++  const [firstContentLeft, setFirstContentLeft] = useState(false);
++  if (termsStatus === 'ready' && firstContentKey === null) {
++    setFirstContentKey(contentKey);
++  } else if (
++    firstContentKey !== null &&
++    !firstContentLeft &&
++    contentKey !== firstContentKey
++  ) {
++    setFirstContentLeft(true);
++  }
++  const isFirstContent =
++    !firstContentLeft &&
++    (firstContentKey === null || contentKey === firstContentKey);
++
++  const terms: ReportCardTerm[] = (reportQuery.data?.terms ?? []).map(
++    ({ term, subjects }) => ({
++      term,
++      title: strings.boletim.term(term),
++      accessibilityLabel: strings.boletim.termAccessibilityLabel(term),
++      expanded: openTerms.includes(String(term)),
++      subjects: subjects.map((subject, index) => ({
++        key: subjectKey(term, index),
++        index,
++        name: subject.name,
++        grade: formatGrade(subject.grade),
++        absences: formatAbsences(subject.absences),
++        resultAccessibilityLabel: resultAccessibilityLabel(subject),
++        expanded: openSubjects.includes(subjectKey(term, index)),
++      })),
++    }),
++  );
++
++  const failedError =
++    status === 'error' ? yearsQuery.error : reportQuery.error ?? null;
++  const errorDescription =
++    failedError?.kind === 'notFound'
++      ? strings.boletim.error.notFound
++      : strings.common.error.description;
++
++  const onSelectYear = (key: string) => {
++    const year = Number(key);
++    if (years.some(item => item.year === year)) setChosenYear(year);
++  };
++
++  const onToggleTerm = (term: number) =>
++    setOpenTerms(list => toggle(list, String(term)));
++
++  const onToggleSubject = (term: number, index: number) =>
++    setOpenSubjects(list => toggle(list, subjectKey(term, index)));
++
++  const onRetry = async () => {
++    if (retrying) return;
++    setRetrying(true);
++    const result =
++      status === 'error'
++        ? await yearsQuery.refetch()
++        : await reportQuery.refetch();
++    setRetrying(false);
++    if (result.isError) setFailedRetries(count => count + 1);
++  };
++
++  return {
++    /** A lista de anos (dropdown): sem ela, nada do boletim aparece. */
++    status,
++    /** Os trimestres do ano escolhido. */
++    termsStatus,
++    isEmpty: status === 'ready' && years.length === 0,
++    yearOptions: years.map(item => ({
++      key: String(item.year),
++      label: strings.boletim.yearLabel(item.className, item.year),
++    })),
++    selectedYearKey: selected ? String(selected.year) : null,
++    selectedYearLabel: selected
++      ? strings.boletim.yearLabel(selected.className, selected.year)
++      : '',
++    terms,
++    /** Muda com o ano e com o aluno: a View usa como `key` dos cards. */
++    contentKey,
++    contentEnterDelay: isFirstContent ? 4 * motion.stagger : 0,
++    errorDescription,
++    onSelectYear,
++    onToggleTerm,
++    onToggleSubject,
++    onRetry,
++    retrying,
++    /** Muda a cada TENTAR DE NOVO que falha: dispara o shake do ErrorState. */
++    shakeKey: failedRetries,
++  };
++}
+diff --git a/mobile/src/test/fixtures.ts b/mobile/src/test/fixtures.ts
+index e03085a..e342f57 100644
+--- a/mobile/src/test/fixtures.ts
++++ b/mobile/src/test/fixtures.ts
+@@ -79,15 +79,45 @@ export const reportCard2025 = {
+       term: 2,
+       subjects: [{ name: 'Língua Portuguesa', grade: null, absences: null }],
+     },
+     {
+       term: 3,
+       subjects: [{ name: 'Língua Portuguesa', grade: null, absences: null }],
+     },
+   ],
+ };
+ 
++export const reportCard2024 = {
++  year: 2024,
++  className: '6EF',
++  terms: [1, 2, 3].map(term => ({
++    term,
++    subjects: [
++      { name: 'Língua Portuguesa', grade: 7 + term / 2, absences: term },
++      { name: 'Matemática', grade: 10, absences: 0 },
++    ],
++  })),
++};
++
++/** Marina (s2): só 2025, em outra turma. */
++export const marinaReportCards = [{ year: 2025, className: '3EF' }];
++
++export const marinaReportCard2025 = {
++  year: 2025,
++  className: '3EF',
++  terms: [1, 2, 3].map(term => ({
++    term,
++    subjects: [
++      {
++        name: 'Geografia',
++        grade: term === 1 ? 6.5 : null,
++        absences: term === 1 ? 1 : null,
++      },
++    ],
++  })),
++};
++
+ export const invalidCredentials = {
+   statusCode: 401,
+   message: 'Usuário ou senha inválida.',
+   error: 'Unauthorized',
+ };
+diff --git a/mobile/src/theme/motion.ts b/mobile/src/theme/motion.ts
+index 42fdc41..0c0b613 100644
+--- a/mobile/src/theme/motion.ts
++++ b/mobile/src/theme/motion.ts
+@@ -25,22 +25,24 @@ export const motion = {
+   pressScale: 0.98,
+   /** Deslocamento das entradas `FadeInDown` (campos do login e erro). */
+   enterOffset: 12,
+   enterOffsetSmall: 8,
+   /** Shake do formulário em erro (01-design.md, 4.2): 6 passos de 50 ms. */
+   shake: { offsets: [-10, 10, -8, 8, -4, 0], step: 50 },
+   /** Shake curto do estado de erro quando o retry falha de novo (4.8). */
+   shakeShort: { offsets: [-6, 6, -3, 0], step: 50 },
+   /** Seleção de aluno: o modal fecha 120 ms depois da borda acender (4.7). */
+   selectStudentBackDelay: 120,
+-  /** Atraso entre cards da seleção de aluno (4.7). */
++  /** Atraso entre cards da seleção de aluno (4.7) e dos trimestres (4.6). */
+   cardStagger: 60,
++  /** Atraso entre disciplinas na 1ª abertura do trimestre (4.6). */
++  subjectStagger: 20,
+   /** Ícone da aba que ficou ativa: 1 → 1.12 → 1 (4.4). */
+   tabIconPop: 1.12,
+   /** Splash animada (01-design.md, 3.1.3 a 3.1.6). */
+   splash: {
+     minDuration: 1200,
+     minDurationReduced: 600,
+     loopStartAt: 1500,
+     hardTimeout: 10_000,
+     meTimeout: 8000,
+     wipe: { delay: 80, duration: 600 },
+diff --git a/mobile/src/theme/sizes.ts b/mobile/src/theme/sizes.ts
+index 011590f..a38964f 100644
+--- a/mobile/src/theme/sizes.ts
++++ b/mobile/src/theme/sizes.ts
+@@ -25,15 +25,17 @@ export const sizes = {
+   /** Selo SCHOOL dentro do PNG do logo, em proporção (vale em qualquer tamanho). */
+   logoBadge: { x: 0.672, y: 0.35, width: 0.328, height: 0.4 },
+   /** Sobra da capa do selo na splash (esconde o antialias da borda). */
+   logoBadgeBleed: 1,
+   /** Linha teal da splash: largura e quanto passa do logo em cima e embaixo. */
+   scanLine: { width: 2, overhang: 8 },
+   /** Espessura da linha do input do login. */
+   inputLine: 1,
+   /** Espessura do trilho de espera da splash. */
+   splashTrack: 1,
++  /** Limite de altura do acordeão aberto e parado: "sem limite" (o corpo cresce com o conteúdo). */
++  accordionOpenMaxHeight: 100_000,
+   /** Teto da fonte grande do sistema em elementos de altura fixa (1.6). */
+   fixedHeightFontScale: 1.3,
+   contentMaxWidth: 600,
+   formMaxWidth: 318,
+ } as const;

@@ -1,0 +1,4 @@
+# Workspace do Maestro: `maestro test .maestro` roda os flows desta pasta
+# (01 a 10). Os de `subflows/` só rodam chamados por `runFlow`.
+flows:
+  - '*'

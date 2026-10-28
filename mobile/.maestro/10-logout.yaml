@@ -1,0 +1,28 @@
+# SAIR volta ao Login; fechar e abrir o app continua no Login.
+appId: br.com.fiap.school
+name: 10 - Logout
+tags:
+  - login
+---
+- runFlow: subflows/launch-clean.yaml
+- runFlow:
+    file: subflows/login.yaml
+    env:
+      CPF: '96929456004'
+      PASSWORD: '123456'
+- extendedWaitUntil:
+    visible:
+      id: agenda-screen
+    timeout: 10000
+- runFlow: subflows/logout.yaml
+- assertNotVisible:
+    id: agenda-screen
+- stopApp
+- launchApp
+# A splash tem duração mínima: 12 s (ledger).
+- extendedWaitUntil:
+    visible:
+      id: login-screen
+    timeout: 12000
+- assertNotVisible:
+    id: agenda-screen

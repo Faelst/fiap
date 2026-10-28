@@ -113,7 +113,7 @@ pode ser trocada na aprovação.
 - **D11 [chief] Animações com react-native-reanimated 3** (entering/layout
   animations, transição entre os dias, contagem nas notas, pressable com escala)
   e **react-native-bootsplash** para a splash nativa, com animação de saída.
-- **D12 [usuário + chief] Push com expo-notifications em RN CLI.** Entra pelo
+- **D12 — REVOGADA em 2026-10-28: o usuário pediu "remover o Push". Sem push, sem Device, sem /demo/grades; Expo Modules saem do app (Tarefa 16b). Texto abaixo só como histórico.** ~~Push com expo-notifications em RN CLI.~~ Entra pelo
   `npx install-expo-modules` (Expo Modules no projeto bare, sem Expo Go nem
   expo-router). O app pede permissão depois do login, pega o **Expo Push
   Token** e o registra na API (`POST /devices`). A API envia pelo Expo Push
@@ -206,6 +206,26 @@ pode ser trocada na aprovação.
     artefato (exige conta Apple paga).
 - **D33 [chief] Branch padrão `main`**, com PR por entrega e sem merge pelo
   time (regra do `/squad`).
+- **D34 [usuário] — REVOGADA em 2026-10-28: o usuário pediu "remover o OTA". Nada de expo-updates/EAS Update no projeto; o texto abaixo fica só como histórico.** ~~OTA com `expo-updates` + EAS Update~~ (pedido em 2026-10-27:
+  "atualizar ou lançar feature sem submeter nova versão para as lojas"). Entra
+  pelos Expo Modules (`install-expo-modules`), o mesmo caminho do push (D12), o
+  que fecha a pergunta 1 da seção 11: Expo Modules no projeto RN CLI está aceito.
+  Configuração: `runtimeVersion` com policy `fingerprint` (mudança nativa gera
+  runtime novo e não recebe OTA incompatível), canais `preview` e
+  `production`, checagem no launch com fallback para o bundle embutido e
+  desligado em dev. Script `yarn ota:update <canal> "<msg>"` como único caminho de
+  publicar. Exige conta Expo e `eas init` (`projectId` no `app.json`): sem isso o
+  app roda normal, só sem OTA.
+- **D35 [chief] Agenda segue o JSON:** a API devolve os 7 dias da semana do
+  JSON (16–22/03/2025). O app lista esses dias no dropdown ("17 de março,
+  segunda-feira") e abre no dia com o **mesmo dia da semana de hoje**. *Por quê:*
+  os dados são de uma semana fixa de 2025. Abrir na data real cairia sempre em
+  "sem aulas". *Custo se errado:* trocar a regra de seleção inicial no ViewModel.
+- **D36 [chief] Perguntas em aberto resolvidas para começar** (o usuário pediu
+  para implementar em 2026-10-27): API roda **local** (yarn ou Docker) e o
+  avaliador sobe pelo README; prazo desconhecido, então segue a ordem do plano,
+  com os obrigatórios primeiro; push e OTA ficam nas últimas tarefas e funcionam
+  sem credencial (degradam sem quebrar).
 
 ## 4. Escopo
 
@@ -213,17 +233,30 @@ pode ser trocada na aprovação.
 
 **API (`api/`)**
 
-Modelo de dados (palpite meu até ver o JSON, ver Riscos):
+Modelo de dados, derivado do JSON oficial (`docs/data/responsaveis.json`, lido
+em 2026-10-27):
 
 ```
-Guardian      id, name, cpf (único, só dígitos), passwordHash
-Student       id, name, rm (único), className (ex. "1A"), period ("Manhã"/"Tarde")
+Guardian        id, firstName, lastName, cpf (único, só dígitos), email (único), passwordHash
+Student         id, rm (único, int), firstName, lastName, className ("7EF"), period ("Matutino"/"Tarde")
 GuardianStudent guardianId, studentId            (N:N)
-Lesson        id, studentClass, weekday (1–5), startTime "HH:mm", endTime, subject
-ReportCard    id, studentId, year, className
-TermResult    id, reportCardId, term (1–3), subject, grade (decimal | null), absences (int | null)
-Device        id, guardianId, expoPushToken (único), platform, createdAt
+AgendaDay       id, studentId, date ("2025-03-17")   (único: studentId+date; existe mesmo sem aula)
+Lesson          id, agendaDayId, startTime "07:15", endTime "08:00", subject, order
+ReportCard      id, studentId, year (int), className   (único: studentId+year)
+TermResult      id, reportCardId, term (1–3), subject, grade (decimal | null), absences (int | null), order
+Device          id, guardianId, expoPushToken (único), platform, createdAt
 ```
+
+Formato do JSON: responsável `{id, cpf, email, senha, primeiroNome, sobrenome,
+alunos[]}`; aluno `{rm, turma, periodo, primeiroNome, sobrenome, agenda[],
+boletim[]}`; `agenda` = 7 dias `{dia: "2025-03-16".."2025-03-22", aulas:
+[{horario: "07:15 - 08:00", disciplina}]}` (a agenda é **por aluno e por
+data**, não por turma); `boletim` = `{ano: "2025", turma, trimestres: [{trimestre,
+disciplinas: [{nome, nota|null, faltas|null}]}]}`. Dados: Gustavo (2 alunos:
+Rafael 7EF com 2025 e 2024, Joana 2EM com 2025) e Adelaide (1 aluna: Bianca 1EF).
+O seed lê o JSON, separa `horario` em início/fim, guarda `senha` com bcrypt e
+**acrescenta um responsável sem aluno** (extra nosso, para o cenário de erro,
+marcado no README).
 
 Rotas (prefixo `/api`):
 
@@ -231,18 +264,16 @@ Rotas (prefixo `/api`):
 |---|---|---|---|
 | POST | `/auth/login` `{cpf, password}` | `LoginUseCase` → `{accessToken, guardian}` | pública |
 | GET | `/me` | `GetMeUseCase` → responsável + alunos vinculados | JWT |
-| GET | `/students/:id/lessons?weekday=1..5` | `GetStudentLessonsUseCase` | JWT + ownership |
-| GET | `/students/:id/report-cards/years` | `ListReportCardYearsUseCase` | JWT + ownership |
+| GET | `/students/:id/agenda` | `GetStudentAgendaUseCase` → `[{date, lessons: [{startTime, endTime, subject}]}]`, os 7 dias ordenados | JWT + ownership |
+| GET | `/students/:id/report-cards` | `ListReportCardsUseCase` → `[{year, className}]` desc | JWT + ownership |
 | GET | `/students/:id/report-cards/:year` | `GetReportCardUseCase` | JWT + ownership |
 | POST | `/devices` `{expoPushToken, platform}` | `RegisterDeviceUseCase` (upsert) | JWT |
 | DELETE | `/devices/:token` | `UnregisterDeviceUseCase` (no logout) | JWT |
 | POST | `/demo/grades` `{studentId, subject, term, grade}` | `PublishGradeUseCase` → grava a nota + `SendPushUseCase` | JWT + ownership, só com `DEMO_ENABLED=true` |
 | GET | `/health` | — | pública |
 
-Seed: responsáveis com 1 aluno, com 2+ alunos e **sem aluno** (cenário de
-erro); grade semanal de seg–sex por turma; boletins de 2025 (só o T1 com nota
-e falta, T2/T3 `null`) e de 2024/2023 completos para o bônus. As senhas do
-seed vão documentadas no README.
+Seed: o JSON oficial + o responsável sem aluno. As credenciais vão no README
+(Gustavo `969.294.560-04` / `123456`, Adelaide `508.795.670-07` / `987654`).
 
 **Mobile (`mobile/`)**
 
@@ -294,9 +325,11 @@ husky, commitlint, `README.md`, `docker-compose.yml`.
   vinculado → 403.
 - A3 `GET /me` devolve nome, CPF mascarado e alunos (id, nome, rm, turma,
   período); responsável sem aluno → `students: []`.
-- A4 Aulas por dia ordenadas por `startTime`; `weekday` fora de 1–5 → 400.
-- A5 Boletim de 2025: T1 com nota e falta por disciplina, T2 e T3 `null`; `years`
-  lista 2025, 2024 e 2023 (desc); ano sem dado → 404.
+- A4 `GET /students/:id/agenda` devolve os 7 dias do JSON (16–22/03/2025) em
+  ordem de data, com as aulas de cada dia ordenadas por `startTime`; domingo e
+  sábado vêm com `lessons: []`.
+- A5 Boletim do Rafael em 2025: T1 com nota e falta nas 12 disciplinas, T2 e T3
+  `null`. `report-cards` lista `[{2025, 7EF}, {2024, 6EF}]`. Ano sem dado → 404.
 - A6 `yarn test` (unit), `yarn test:e2e` e `prisma migrate reset --force` +
   seed passam do zero; cada arquivo de `use-cases/` tem `.spec.ts`.
 - A7 Swagger em `/docs` lista todas as rotas com os DTOs e o Bearer funciona.
@@ -312,11 +345,14 @@ husky, commitlint, `README.md`, `docker-compose.yml`.
   removido da API.
 - M3 Header em Aulas e Boletim com os dados do R5. O botão de trocar aluno só
   aparece com mais de um aluno.
-- M4 Aulas abre no dia da semana atual (sábado/domingo → segunda) e o seletor
-  troca entre seg–sex com animação. Cada aula mostra início, término e
-  disciplina. Dia sem aula mostra estado vazio.
-- M5 Boletim abre em 2025 e mostra ano, turma, T1 com notas e faltas, T2/T3 como
-  "Não avaliado". O seletor de ano navega para 2024/2023.
+- M4 Aulas abre no dia da agenda que tem o mesmo dia da semana de hoje (D35). O
+  dropdown lista os 7 dias da agenda (dom–sáb) como "17 de março,
+  segunda-feira" e abre e fecha com animação. Cada
+  aula mostra início, término e disciplina. Fim de semana ou dia sem aula mostra
+  a ilustração + "Sem aulas neste dia".
+- M5 Boletim abre em "<turma> - 2025" com os 3 trimestres em acordeão. O T1 traz
+  Nota e Faltas por disciplina, e T2/T3 mostram `-`. O dropdown de turma/ano
+  navega para os anos anteriores.
 - M6 Seleção de aluno: lista nome completo, RM e turma; escolher volta para a
   tela de origem (Aulas ou Boletim) já com os dados do novo aluno. Não aparece no
   rodapé.
@@ -345,8 +381,8 @@ husky, commitlint, `README.md`, `docker-compose.yml`.
 | `01-login-invalido.yaml` | CPF/senha errados → mensagem de erro |
 | `02-login-sucesso.yaml` | login → Aulas com header correto |
 | `03-sessao-persistida.yaml` | login → `stopApp` → `launchApp` → Aulas sem login |
-| `04-aulas-navegar-dias.yaml` | troca seg→sex e confere as disciplinas de cada dia |
-| `05-boletim-2025.yaml` | Boletim mostra 2025, T1 com notas e T2/T3 não avaliados |
+| `04-aulas-navegar-dias.yaml` | abre o dropdown, troca de dia e confere as disciplinas; domingo mostra o estado vazio |
+| `05-boletim-2025.yaml` | Boletim mostra "<turma> - 2025"; abre o T1 e uma disciplina com nota e faltas; T2 mostra `-` |
 | `06-boletim-anos-anteriores.yaml` | troca para 2024 (bônus) |
 | `07-trocar-aluno.yaml` | responsável com 2 alunos: troca no Boletim e volta ao Boletim com o novo aluno |
 | `08-um-aluno-sem-botao.yaml` | responsável com 1 aluno não vê o botão de troca |
@@ -357,19 +393,46 @@ Os flows usam os responsáveis do seed e `testID`s, nunca texto de posição.
 
 ## 7. Design system
 
-**Criar.** Não há design system existente: o designer extrai do Figma os
-tokens (cores, tipografia, spacing, radii, sombras) e os componentes base para o
-tema Restyle, e especifica as quatro telas e os estados (loading, vazio, erro)
-em `01-design.md`, incluindo as animações de cada tela.
+**Criar a partir do Figma.** O Figma foi lido em 2026-10-27, e o resultado está
+em `docs/figma/README.md` (tokens, componentes, telas e estados), com prints em
+`docs/figma/screens/` e assets em `docs/figma/assets/`. O arquivo não tem
+variáveis: os tokens foram extraídos nó a nó. Resumo:
+
+- Tema escuro: `background #000`, `primary #29F4D5`, `surface #262626`,
+  `surfaceRaised #4D4D4D`, texto branco, botão desabilitado com texto `#777`.
+- Fonte **Montserrat** (400/500/600/Bold), embutida no app (iOS e Android).
+- Frame de referência 414×736.
+
+O designer converte isso no tema Restyle e especifica em `01-design.md` o que
+o Figma não cobre: splash, skeletons, erro de rede, responsável sem aluno e as
+animações de cada tela.
+
+**Ajustes do brief que vieram do Figma:**
+- Aulas: o seletor é um **dropdown com a data e o dia** ("17 de março,
+  segunda-feira") e lista os **7 dias da semana corrente (dom–sáb)**. Fim de
+  semana mostra o estado vazio com ilustração. Isso substitui o "sábado/domingo →
+  segunda" do M4.
+- Boletim: dropdown de **turma + ano** ("7EF - 2025", "6EF - 2024"); trimestres
+  e disciplinas em **acordeão**; trimestre não avaliado mostra `-`; 12 disciplinas.
+- Topo: logo + `TROCAR PERFIL` (só com mais de 1 aluno) + `SAIR`.
+- Erro do login em teal: "Usuário ou senha inválida. Pode tentar novamente?".
+- Mudança de aluno: modal de tela cheia com "FECHAR ✕", e o aluno atual com
+  borda `primary`.
 
 ## 8. Riscos
 
-- **R-JSON:** o JSON oficial ainda não foi lido. O modelo de dados da seção 4 é
-  palpite. Se o JSON tiver outro formato (ex.: nota por avaliação em vez de nota
-  geral, horário em outro formato), o schema Prisma e o seed mudam antes da
-  Tarefa 1 da API. **Bloqueia o início da API.**
-- **R-Figma:** o Figma ainda não foi lido (o MCP do Figma pede autenticação). Sem
-  ele, o designer não especifica as telas. **Bloqueia o início do mobile (telas).**
+- **R-JSON (resolvido em 2026-10-27):** baixado do link público do Drive e salvo
+  em `docs/data/responsaveis.json`. O modelo da seção 4 já segue o JSON.
+- **R-Ambiente (máquina do usuário, 2026-10-27):** sem JDK/Android SDK (não dá
+  para buildar Android localmente), sem Docker, sem Maestro e com o `watchman`
+  quebrado (falta a `libglog`). iOS (Xcode 27, simuladores iPhone 16) e Node 24
+  funcionam. Consequência: o developer valida no iOS simulator e o Android só é
+  verificado no CI, até o usuário instalar JDK 17 + Android Studio. Os flows do
+  Maestro são escritos agora e rodados quando o Maestro for instalado (`curl -fsSL
+  https://get.maestro.mobile.dev | bash`).
+- **R-Figma (resolvido em 2026-10-27):** lido pela cópia
+  `Zo6DZy8rfXVVcrOBgfCWcU`. Ver `docs/figma/README.md`. Os links dos assets do
+  MCP expiram em 7 dias, e por isso os arquivos já estão em `docs/figma/assets/`.
 - **R-Push:** Expo Push em RN CLI precisa de: conta Expo e `projectId`
   (`eas init`), um projeto Firebase com `google-services.json` para FCM (Android)
   e uma chave APNs, que exige conta Apple Developer paga (iOS). Simulador iOS não
@@ -441,10 +504,11 @@ Copiadas literalmente em cada revisão:
    só funciona fora do emulador com uma API pública (hospedagem + HTTPS).
 4. **Prazo de entrega**, para definir onde cortar (Maestro no CI, Docker, push,
    CD do APK).
-5. **JSON e Figma:** os dois links estão no .docx, mas o conteúdo ainda não foi
-   lido. Bloqueiam a API (schema/seed) e as telas.
+5. **JSON:** o link está no .docx, mas o conteúdo ainda não foi lido. Bloqueia a
+   API (schema/seed). (O Figma já foi lido.)
 
 ## 12. Aprovação
 
-Pendente: o usuário responde a seção 11 e aprova este brief antes do
-`00-plano.md`.
+2026-10-27: o usuário pediu "comece a implementar a api e o app". Isso conta
+como aprovação do brief. As perguntas da seção 11 que continuavam abertas foram
+decididas em D34–D36.

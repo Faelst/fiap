@@ -8,6 +8,7 @@ JSON do enunciado. Projeto desenvolvido com IA por SDD (Spec-Driven Development)
 
 - **Enunciado do teste:** `docs/teste-tecnico-mobile.md` (transcrição) e
   `docs/teste-tecnico-mobile.docx` (original). Inclui os links do Figma e do JSON.
+- **Design (Figma):** `docs/figma/README.md` (tokens, componentes, telas), com prints e assets.
 - **Spec aprovada / em aprovação:** `.claude/team/tarefas/2026-10-27-fiap-school/00-brief.md`.
   Decisões, escopo, critérios de aceite, riscos e perguntas em aberto estão lá:
   leia antes de qualquer trabalho.
@@ -24,10 +25,6 @@ JSON do enunciado. Projeto desenvolvido com IA por SDD (Spec-Driven Development)
   aqui, então não é preciso instalar plugin em outra máquina.
 - Abra o Claude Code **na raiz deste repositório**: os caminhos dos agents são
   relativos a ela.
-- Os textos dos agents e do protocolo foram copiados do projeto Safety Swap e
-  ainda citam Safety Swap, Heroku, EAS e `master`. A adaptação é a Tarefa 1 do
-  plano. Até lá, onde houver conflito, vale este arquivo e o `00-brief.md`
-  (branch padrão `main`, sem deploy em loja).
 
 ## Stack (resumo do brief)
 
@@ -45,3 +42,6 @@ JSON do enunciado. Projeto desenvolvido com IA por SDD (Spec-Driven Development)
 - Nunca commitar na `main` direto depois do commit inicial: branch + PR, e o
   merge é do usuário.
 - Nunca logar token, senha ou CPF completo.
+- Hooks do husky na raiz: `commit-msg` valida a mensagem (commitlint) e `pre-commit` roda
+  lint-staged (eslint em `api/`; eslint + prettier em `mobile/`). Rode `yarn install` na raiz,
+  em `api/` e em `mobile/`: sem o `node_modules` da pasta o lint dela é pulado com aviso.

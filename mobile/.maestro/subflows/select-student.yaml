@@ -1,0 +1,16 @@
+# Troca o aluno pelo TROCAR PERFIL. Parâmetro: RM do aluno.
+# Escolher o aluno já selecionado também fecha a seleção.
+appId: br.com.fiap.school
+---
+- tapOn:
+    id: header-switch-student-button
+- extendedWaitUntil:
+    visible:
+      id: select-student-card-${RM}
+    timeout: 5000
+- tapOn:
+    id: select-student-card-${RM}
+- extendedWaitUntil:
+    notVisible:
+      id: select-student-screen
+    timeout: 5000

@@ -1,0 +1,26 @@
+# Sessão salva no keychain: fechar e abrir o app volta direto para a Agenda.
+appId: br.com.fiap.school
+name: 03 - Sessão persistida ao reabrir o app
+tags:
+  - login
+---
+- runFlow: subflows/launch-clean.yaml
+- runFlow:
+    file: subflows/login.yaml
+    env:
+      CPF: '96929456004'
+      PASSWORD: '123456'
+- extendedWaitUntil:
+    visible:
+      id: agenda-screen
+    timeout: 10000
+- stopApp
+# Sem clearState: a sessão tem de sobreviver ao relançamento.
+- launchApp
+# A splash tem duração mínima: 12 s (ledger).
+- extendedWaitUntil:
+    visible:
+      id: agenda-screen
+    timeout: 12000
+- assertNotVisible:
+    id: login-screen

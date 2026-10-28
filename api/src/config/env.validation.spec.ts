@@ -1,0 +1,261 @@
+import { parseCorsOrigins, validateEnv } from './env.validation';
+import { EXAMPLE_JWT_SECRET, publicSecretWarning } from './public-secrets';
+
+const validEnv = {
+  DATABASE_URL: 'file:./dev.db',
+  JWT_SECRET: 'um-segredo-de-testes-com-mais-de-32-caracteres',
+};
+
+describe('validateEnv', () => {
+  it('aplica os padrões de porta, expiração do token e CORS', () => {
+    expect(validateEnv(validEnv)).toMatchObject({
+      DATABASE_URL: 'file:./dev.db',
+      JWT_SECRET: 'um-segredo-de-testes-com-mais-de-32-caracteres',
+      PORT: 3333,
+      JWT_EXPIRES_IN: '7d',
+      CORS_ORIGINS: '*',
+      LOGIN_THROTTLE_LIMIT: 5,
+      LOGIN_THROTTLE_TTL_MS: 60000,
+      LOGIN_THROTTLE_CPF_LIMIT: 10,
+      LOGIN_THROTTLE_CPF_TTL_MS: 900000,
+      LOG_LEVEL: 'info',
+      SWAGGER_ENABLED: true,
+      TRUST_PROXY: 'false',
+    });
+  });
+
+  it('converte a porta de texto para número', () => {
+    expect(validateEnv({ ...validEnv, PORT: '4000' }).PORT).toBe(4000);
+  });
+
+  it.each(['DATABASE_URL', 'JWT_SECRET'])(
+    'recusa a configuração sem %s',
+    (key) => {
+      const env: Record<string, unknown> = { ...validEnv };
+      delete env[key];
+
+      expect(() => validateEnv(env)).toThrow(key);
+    },
+  );
+
+  it('recusa JWT_SECRET vazio', () => {
+    expect(() => validateEnv({ ...validEnv, JWT_SECRET: '' })).toThrow(
+      'JWT_SECRET',
+    );
+  });
+
+  it.each(['0', '70000', 'abc'])('recusa a porta "%s"', (port) => {
+    expect(() => validateEnv({ ...validEnv, PORT: port })).toThrow('PORT');
+  });
+
+  it.each(['7d', '12h', '30m', '900s', '1w'])(
+    'aceita JWT_EXPIRES_IN "%s"',
+    (value) => {
+      expect(
+        validateEnv({ ...validEnv, JWT_EXPIRES_IN: value }).JWT_EXPIRES_IN,
+      ).toBe(value);
+    },
+  );
+
+  it.each([
+    '3600',
+    '500ms',
+    'sete dias',
+    '7 dias',
+    '-1d',
+    '7x',
+    '0s',
+    '0m',
+    '00d',
+    '07d',
+  ])('recusa JWT_EXPIRES_IN "%s"', (value) => {
+    expect(() => validateEnv({ ...validEnv, JWT_EXPIRES_IN: value })).toThrow(
+      'JWT_EXPIRES_IN',
+    );
+  });
+
+  it('converte o limite e a janela do rate limit do login para número', () => {
+    expect(
+      validateEnv({
+        ...validEnv,
+        LOGIN_THROTTLE_LIMIT: '1000',
+        LOGIN_THROTTLE_TTL_MS: '1000',
+      }),
+    ).toMatchObject({
+      LOGIN_THROTTLE_LIMIT: 1000,
+      LOGIN_THROTTLE_TTL_MS: 1000,
+    });
+  });
+
+  it.each([
+    ['LOGIN_THROTTLE_LIMIT', '0'],
+    ['LOGIN_THROTTLE_LIMIT', 'abc'],
+    ['LOGIN_THROTTLE_TTL_MS', '0'],
+    ['LOGIN_THROTTLE_CPF_LIMIT', '0'],
+    ['LOGIN_THROTTLE_CPF_LIMIT', 'abc'],
+    ['LOGIN_THROTTLE_CPF_TTL_MS', '0'],
+  ])('recusa %s = "%s"', (key, value) => {
+    expect(() => validateEnv({ ...validEnv, [key]: value })).toThrow(key);
+  });
+});
+
+describe('validateEnv: JWT_SECRET', () => {
+  it('recusa segredo com menos de 32 caracteres', () => {
+    expect(() =>
+      validateEnv({ ...validEnv, JWT_SECRET: 'a'.repeat(31) }),
+    ).toThrow('JWT_SECRET');
+  });
+
+  it('aceita segredo de 32 caracteres', () => {
+    expect(
+      validateEnv({ ...validEnv, JWT_SECRET: 'a'.repeat(32) }).JWT_SECRET,
+    ).toHaveLength(32);
+  });
+
+  it('o segredo do .env.example tem 32+ caracteres (sobe em dev)', () => {
+    expect(
+      validateEnv({ ...validEnv, JWT_SECRET: EXAMPLE_JWT_SECRET }).JWT_SECRET,
+    ).toBe(EXAMPLE_JWT_SECRET);
+  });
+
+  it('em produção recusa o segredo do .env.example', () => {
+    expect(() =>
+      validateEnv({
+        ...validEnv,
+        NODE_ENV: 'production',
+        CORS_ORIGINS: 'https://app.example.com',
+        JWT_SECRET: EXAMPLE_JWT_SECRET,
+      }),
+    ).toThrow('JWT_SECRET');
+  });
+
+  it('em produção aceita um segredo próprio', () => {
+    expect(() =>
+      validateEnv({
+        ...validEnv,
+        NODE_ENV: 'production',
+        CORS_ORIGINS: 'https://app.example.com',
+      }),
+    ).not.toThrow();
+  });
+});
+
+describe('validateEnv: padrões de produção (CORS e Swagger)', () => {
+  const production = { ...validEnv, NODE_ENV: 'production' };
+
+  it('em produção exige CORS_ORIGINS (sem * implícito)', () => {
+    expect(() => validateEnv(production)).toThrow('CORS_ORIGINS');
+  });
+
+  it('em produção aceita CORS_ORIGINS explícito, inclusive *', () => {
+    for (const origins of ['https://app.example.com', '*']) {
+      expect(
+        validateEnv({ ...production, CORS_ORIGINS: origins }).CORS_ORIGINS,
+      ).toBe(origins);
+    }
+  });
+
+  it('fora de produção o CORS continua * por padrão', () => {
+    expect(
+      validateEnv({ ...validEnv, NODE_ENV: 'development' }).CORS_ORIGINS,
+    ).toBe('*');
+  });
+
+  it('em produção o Swagger fica desligado por padrão', () => {
+    expect(
+      validateEnv({ ...production, CORS_ORIGINS: '*' }).SWAGGER_ENABLED,
+    ).toBe(false);
+  });
+
+  it('em produção SWAGGER_ENABLED=true liga o Swagger', () => {
+    expect(
+      validateEnv({ ...production, CORS_ORIGINS: '*', SWAGGER_ENABLED: 'true' })
+        .SWAGGER_ENABLED,
+    ).toBe(true);
+  });
+
+  it('fora de produção o Swagger fica ligado por padrão', () => {
+    expect(
+      validateEnv({ ...validEnv, NODE_ENV: 'development' }).SWAGGER_ENABLED,
+    ).toBe(true);
+  });
+});
+
+describe('publicSecretWarning', () => {
+  it('avisa quando o segredo é o do .env.example', () => {
+    expect(publicSecretWarning(EXAMPLE_JWT_SECRET)).toContain('JWT_SECRET');
+  });
+
+  it('não avisa para um segredo próprio', () => {
+    expect(publicSecretWarning(validEnv.JWT_SECRET)).toBeNull();
+  });
+
+  it('não avisa mais pelo antigo padrão do docker-compose (deixou de existir)', () => {
+    expect(
+      publicSecretWarning(
+        'docker-compose-local-so-para-avaliacao-troque-em-deploy',
+      ),
+    ).toBeNull();
+  });
+});
+
+describe('validateEnv: logs, Swagger e proxy', () => {
+  it.each(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])(
+    'aceita LOG_LEVEL "%s"',
+    (level) => {
+      expect(validateEnv({ ...validEnv, LOG_LEVEL: level }).LOG_LEVEL).toBe(
+        level,
+      );
+    },
+  );
+
+  it.each(['verbose', 'INFO', ''])('recusa LOG_LEVEL "%s"', (level) => {
+    expect(() => validateEnv({ ...validEnv, LOG_LEVEL: level })).toThrow(
+      'LOG_LEVEL',
+    );
+  });
+
+  it.each([
+    ['true', true],
+    ['false', false],
+    ['TRUE', true],
+    [' false ', false],
+  ])('lê SWAGGER_ENABLED "%s" como %p', (value, expected) => {
+    expect(
+      validateEnv({ ...validEnv, SWAGGER_ENABLED: value }).SWAGGER_ENABLED,
+    ).toBe(expected);
+  });
+
+  it.each(['sim', '0', ''])('recusa SWAGGER_ENABLED "%s"', (value) => {
+    expect(() => validateEnv({ ...validEnv, SWAGGER_ENABLED: value })).toThrow(
+      'SWAGGER_ENABLED',
+    );
+  });
+
+  it.each(['1', 'loopback, 10.0.0.0/8'])('aceita TRUST_PROXY "%s"', (value) => {
+    expect(validateEnv({ ...validEnv, TRUST_PROXY: value }).TRUST_PROXY).toBe(
+      value,
+    );
+  });
+
+  it.each(['true', '-1', 'sim', '10.0.0.0/40'])(
+    'recusa TRUST_PROXY "%s"',
+    (value) => {
+      expect(() => validateEnv({ ...validEnv, TRUST_PROXY: value })).toThrow(
+        'TRUST_PROXY',
+      );
+    },
+  );
+});
+
+describe('parseCorsOrigins', () => {
+  it('libera todas as origens com *', () => {
+    expect(parseCorsOrigins('*')).toBe('*');
+  });
+
+  it('separa a lista por vírgula e ignora espaços e itens vazios', () => {
+    expect(
+      parseCorsOrigins(' http://localhost:8081, https://app.example.com ,'),
+    ).toEqual(['http://localhost:8081', 'https://app.example.com']);
+  });
+});
