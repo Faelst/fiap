@@ -1847,3 +1847,54 @@ Re-review restrito do diff b6bdc22..537a032 (7 commits).
 ## Mensagens
 → chief: rodada 1 da revisão final do mobile APROVADA. As 6 correções pedidas estão resolvidas, sem quebra nova. O bundle de release caiu de 3,28 para 2,77 MB e não tem mais o gesture-handler. A troca dos locales do zod não muda nenhuma mensagem que o usuário veja, porque o zod registra o `en` por import direto e o app só mostra mensagens próprias. Só o logo/ilustração em 1× continua aberto, dependendo do export do Figma. Para o QA: quem já tinha o app instalado cai no Login uma vez por causa da marca de instalação, e isso é esperado.
 → qa: depois de atualizar o app no simulador, faça login de novo (a marca de instalação é nova). Rode `pod install`, porque o RNGestureHandler saiu. Confira também que voltar do background depois de 5 min recarrega a Agenda.
+
+## Tarefa 17 — parte 2
+
+Escopo: diff `44f6184..e32fe3b` na `release/v1` (README final, 5 GIFs, `mobile/README.md`, `mobile/.maestro/README.md`, `mobile/.prettierignore`). Conferido contra o worktree `release`, `05-qa.md` e o `02-dev.md` da parte 2.
+
+### O que conferi e bate
+- Comandos: `yarn maestro:check` existe (`mobile/package.json`); as tags `login`, `agenda`, `boletim` e `alunos` existem nos flows; o `05-boletim-2025.yaml` e as 4 subflows existem; Maestro 2.11.0 é a versão do `maestro.yml`; o gatilho do workflow (manual e PR com label `e2e`) bate com a tabela. Bundle id `br.com.fiap.school` e o scheme `FiapSchool` batem com o `project.pbxproj`. `ios/build/` e `vendor/bundle/` estão no `.gitignore`. `GuardianStudent.position` existe no `schema.prisma`.
+- Resto de Expo, push, OTA e gesture-handler: o grep do README só acha "sem Expo" e "Sem push e sem atualização OTA" (as duas frases honestas, nas limitações) e o `export * as` do zod. Nenhum "previsto", "a gravar", "a confirmar" ou "no fechamento".
+- Avisos do que nunca rodou: Docker (Opção B), Android (limitação e pré-requisitos), Maestro (seção própria, limitação e `.maestro/README.md`) e CI ("Nenhum workflow rodou ainda") estão declarados, sem afirmar execução.
+- Links relativos: todos existem na `release/v1`, inclusive `evidencias/qa/`, `2026-10-28-app-v2/`, `mobile/.maestro/README.md` e os 5 `docs/media/*.gif`. As âncoras `#ios-macos`, `#flows-do-maestro`, `#github-actions-githubworkflows` e `#opção-b-docker` batem com os títulos. `05-qa.md` existe (só citado em tabela, sem link).
+- GIFs: 320x694 cada, de 198 a 442 KB (total 1,7 MB). Abri o `boletim.gif`: o texto do app está legível nessa largura.
+- Início rápido, caminhos A e B: A segue a execução registrada no `02-dev.md` (Ruby 3 do Homebrew, `bundle install`, `yarn ios`); o aviso do Ruby 2.6 e do erro "Something went wrong while installing CocoaPods" é o mesmo que o QA reproduziu. B explica por que usar o UDID (`name=` falha com runtime mais novo sem iPhone 16), que é o ponto que derrubou o avaliador sem contexto. Um avaliador de macOS com Ruby do sistema chega a um app rodando por um dos dois.
+
+### Achados
+
+### [IMPORTANTE] Caminho B: `cd mobile/ios` parte do diretório errado
+- Arquivo: README.md, bloco da linha de comando do Caminho B (`cd mobile/ios`)
+- Problema: o bloco anterior termina em `cd ios && pod install && cd ..` (o terminal está em `mobile/`). O bloco seguinte, "em outro terminal", começa com `cd mobile/ios`, que só vale a partir da raiz, e o texto não diz de onde. Se o avaliador reaproveitar o terminal do `pod install` (ou o do Metro, que também está em `mobile/`), cai em `cd: no such file or directory: mobile/ios`.
+- Cenário: avaliador do caminho B copia o bloco no terminal que já está em `mobile/`, o `cd` falha e o `xcodebuild` roda na pasta errada ("does not contain an Xcode project").
+- Correção sugerida: usar `cd ios` (o mesmo ponto de partida dos blocos anteriores) ou dizer "a partir da raiz do repositório".
+
+### [IMPORTANTE] Linha `revisao/` duplicada na tabela de artefatos
+- Arquivo: README.md:740 e 742
+- Problema: a edição inseriu a linha `revisao/` de novo, sem remover a antiga. A tabela mostra "`revisao/` | Os diffs entregues aos revisores" duas vezes.
+- Cenário: o avaliador vê um erro de revisão logo no README da entrega, que é o documento que ele lê primeiro; o outro erro de tabela desse tipo faria o resto parecer descuidado.
+- Correção sugerida: apagar uma das duas linhas.
+
+### [SUGESTÃO] `mobile/Gemfile.lock` aparece no `git status` depois do Caminho A
+- Arquivo: mobile/.gitignore (sem entrada), README.md (parágrafo do `Podfile.lock`)
+- Problema: o README manda o avaliador desfazer na mão (`git checkout -- ios/Podfile.lock && rm Gemfile.lock`). O `vendor/bundle` está ignorado, o `Gemfile.lock` não.
+- Correção sugerida: opcional, `Gemfile.lock` no `mobile/.gitignore`, ou manter a nota como está. Não afeta o build.
+
+### [SUGESTÃO] README com 711 linhas, e o Início rápido ficou com um aviso maior que o bloco de comandos
+- Arquivo: README.md:13-52
+- Problema: o aviso do Ruby ocupa cerca de 15 linhas entre o bloco de comandos e a credencial de login, e repete o que a seção iOS (linhas 365-425) detalha de novo. Quem lê só o topo recebe as duas alternativas sem o Caminho B completo.
+- Correção sugerida: encurtar o aviso a 3 linhas com o link para [iOS](#ios-macos). Opcional.
+
+### Deixei de julgar
+- Se `bundle install` + `yarn ios` do Caminho A e o `xcodebuild` do Caminho B funcionam em outra máquina: confio na execução do `02-dev.md` e do QA num clone limpo; não rodei (sem simulador aqui). rbenv e asdf, o Xcode pela interface e o iPhone físico não foram testados nem pelo developer, e o README não afirma que foram.
+- Android, Docker, Maestro e os três workflows no GitHub: sem JDK, Docker, Maestro nem remote, só dá para conferir que o texto não afirma execução.
+- O conteúdo do `05-qa.md` e das evidências (vídeos): são do QA, não da tarefa; só conferi que existem.
+- `ReduceMotion` nos GIFs e se os GIFs mostram todos os fluxos prometidos nas legendas: as legendas vêm do roteiro do QA; vi só um GIF.
+- "v2 de interface" nos próximos passos: a pasta `2026-10-28-app-v2/` existe, mas não li o conteúdo.
+
+### Veredito da Tarefa 17 — parte 2
+- **Spec ✅:** README final sem resto de Expo, push, OTA, gesture-handler nem "previsto"; avisos honestos de Docker, Android, Maestro e CI; links relativos todos válidos; GIFs legíveis e leves; `.prettierignore` com `vendor`; Maestro 2.11.0 e Java 17 corretos.
+- **Qualidade: APROVADO** (0 bloqueantes), com 2 importantes de uma linha cada (`cd mobile/ios` e a linha `revisao/` duplicada) e 2 sugestões.
+
+## Mensagens
+→ chief: parte 2 aprovada, sem bloqueante. Antes do PR, corrija o `cd mobile/ios` do Caminho B (use `cd ios`) e apague a linha `revisao/` duplicada na tabela de artefatos (README.md:740-742). Ambos são de uma linha. Os gates externos seguem como estavam: a primeira execução real de Docker, `assembleDebug` e Maestro só acontece num CI com remote.
+→ developer: depois dos dois ajustes não precisa de nova rodada de review, só de conferência do chief.

@@ -191,3 +191,6 @@ QA (release/v1 44f6184): A1–A8 ✅, M1–M9/M12 ✅ no iOS, G1 ✅, G2 ✅ est
 Decisão: APK em tag (D32 "CD") sai do escopo da v1 — sem API pública o APK de release não teria com quem falar e exigiria keystore de release + cleartext; o README aponta o APK debug do artefato do mobile.yml para quem quiser instalar no emulador. Revoga o item do APK da T17 e encerra o IMP 2/SUG 6 da segurança mobile (não há APK distribuído).
 Decisão: rolar a tela ao abrir o 3º trimestre e senha com "•" no lugar de "*" — adiados (a v2 refaz o boletim).
 Tarefa 17 (parte 2): aberta na release/v1 (README final, GIFs, .prettierignore).
+Tarefa 17 (parte 2): entregue PRONTO COM RESSALVAS (commits 77fa800..e32fe3b; Início rápido testado em clone limpo pelos caminhos A e B; GIFs 1,7 MB) — review aberto. QA e evidências do QA commitados e integrados (9de1c5e → release 51911a1).
+Tarefa 17 (parte 2): review APROVADO (0 bloq, 2 IMP de uma linha — cd mobile/ios no Caminho B; linha revisao/ duplicada; 2 SUG — Gemfile.lock no .gitignore; aviso do Ruby enxuto) — rodada 1/3 com os quatro; conferência do chief sem nova rodada de review (combinado com o reviewer).
+Tarefa 17 (parte 2): concluída (commits 77fa800..7dac2be; rodada 1 conferida pelo chief: links, cd, linha duplicada, Gemfile.lock). v1 PRONTA para PR; 99-relatorio.md escrito.
