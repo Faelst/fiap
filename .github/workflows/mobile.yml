@@ -1,0 +1,176 @@
+name: mobile
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/mobile.yml"
+  pull_request:
+    paths:
+      - "mobile/**"
+      - ".github/workflows/mobile.yml"
+  # O job ios só roda por aqui (ver o comentário dele).
+  workflow_dispatch:
+    inputs:
+      ios:
+        description: "Rodar também o build iOS (macOS, mais caro)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: mobile
+
+jobs:
+  test:
+    name: lint, tsc e jest com cobertura
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # yarn 4 fixado na pasta (packageManager + .yarn/releases), via corepack.
+      - name: Habilita o corepack (yarn 4 do mobile)
+        run: corepack enable
+
+      - name: Pasta de cache do yarn
+        id: yarn-cache
+        run: echo "dir=$(yarn config get cacheFolder)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.yarn-cache.outputs.dir }}
+          key: yarn-mobile-${{ runner.os }}-${{ hashFiles('mobile/yarn.lock') }}
+          restore-keys: yarn-mobile-${{ runner.os }}-
+
+      - name: Instala dependências
+        run: yarn install --immutable
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Typecheck
+        run: yarn tsc
+
+      - name: Testes de componente e ViewModels (jest --coverage)
+        run: yarn test --coverage --ci
+
+      - name: Relatório de cobertura
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-coverage
+          path: mobile/coverage/
+          if-no-files-found: warn
+          retention-days: 14
+
+  # Primeira prova de que o Android compila (a máquina de desenvolvimento não
+  # tem JDK/SDK). Debug, sem assinatura.
+  android:
+    name: build Android (assembleDebug)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Habilita o corepack (yarn 4 do mobile)
+        run: corepack enable
+
+      - name: Pasta de cache do yarn
+        id: yarn-cache
+        run: echo "dir=$(yarn config get cacheFolder)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.yarn-cache.outputs.dir }}
+          key: yarn-mobile-${{ runner.os }}-${{ hashFiles('mobile/yarn.lock') }}
+          restore-keys: yarn-mobile-${{ runner.os }}-
+
+      - name: Instala dependências
+        run: yarn install --immutable
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # Cache do Gradle (wrapper, dependências e build cache).
+      - uses: gradle/actions/setup-gradle@v4
+
+      # O react-native-config lê o .env no build.
+      - name: Env de exemplo
+        run: cp .env.example .env
+
+      - name: assembleDebug
+        working-directory: mobile/android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: APK de debug
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-android-debug-apk
+          path: mobile/android/app/build/outputs/apk/debug/*.apk
+          retention-days: 7
+
+  # Só no workflow_dispatch com ios=true: o runner macOS custa 10× o Linux e
+  # o pod install + xcodebuild leva uns 20–30 min. O iOS já é buildado e
+  # testado no simulador da máquina de desenvolvimento a cada tarefa.
+  ios:
+    name: build iOS (simulador)
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.ios }}
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Habilita o corepack (yarn 4 do mobile)
+        run: corepack enable
+
+      - name: Instala dependências
+        run: yarn install --immutable
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: mobile
+
+      - name: Env de exemplo
+        run: cp .env.example .env
+
+      - name: pod install
+        working-directory: mobile/ios
+        run: bundle exec pod install
+
+      - name: xcodebuild (simulador, sem assinatura)
+        working-directory: mobile/ios
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace FiapSchool.xcworkspace \
+            -scheme FiapSchool \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build
