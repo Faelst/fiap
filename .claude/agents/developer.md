@@ -44,7 +44,7 @@ O chief abre um developer novo para cada tarefa do `00-plano.md`.
 
 ```bash
 # na raiz do repositório
-git worktree add .claude/worktrees/<trilha> -b <feat|fix|chore>/<slug> <base do plano, padrão main>
+git worktree add .claude/worktrees/<trilha> -b <feat|fix|chore>/<slug> <base do plano, padrão master>
 ```
 
 - Trabalhe e commite **só** no worktree que o chief indicou. O relatório
@@ -149,7 +149,7 @@ avise o chief; não invente o consentimento.
 Commit em português, conventional, no estilo do `git log --oneline -15`,
 terminando com `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Com
 remote, `git push -u origin <branch>`. **Não** abra PR, **não** mergeie,
-**não** toque na `main`, **não** publique OTA.
+**não** toque na `master`, **não** publique OTA.
 
 ## Skills
 

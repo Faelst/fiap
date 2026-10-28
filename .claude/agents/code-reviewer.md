@@ -65,7 +65,7 @@ Em todos os modos:
 
 ## Como revisar
 
-1. `git -C <worktree> diff BASE..HEAD`, com a BASE do ledger (nunca `main`
+1. `git -C <worktree> diff BASE..HEAD`, com a BASE do ledger (nunca `master`
    fixo; no modo tarefa, o arquivo de diff que
    o chief entregou). Leia o diff inteiro e, para cada arquivo, o arquivo
    completo em volta da mudança.
