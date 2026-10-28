@@ -15,9 +15,10 @@ import { cpfThrottleTracker, LOGIN_THROTTLE_MESSAGE } from './login-throttle';
 export const LOGIN_FAILURE_LIMITER = Symbol('LOGIN_FAILURE_LIMITER');
 
 /**
- * Limite de falhas de login por CPF, em volta do handler: antes, responde 429
- * se o CPF está bloqueado (sem conferir a senha); depois, conta a falha de
- * credencial ou zera o contador no sucesso. O use case não sabe de nada disso.
+ * Limite de falhas de login por CPF, em volta do handler. Antes: reserva a
+ * vaga no mesmo tick (`tryAcquire`), ou responde 429 sem conferir a senha.
+ * Depois: sucesso zera o contador, falha de credencial mantém a vaga contada e
+ * qualquer outro erro devolve a vaga. O use case não sabe de nada disso.
  * Roda depois do ThrottlerGuard (limite por IP) e antes do ValidationPipe,
  * por isso normaliza o CPF do corpo cru (cpfThrottleTracker).
  */
@@ -35,7 +36,7 @@ export class LoginFailureLimitInterceptor implements NestInterceptor {
       return next.handle();
     }
 
-    const blockedMs = this.limiter.blockedForMs(key);
+    const blockedMs = this.limiter.tryAcquire(key);
     if (blockedMs > 0) {
       http
         .getResponse<Response>()
@@ -46,8 +47,9 @@ export class LoginFailureLimitInterceptor implements NestInterceptor {
     return next.handle().pipe(
       tap(() => this.limiter.reset(key)),
       catchError((error: unknown) => {
-        if (error instanceof InvalidCredentialsError) {
-          this.limiter.registerFailure(key);
+        // Falha de credencial: a vaga reservada já é a falha contada.
+        if (!(error instanceof InvalidCredentialsError)) {
+          this.limiter.release(key);
         }
         return throwError(() => error);
       }),

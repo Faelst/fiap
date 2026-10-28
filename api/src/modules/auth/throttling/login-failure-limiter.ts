@@ -11,9 +11,15 @@ interface Entry {
 }
 
 /**
- * Conta só as falhas de login por chave (CPF), em memória. Ao chegar no
- * limite, a chave fica bloqueada até o fim da janela; um login certo zera o
- * contador. Login certo nunca gasta tentativa.
+ * Limite de falhas de login por chave (CPF), em memória.
+ *
+ * A vaga é reservada de forma síncrona, no mesmo tick da checagem
+ * (`tryAcquire`), e conta como falha provisória antes de a senha ser
+ * conferida. Assim um lote simultâneo não fura o limite enquanto os bcrypts
+ * estão em curso. Depois: sucesso → `reset` (zera); falha de credencial → a
+ * vaga já está contada; qualquer outro erro → `release` (devolve a vaga).
+ * Ao chegar no limite, a chave fica bloqueada até o fim da janela, que conta
+ * da primeira tentativa.
  */
 export class LoginFailureLimiter {
   private readonly entries = new Map<string, Entry>();
@@ -26,6 +32,41 @@ export class LoginFailureLimiter {
     this.lastSweep = now();
   }
 
+  /**
+   * Reserva uma tentativa. Devolve 0 quando reservou, ou quanto falta do
+   * bloqueio em ms (aí nada é contado).
+   */
+  tryAcquire(key: string): number {
+    const blockedMs = this.blockedForMs(key);
+    if (blockedMs > 0) {
+      return blockedMs;
+    }
+    const entry = this.current(key);
+    if (entry) {
+      entry.failures += 1;
+    } else {
+      this.sweepExpired();
+      this.entries.set(key, {
+        failures: 1,
+        windowEndsAt: this.now() + this.options.ttlMs,
+      });
+    }
+    return 0;
+  }
+
+  /** Devolve a vaga de uma tentativa que não terminou em falha de credencial. */
+  release(key: string): void {
+    const entry = this.current(key);
+    if (entry && entry.failures > 0) {
+      entry.failures -= 1;
+    }
+  }
+
+  /** Login certo: zera a chave. */
+  reset(key: string): void {
+    this.entries.delete(key);
+  }
+
   /** Quanto falta do bloqueio, em ms (0 = liberado). */
   blockedForMs(key: string): number {
     const entry = this.current(key);
@@ -33,23 +74,6 @@ export class LoginFailureLimiter {
       return 0;
     }
     return entry.windowEndsAt - this.now();
-  }
-
-  registerFailure(key: string): void {
-    const entry = this.current(key);
-    if (entry) {
-      entry.failures += 1;
-      return;
-    }
-    this.sweepExpired();
-    this.entries.set(key, {
-      failures: 1,
-      windowEndsAt: this.now() + this.options.ttlMs,
-    });
-  }
-
-  reset(key: string): void {
-    this.entries.delete(key);
   }
 
   /** Chaves guardadas (para teste e diagnóstico). */

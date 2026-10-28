@@ -1,6 +1,6 @@
 import { CallHandler, ExecutionContext } from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
-import { lastValueFrom, of, throwError } from 'rxjs';
+import { lastValueFrom, Observable, Subject } from 'rxjs';
 import { InvalidCredentialsError } from '../errors/invalid-credentials.error';
 import { LoginFailureLimitInterceptor } from './login-failure-limit.interceptor';
 import { LoginFailureLimiter } from './login-failure-limiter';
@@ -19,84 +19,99 @@ function contextFor(body: unknown) {
   return { context, setHeader };
 }
 
-const handler = (result: () => ReturnType<CallHandler['handle']>) => {
-  const handle = jest.fn(result);
-  return { handle, next: { handle } as CallHandler };
-};
+/** Handler que só termina quando o teste manda (simula o bcrypt em curso). */
+function pendingHandler() {
+  const subject = new Subject<unknown>();
+  const handle = jest.fn((): Observable<unknown> => subject);
+  return { subject, handle, next: { handle } as CallHandler };
+}
 
 describe('LoginFailureLimitInterceptor', () => {
   let limiter: LoginFailureLimiter;
   let interceptor: LoginFailureLimitInterceptor;
+  const gustavo = () => contextFor({ cpf: '969.294.560-04' }).context;
 
   beforeEach(() => {
-    limiter = new LoginFailureLimiter({ limit: 2, ttlMs: 60_000 });
+    limiter = new LoginFailureLimiter({ limit: 3, ttlMs: 60_000 });
     interceptor = new LoginFailureLimitInterceptor(limiter);
   });
 
-  it('conta a falha de credencial pelo CPF normalizado', async () => {
-    const { context } = contextFor({ cpf: '969.294.560-04' });
+  /** Começa um login e devolve o handler (pendente) e a promessa do resultado. */
+  const start = () => {
+    const handler = pendingHandler();
+    const result = lastValueFrom(
+      interceptor.intercept(gustavo(), handler.next),
+    ).catch((error: unknown) => error);
+    return { ...handler, result };
+  };
 
-    await expect(
-      lastValueFrom(
-        interceptor.intercept(
-          context,
-          handler(() => throwError(() => new InvalidCredentialsError())).next,
-        ),
-      ),
-    ).rejects.toBeInstanceOf(InvalidCredentialsError);
-    limiter.registerFailure(KEY);
+  it('lote simultâneo: a 4ª é recusada antes de qualquer senha ser conferida', () => {
+    const inFlight = [start(), start(), start()];
 
-    expect(limiter.blockedForMs(KEY)).toBeGreaterThan(0);
-  });
-
-  it('não conta outros erros', async () => {
-    const { context } = contextFor({ cpf: '96929456004' });
-    for (let i = 0; i < 3; i++) {
-      await lastValueFrom(
-        interceptor.intercept(
-          context,
-          handler(() => throwError(() => new Error('banco fora'))).next,
-        ),
-      ).catch(() => undefined);
-    }
-
-    expect(limiter.blockedForMs(KEY)).toBe(0);
-  });
-
-  it('o sucesso zera as falhas', async () => {
-    limiter.registerFailure(KEY);
-    const { context } = contextFor({ cpf: '96929456004' });
-
-    await lastValueFrom(
-      interceptor.intercept(context, handler(() => of('ok')).next),
-    );
-    limiter.registerFailure(KEY);
-
-    expect(limiter.blockedForMs(KEY)).toBe(0);
-  });
-
-  it('bloqueado: 429 com a mensagem do throttler e Retry-After, sem chamar o login', () => {
-    limiter.registerFailure(KEY);
-    limiter.registerFailure(KEY);
     const { context, setHeader } = contextFor({ cpf: '96929456004' });
-    const { handle, next } = handler(() => of('ok'));
-
-    expect(() => interceptor.intercept(context, next)).toThrow(
+    const fourth = pendingHandler();
+    expect(() => interceptor.intercept(context, fourth.next)).toThrow(
       new ThrottlerException(LOGIN_THROTTLE_MESSAGE),
     );
     expect(setHeader).toHaveBeenCalledWith('Retry-After', 60);
-    expect(handle).not.toHaveBeenCalled();
+    expect(fourth.handle).not.toHaveBeenCalled();
+    expect(
+      inFlight.every((login) => login.handle.mock.calls.length === 1),
+    ).toBe(true);
   });
 
-  it('sem CPF válido no corpo, só repassa (vale o limite por IP)', async () => {
-    const { context } = contextFor({ cpf: '123' });
-    const { next } = handler(() =>
-      throwError(() => new InvalidCredentialsError()),
-    );
+  it('a senha certa depois das vagas ocupadas recebe 429, mesmo com as outras em curso', () => {
+    start();
+    start();
+    start();
+    const right = pendingHandler();
 
-    await lastValueFrom(interceptor.intercept(context, next)).catch(
-      () => undefined,
+    expect(() => interceptor.intercept(gustavo(), right.next)).toThrow(
+      ThrottlerException,
     );
+    expect(right.handle).not.toHaveBeenCalled();
+  });
+
+  it('falha de credencial mantém a vaga contada', async () => {
+    const login = start();
+    login.subject.error(new InvalidCredentialsError());
+
+    expect(await login.result).toBeInstanceOf(InvalidCredentialsError);
+    start();
+    start();
+    expect(() =>
+      interceptor.intercept(gustavo(), pendingHandler().next),
+    ).toThrow(ThrottlerException);
+  });
+
+  it('outro erro (ex.: banco fora) devolve a vaga', async () => {
+    const logins = [start(), start(), start()];
+    for (const login of logins) login.subject.error(new Error('banco fora'));
+    await Promise.all(logins.map((login) => login.result));
+
+    expect(limiter.tryAcquire(KEY)).toBe(0);
+  });
+
+  it('o sucesso zera o contador', async () => {
+    const wrong = start();
+    wrong.subject.error(new InvalidCredentialsError());
+    await wrong.result;
+    const right = start();
+    right.subject.next('ok');
+    right.subject.complete();
+    await right.result;
+
+    expect([start(), start(), start()]).toHaveLength(3);
+    expect(() =>
+      interceptor.intercept(gustavo(), pendingHandler().next),
+    ).toThrow(ThrottlerException);
+  });
+
+  it('sem CPF válido no corpo, só repassa e não reserva nada', () => {
+    const handler = pendingHandler();
+    interceptor.intercept(contextFor({ cpf: '123' }).context, handler.next);
+
+    expect(handler.handle).toHaveBeenCalled();
     expect(limiter.size).toBe(0);
   });
 });

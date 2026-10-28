@@ -10,53 +10,69 @@ describe('LoginFailureLimiter', () => {
     limiter = new LoginFailureLimiter({ limit: 3, ttlMs: 60_000 }, () => now);
   });
 
-  const fail = (times: number, key = KEY) => {
-    for (let i = 0; i < times; i++) limiter.registerFailure(key);
-  };
+  /** Reserva `times` vagas e devolve o resultado de cada uma. */
+  const acquire = (times: number, key = KEY) =>
+    Array.from({ length: times }, () => limiter.tryAcquire(key));
 
-  it('libera quem ainda não falhou', () => {
+  it('libera quem ainda não tentou', () => {
     expect(limiter.blockedForMs(KEY)).toBe(0);
+    expect(limiter.tryAcquire(KEY)).toBe(0);
   });
 
-  it('libera abaixo do limite de falhas', () => {
-    fail(2);
-    expect(limiter.blockedForMs(KEY)).toBe(0);
+  it('reserva na hora: a tentativa já conta antes de terminar', () => {
+    expect(acquire(3)).toEqual([0, 0, 0]);
+    // A 4ª é recusada mesmo sem nenhuma das 3 ter terminado (lote paralelo).
+    expect(limiter.tryAcquire(KEY)).toBe(60_000);
   });
 
-  it('bloqueia ao chegar no limite, até o fim da janela', () => {
-    fail(3);
-    expect(limiter.blockedForMs(KEY)).toBe(60_000);
-
+  it('bloqueado, devolve quanto falta até o fim da janela', () => {
+    acquire(3);
     now += 45_000;
+    expect(limiter.tryAcquire(KEY)).toBe(15_000);
     expect(limiter.blockedForMs(KEY)).toBe(15_000);
   });
 
-  it('a janela conta da primeira falha e, vencida, libera e recomeça', () => {
-    fail(2);
-    now += 60_000;
-    fail(1);
-    expect(limiter.blockedForMs(KEY)).toBe(0);
+  it('a tentativa recusada não aumenta o contador', () => {
+    acquire(6);
+    limiter.release(KEY);
+    expect(limiter.tryAcquire(KEY)).toBe(0);
+  });
 
-    fail(2);
-    expect(limiter.blockedForMs(KEY)).toBe(60_000);
+  it('release devolve a vaga de uma tentativa que não foi falha de credencial', () => {
+    acquire(3);
+    limiter.release(KEY);
+    expect(limiter.tryAcquire(KEY)).toBe(0);
+    expect(limiter.tryAcquire(KEY)).toBeGreaterThan(0);
+  });
+
+  it('release sem reserva não deixa o contador negativo', () => {
+    limiter.release(KEY);
+    limiter.release(KEY);
+    expect(acquire(4)).toEqual([0, 0, 0, 60_000]);
   });
 
   it('o sucesso (reset) zera as falhas', () => {
-    fail(2);
+    acquire(3);
     limiter.reset(KEY);
-    fail(2);
-    expect(limiter.blockedForMs(KEY)).toBe(0);
+    expect(acquire(3)).toEqual([0, 0, 0]);
+  });
+
+  it('a janela conta da primeira tentativa e, vencida, recomeça', () => {
+    acquire(2);
+    now += 60_000;
+    expect(acquire(3)).toEqual([0, 0, 0]);
+    expect(limiter.tryAcquire(KEY)).toBe(60_000);
   });
 
   it('cada CPF tem o seu contador', () => {
-    fail(3);
-    expect(limiter.blockedForMs('cpf:50879567007')).toBe(0);
+    acquire(3);
+    expect(limiter.tryAcquire('cpf:50879567007')).toBe(0);
   });
 
   it('não guarda para sempre as chaves vencidas', () => {
-    for (let i = 0; i < 50; i++) fail(1, `cpf:${i}`);
+    for (let i = 0; i < 50; i++) limiter.tryAcquire(`cpf:${i}`);
     now += 60_000;
-    limiter.registerFailure('cpf:novo');
+    limiter.tryAcquire('cpf:novo');
 
     expect(limiter.size).toBe(1);
   });
