@@ -482,6 +482,8 @@ Todas vêm do seed (`yarn prisma:setup` ou `docker compose up`):
 | `yarn lint` / `yarn tsc` | ESLint e typecheck |
 | `yarn format` / `yarn format:check` | Prettier |
 | `yarn maestro:check` | Checagem estática dos flows do Maestro, sem emulador: YAML válido, `appId`, subflows e todo `id` usado existindo como `testID` em `src/` |
+| `yarn maestro:install` | Instala o Maestro 2.11.0 (a versão do CI) em `~/.maestro/bin` |
+| `yarn maestro:test` | Roda os flows do Maestro no simulador ou emulador ligado (ver [Flows do Maestro](#flows-do-maestro)) |
 
 ### Flows do Maestro
 
@@ -490,15 +492,24 @@ uso: login inválido, login, sessão persistida, troca de dia, boletim 2025, ano
 anteriores, troca de aluno, responsável com um aluno, sem aluno e logout. Os
 passos repetidos ficam em `subflows/`.
 
-1. Instale o Maestro (precisa de Java 17), na mesma versão do CI:
-   `curl -fsSL "https://get.maestro.mobile.dev" | MAESTRO_VERSION=2.11.0 bash`.
+1. Instale o Maestro (precisa de Java 17), na mesma versão do CI: em `mobile/`,
+   `yarn maestro:install`.
 2. Suba a API com o seed e os limites de login altos, porque os flows logam
    muitas vezes seguidas com o mesmo CPF: `LOGIN_THROTTLE_LIMIT=1000` e
    `LOGIN_THROTTLE_CPF_LIMIT=1000` no `api/.env`.
 3. Instale o app no simulador ou emulador (`API_URL` apontando para essa API).
-4. Em `mobile/`: `maestro test .maestro` (todos), `maestro test
-   .maestro/05-boletim-2025.yaml` (um) ou `maestro test .maestro --include-tags
-   boletim` (tags `login`, `agenda`, `boletim`, `alunos`).
+4. Em `mobile/`, rode os flows:
+
+   ```bash
+   yarn maestro:test                                # todos
+   yarn maestro:test .maestro/05-boletim-2025.yaml  # um
+   yarn maestro:test --include-tags boletim         # por tag: login, agenda, boletim, alunos
+   yarn maestro:test --device emulator-5554         # com mais de um aparelho ligado
+   ```
+
+   O script acha o Maestro no `PATH` ou em `~/.maestro/bin` (dá para usar logo
+   depois de instalar, sem reabrir o terminal); `MAESTRO_BIN` aponta outro
+   binário. Sem Maestro instalado, ele mostra como instalar e sai com erro.
 
 > **Os flows ainda não foram executados.** A máquina de desenvolvimento não tem
 > Maestro, Java nem Android SDK. Só a checagem estática (`yarn maestro:check`)
