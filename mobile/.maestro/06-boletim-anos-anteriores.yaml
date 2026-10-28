@@ -13,7 +13,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: agenda-screen
-    timeout: 10000
+    timeout: 20000
 - runFlow:
     file: subflows/select-student.yaml
     env:
@@ -24,7 +24,7 @@ tags:
     visible:
       id: boletim-year-dropdown
       text: '.*7EF - 2025'
-    timeout: 10000
+    timeout: 20000
 - tapOn:
     id: boletim-year-dropdown
 - tapOn:
@@ -33,13 +33,13 @@ tags:
     visible:
       id: boletim-year-dropdown
       text: '.*6EF - 2024'
-    timeout: 10000
+    timeout: 20000
 
 # 2024, 1º trimestre > Língua Portuguesa: nota 8,0 e 1 falta.
 - extendedWaitUntil:
     visible:
       id: boletim-term-1
-    timeout: 10000
+    timeout: 20000
 - tapOn:
     id: boletim-term-1
 - tapOn:

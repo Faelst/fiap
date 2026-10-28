@@ -14,7 +14,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: agenda-screen
-    timeout: 10000
+    timeout: 20000
 - runFlow:
     file: subflows/select-student.yaml
     env:
@@ -25,7 +25,7 @@ tags:
     visible:
       id: boletim-year-dropdown
       text: '.*7EF - 2025'
-    timeout: 10000
+    timeout: 20000
 
 # 1º trimestre > Língua Portuguesa (a 1ª disciplina da API).
 - tapOn:

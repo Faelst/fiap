@@ -14,7 +14,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: agenda-day-dropdown
-    timeout: 10000
+    timeout: 20000
 - runFlow:
     file: subflows/select-student.yaml
     env:

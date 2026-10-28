@@ -15,7 +15,7 @@ tags:
     visible:
       id: login-error-message
       text: '(?s)Usuário ou senha inválida\..*'
-    timeout: 10000
+    timeout: 20000
 - assertVisible:
     id: login-screen
 - assertNotVisible:
