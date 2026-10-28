@@ -32,8 +32,10 @@ export const motion = {
   shakeShort: { offsets: [-6, 6, -3, 0], step: 50 },
   /** Seleção de aluno: o modal fecha 120 ms depois da borda acender (4.7). */
   selectStudentBackDelay: 120,
-  /** Atraso entre cards da seleção de aluno (4.7). */
+  /** Atraso entre cards da seleção de aluno (4.7) e dos trimestres (4.6). */
   cardStagger: 60,
+  /** Atraso entre disciplinas na 1ª abertura do trimestre (4.6). */
+  subjectStagger: 20,
   /** Ícone da aba que ficou ativa: 1 → 1.12 → 1 (4.4). */
   tabIconPop: 1.12,
   /** Splash animada (01-design.md, 3.1.3 a 3.1.6). */

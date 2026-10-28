@@ -61,6 +61,31 @@ export const strings = {
     loadingAccessibilityLabel: 'Carregando agenda',
     error: { title: 'Não foi possível carregar a agenda.' },
   },
+  boletim: {
+    title: 'BOLETIM',
+    titleAccessibilityLabel: 'Boletim',
+    /** `7EF - 2025`. */
+    yearLabel: (className: string, year: number) => `${className} - ${year}`,
+    yearAccessibilityPrefix: 'Turma e ano',
+    yearHint: 'Toque para ver outros anos',
+    /** `1º TRIMESTRE` (ordinal `º`, U+00BA). */
+    term: (term: number) => `${term}º TRIMESTRE`,
+    termAccessibilityLabel: (term: number) => `${term}º trimestre`,
+    grade: 'Nota:',
+    absences: 'Faltas:',
+    /** "Nota 9,5, 0 faltas" / "Nota 8,0, 1 falta". */
+    resultAccessibilityLabel: (grade: string, absences: number) =>
+      `Nota ${grade}, ${absences} ${absences === 1 ? 'falta' : 'faltas'}`,
+    notReleasedAccessibilityLabel: 'Nota e faltas ainda não lançadas',
+    gradeNotReleased: 'não lançada',
+    absencesNotReleased: 'faltas não lançadas',
+    loadingAccessibilityLabel: 'Carregando boletim',
+    empty: 'Nenhum boletim disponível',
+    error: {
+      title: 'Não foi possível carregar o boletim.',
+      notFound: 'Boletim não encontrado.',
+    },
+  },
   selectStudent: {
     close: 'FECHAR',
     closeAccessibilityLabel: 'Fechar',

@@ -32,6 +32,8 @@ export const sizes = {
   inputLine: 1,
   /** Espessura do trilho de espera da splash. */
   splashTrack: 1,
+  /** Limite de altura do acordeão aberto e parado: "sem limite" (o corpo cresce com o conteúdo). */
+  accordionOpenMaxHeight: 100_000,
   /** Teto da fonte grande do sistema em elementos de altura fixa (1.6). */
   fixedHeightFontScale: 1.3,
   contentMaxWidth: 600,
