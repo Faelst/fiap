@@ -1,4 +1,4 @@
-import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { act, renderHook } from '@testing-library/react-native';
 
 import { queryClient, queryKeys } from '../../../app/queryClient';
 import { createSecureStorage } from '../../../services/storage/secureStorage';
@@ -24,10 +24,16 @@ describe('useHeaderViewModel', () => {
     queryClient.clear();
   });
 
-  // O hook busca o /me ao montar (sem cache ou com cache velho): espera a
-  // busca terminar para o fim dela não atualizar o hook fora do act.
+  // O hook busca o /me ao montar (sem cache ou com cache velho). A busca e
+  // o aviso do TanStack (notifyManager, num setTimeout 0) terminam dentro do
+  // act, senão o hook é atualizado fora dele.
   afterEach(async () => {
-    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+    await act(async () => {
+      while (queryClient.isFetching() > 0) {
+        await new Promise<void>(resolve => setTimeout(resolve, 10));
+      }
+      await new Promise<void>(resolve => setTimeout(resolve, 0));
+    });
   });
 
   const renderHeader = () =>

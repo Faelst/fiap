@@ -1,6 +1,6 @@
 import { screen } from '@testing-library/react-native';
 import { AccessibilityInfo, Platform, StyleSheet } from 'react-native';
-import { ReduceMotion, useReducedMotion } from 'react-native-reanimated';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import { strings } from '../../../../constants/strings';
 import type { RecordedAnimation } from '../../../../test/recordingAnimations';
@@ -19,7 +19,7 @@ jest.mock('react-native-reanimated', () => {
   };
 });
 
-const { borderRadii, colors, motion, sizes, spacing } = theme;
+const { borderRadii, colors, sizes, spacing } = theme;
 const reducedMotionMock = useReducedMotion as jest.Mock;
 const MESSAGE = strings.login.error.invalid;
 
@@ -77,28 +77,15 @@ describe('LoginErrorBanner', () => {
     },
   );
 
-  it('entra com FadeInDown de 8 em base', async () => {
-    await renderWithTheme(<LoginErrorBanner message={MESSAGE} />);
-
-    expect(entering()).toMatchObject({
-      name: 'FadeInDown',
-      calls: {
-        duration: motion.base,
-        withInitialValues: {
-          transform: [{ translateY: motion.enterOffsetSmall }],
-        },
-      },
-    });
-  });
-
-  it('com reduzir movimento entra com FadeIn em fast, que o sistema não pula', async () => {
+  it('entra por valor animado (sem layout animation); com reduzir movimento nasce visível', async () => {
     reducedMotionMock.mockReturnValue(true);
 
     await renderWithTheme(<LoginErrorBanner message={MESSAGE} />);
 
-    expect(entering()).toMatchObject({
-      name: 'FadeIn',
-      calls: { duration: motion.fast, reduceMotion: ReduceMotion.Never },
-    });
+    // Layout animation podia deixar o banner montado e invisível no Android.
+    expect(entering()).toBeUndefined();
+    expect(
+      StyleSheet.flatten(screen.getByTestId('login-error-banner').props.style),
+    ).toMatchObject({ opacity: 1, transform: [{ translateY: 0 }] });
   });
 });

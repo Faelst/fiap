@@ -13,8 +13,6 @@ import {
   type TextInputProps,
 } from 'react-native';
 import Animated, {
-  FadeIn,
-  FadeInDown,
   ReduceMotion,
   useAnimatedStyle,
   useReducedMotion,
@@ -24,6 +22,7 @@ import Animated, {
 import { strings } from '../constants/strings';
 import { Box, Text, useTheme, type Theme } from '../theme';
 import { formatCpf } from '../utils/cpf';
+import { EnterDown } from './EnterDown';
 import { AlertIcon } from './icons/AlertIcon';
 import { EyeIcon } from './icons/EyeIcon';
 import { EyeOffIcon } from './icons/EyeOffIcon';
@@ -164,15 +163,6 @@ export function TextField({
     opacity: fade(secureHidden ? 0 : 1),
     transform: [{ scale: move(hideIconScale) }],
   }));
-
-  const errorEntering = reducedMotion
-    ? FadeIn.duration(motion.fast).reduceMotion(ReduceMotion.Never)
-    : FadeInDown.duration(motion.base)
-        .easing(motion.easeOut)
-        .withInitialValues({
-          transform: [{ translateY: motion.enterOffsetSmall }],
-        })
-        .reduceMotion(ReduceMotion.System);
 
   const layer = {
     ...StyleSheet.absoluteFill,
@@ -315,12 +305,9 @@ export function TextField({
           style={[layer, { borderColor: colors.danger }, errorLayerStyle]}
         />
       </Box>
+      {/* Valor animado, não layout animation: nasce depois da tela (2.5). */}
       {error ? (
-        <Animated.View
-          key={error}
-          testID={`${testID}-error-enter`}
-          entering={errorEntering}
-        >
+        <EnterDown key={error} testID={`${testID}-error-enter`}>
           <Box flexDirection="row" alignItems="center" marginTop="xs">
             <AlertIcon color={colors.danger} size={sizes.fieldErrorIcon} />
             <Text
@@ -332,7 +319,7 @@ export function TextField({
               {error}
             </Text>
           </Box>
-        </Animated.View>
+        </EnterDown>
       ) : null}
     </Animated.View>
   );

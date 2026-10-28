@@ -138,6 +138,7 @@ export function LoginScreen({ route }: RootStackScreenProps<'Login'>) {
         contentInsetAdjustmentBehavior="never"
         showsVerticalScrollIndicator={false}
         onScroll={reveal.onScroll}
+        onContentSizeChange={reveal.onContentSizeChange}
         scrollEventThrottle={16}
       >
         <Box

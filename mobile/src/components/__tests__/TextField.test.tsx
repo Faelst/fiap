@@ -6,7 +6,7 @@ import {
   Text,
   type TextInputInstance,
 } from 'react-native';
-import { ReduceMotion, useReducedMotion } from 'react-native-reanimated';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import type { RecordedAnimation } from '../../test/recordingAnimations';
 import { renderWithTheme } from '../../test/renderWithTheme';
@@ -188,33 +188,15 @@ describe('TextField', () => {
     expect(screen.queryByTestId('campo-error')).toBeNull();
   });
 
-  it('o erro entra com FadeInDown de 8 em base; com reduzir movimento, FadeIn em fast', async () => {
-    const view = await renderField({ error: 'Erro' });
-
-    expect(entering('campo-error-enter')).toMatchObject({
-      name: 'FadeInDown',
-      calls: {
-        duration: motion.base,
-        withInitialValues: {
-          transform: [{ translateY: motion.enterOffsetSmall }],
-        },
-      },
-    });
-
+  it('o erro entra por valor animado (sem layout animation); com reduzir movimento nasce visível', async () => {
     reducedMotionMock.mockReturnValue(true);
-    await view.rerender(
-      <TextField
-        testID="campo"
-        label="CPF"
-        icon={() => null}
-        value=""
-        onChangeText={jest.fn()}
-        error="Erro de novo"
-      />,
-    );
-    expect(entering('campo-error-enter')).toMatchObject({
-      name: 'FadeIn',
-      calls: { duration: motion.fast, reduceMotion: ReduceMotion.Never },
+    await renderField({ error: 'Erro' });
+
+    // Layout animation podia deixar a view montada e invisível no Android.
+    expect(entering('campo-error-enter')).toBeUndefined();
+    expect(style('campo-error-enter')).toMatchObject({
+      opacity: 1,
+      transform: [{ translateY: 0 }],
     });
   });
 

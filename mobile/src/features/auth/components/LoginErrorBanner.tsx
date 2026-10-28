@@ -1,13 +1,6 @@
 import { useEffect } from 'react';
 import { AccessibilityInfo } from 'react-native';
-import Animated, {
-  FadeIn,
-  FadeInDown,
-  FadeOut,
-  ReduceMotion,
-  useReducedMotion,
-} from 'react-native-reanimated';
-
+import { EnterDown } from '../../../components/EnterDown';
 import { AlertIcon } from '../../../components/icons/AlertIcon';
 import { Box, Text, useTheme } from '../../../theme';
 
@@ -20,8 +13,7 @@ type LoginErrorBannerProps = { message: string };
  * anunciado uma vez ao leitor de tela.
  */
 export function LoginErrorBanner({ message }: LoginErrorBannerProps) {
-  const { colors, motion, sizes } = useTheme();
-  const reducedMotion = useReducedMotion();
+  const { colors, sizes } = useTheme();
 
   // A live region do Android só avisa mudança numa view que já existia, e o
   // banner nasce agora (remonta a cada erro): o anúncio é explícito nas duas
@@ -30,21 +22,11 @@ export function LoginErrorBanner({ message }: LoginErrorBannerProps) {
     AccessibilityInfo.announceForAccessibility(message);
   }, [message]);
 
-  const entering = reducedMotion
-    ? FadeIn.duration(motion.fast).reduceMotion(ReduceMotion.Never)
-    : FadeInDown.duration(motion.base)
-        .easing(motion.easeOut)
-        .withInitialValues({
-          transform: [{ translateY: motion.enterOffsetSmall }],
-        })
-        .reduceMotion(ReduceMotion.System);
-
   return (
-    <Animated.View
-      testID="login-error-banner"
-      entering={entering}
-      exiting={FadeOut.duration(motion.fast).reduceMotion(ReduceMotion.Never)}
-    >
+    // Valor animado, não layout animation: o banner nasce depois do envio, e
+    // no Android a entrada de layout podia deixá-lo montado e invisível. Sai
+    // sem animação (some quando um campo muda).
+    <EnterDown testID="login-error-banner">
       <Box
         testID="login-error-box"
         minHeight={sizes.banner}
@@ -69,6 +51,6 @@ export function LoginErrorBanner({ message }: LoginErrorBannerProps) {
           {message}
         </Text>
       </Box>
-    </Animated.View>
+    </EnterDown>
   );
 }

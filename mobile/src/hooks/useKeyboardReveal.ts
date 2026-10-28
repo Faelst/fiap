@@ -113,6 +113,14 @@ export function useKeyboardReveal({
   return {
     scrollRef,
     keyboardInset,
+    /**
+     * `onContentSizeChange` da rolagem. No Android o padding do teclado só
+     * entra no layout depois do evento, e o `scrollTo` do evento fica preso
+     * no fim antigo do conteúdo: quando o conteúdo cresce, rola de novo.
+     */
+    onContentSizeChange: () => {
+      if (Platform.OS === 'android') reveal();
+    },
     onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       scrollY.current = event.nativeEvent.contentOffset.y;
     },
