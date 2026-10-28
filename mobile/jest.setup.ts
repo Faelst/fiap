@@ -39,6 +39,14 @@ jest.mock('react-native-config', () => ({
   Config: { API_URL: 'http://localhost:3333/api' },
 }));
 
+// O logger do app não escreve no console nos testes: a saída do CI fica só com
+// o que importa (falhas e avisos do React). Nível, redação e chamadas
+// continuam valendo; quem testa o log usa `jest.spyOn(logger, ...)`, e o
+// transporte de console tem teste próprio (`requireActual`).
+jest.mock('./src/services/logger/transports', () => ({
+  consoleTransport: jest.fn(),
+}));
+
 beforeEach(() => {
   require('./jest/mocks/react-native-keychain').__reset();
 });

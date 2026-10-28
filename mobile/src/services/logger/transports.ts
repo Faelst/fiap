@@ -1,17 +1,14 @@
 import type { LogTransport } from './logger';
 
-const CONSOLE_METHOD = {
-  debug: console.debug,
-  info: console.info,
-  warn: console.warn,
-  error: console.error,
-} as const;
-
+/**
+ * Escreve no console no nível do log. O método é lido na hora da chamada
+ * (não guardado ao carregar o módulo), para quem troca o console depois, como
+ * o LogBox ou um spy de teste, receber o log.
+ */
 export const consoleTransport: LogTransport = ({ level, message, context }) => {
-  const method = CONSOLE_METHOD[level];
   if (context === undefined) {
-    method(`[${level}] ${message}`);
+    console[level](`[${level}] ${message}`);
   } else {
-    method(`[${level}] ${message}`, context);
+    console[level](`[${level}] ${message}`, context);
   }
 };
