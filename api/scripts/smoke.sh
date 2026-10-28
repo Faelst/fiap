@@ -21,7 +21,8 @@ export DATABASE_URL="file:./${DB_FILE}"
 export PORT
 export NODE_ENV=production
 export LOG_LEVEL=info
-export JWT_SECRET="smoke-$(date +%s)-segredo-descartavel"
+JWT_SECRET="smoke-$(date +%s)-segredo-descartavel"
+export JWT_SECRET
 export JWT_EXPIRES_IN=1h
 export CORS_ORIGINS='*'
 export SWAGGER_ENABLED=true

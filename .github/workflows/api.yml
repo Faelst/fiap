@@ -61,3 +61,20 @@ jobs:
       # Sobe o dist/ com banco novo e confere login, /me, boletim, Swagger e o log.
       - name: Smoke no build
         run: ./scripts/smoke.sh
+
+  docker:
+    name: docker build e teste do container
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build da imagem (api/Dockerfile)
+        run: docker build -t fiap-school-api:ci .
+
+      # Sobe com volume novo, espera o healthcheck, faz login, reinicia e
+      # confere que o mesmo token continua valendo (o seed não recria o banco).
+      - name: Teste do container
+        env:
+          IMAGE: fiap-school-api:ci
+        run: ./scripts/docker-smoke.sh
