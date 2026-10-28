@@ -3,10 +3,12 @@ import { Image, StyleSheet } from 'react-native';
 import Animated, {
   FadeIn,
   FadeInDown,
+  Keyframe,
   ReduceMotion,
+  useReducedMotion,
 } from 'react-native-reanimated';
 
-import { Box, Text, useTheme } from '../theme';
+import { Box, Text, useTheme, type Theme } from '../theme';
 
 const illustrationSource = require('../../assets/no-classroom.png');
 
@@ -17,6 +19,47 @@ type EmptyStateProps = {
   action?: ReactNode;
   testID: string;
 };
+
+type Motion = Theme['motion'];
+
+/**
+ * Entradas do estado vazio (01-design.md, 4.5 e 4.8). A ilustração cresce de
+ * 0,96 para 1 enquanto aparece, e o texto vem um stagger depois dela. Com
+ * reduzir movimento, tudo só aparece em fade: opacidade não é movimento, então
+ * o sistema não pode pular (`ReduceMotion.Never`).
+ */
+function entrances(motion: Motion, illustration: boolean, reduced: boolean) {
+  const first = illustration ? 1 : 0;
+  if (reduced) {
+    const fade = (delay: number) =>
+      FadeIn.duration(motion.base)
+        .delay(delay)
+        .reduceMotion(ReduceMotion.Never);
+    return {
+      illustration: fade(0),
+      text: (index: number) => fade((first + index) * motion.stagger),
+    };
+  }
+  return {
+    illustration: new Keyframe({
+      0: {
+        opacity: 0,
+        transform: [{ scale: motion.illustrationScaleFrom }],
+      },
+      100: { opacity: 1, transform: [{ scale: 1 }], easing: motion.easeOut },
+    })
+      .duration(motion.base)
+      .reduceMotion(ReduceMotion.System),
+    text: (index: number) =>
+      FadeInDown.duration(motion.base)
+        .delay((first + index) * motion.stagger)
+        .easing(motion.easeOut)
+        .withInitialValues({
+          transform: [{ translateY: motion.enterOffsetSmall }],
+        })
+        .reduceMotion(ReduceMotion.System),
+  };
+}
 
 /**
  * Estado vazio (01-design.md, 2.10): ilustração do "sem aulas" cortada em
@@ -31,23 +74,13 @@ export function EmptyState({
   testID,
 }: EmptyStateProps) {
   const { motion, sizes, spacing } = useTheme();
-  const enter = (index: number) =>
-    FadeInDown.duration(motion.base)
-      .delay(index * motion.stagger)
-      .easing(motion.easeOut)
-      .withInitialValues({
-        transform: [{ translateY: motion.enterOffsetSmall }],
-      })
-      .reduceMotion(ReduceMotion.System);
+  const reducedMotion = useReducedMotion();
+  const enter = entrances(motion, illustration, reducedMotion);
 
   return (
     <Box testID={testID} alignItems="center">
       {illustration ? (
-        <Animated.View
-          entering={FadeIn.duration(motion.base).reduceMotion(
-            ReduceMotion.System,
-          )}
-        >
+        <Animated.View entering={enter.illustration}>
           <Box
             testID={`${testID}-illustration`}
             accessible={false}
@@ -63,12 +96,12 @@ export function EmptyState({
           </Box>
         </Animated.View>
       ) : null}
-      <Animated.View entering={enter(0)} style={{ marginTop: spacing.m }}>
+      <Animated.View entering={enter.text(0)} style={{ marginTop: spacing.m }}>
         <Text variant="emptyState">{title}</Text>
       </Animated.View>
       {description ? (
         <Animated.View
-          entering={enter(1)}
+          entering={enter.text(1)}
           style={{ marginTop: spacing.s, paddingHorizontal: spacing.huge }}
         >
           <Text variant="body" textAlign="center">
@@ -77,7 +110,7 @@ export function EmptyState({
         </Animated.View>
       ) : null}
       {action ? (
-        <Animated.View entering={enter(2)} style={{ marginTop: spacing.l }}>
+        <Animated.View entering={enter.text(2)} style={{ marginTop: spacing.l }}>
           {action}
         </Animated.View>
       ) : null}

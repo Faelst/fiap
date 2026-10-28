@@ -26,6 +26,8 @@ export const motion = {
   /** Deslocamento das entradas `FadeInDown` (campos do login e erro). */
   enterOffset: 12,
   enterOffsetSmall: 8,
+  /** Ilustração do estado vazio entra de 0,96 para 1 (01-design.md, 4.5). */
+  illustrationScaleFrom: 0.96,
   /** Shake do formulário em erro (01-design.md, 4.2): 6 passos de 50 ms. */
   shake: { offsets: [-10, 10, -8, 8, -4, 0], step: 50 },
   /** Shake curto do estado de erro quando o retry falha de novo (4.8). */
