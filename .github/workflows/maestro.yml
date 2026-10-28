@@ -142,7 +142,11 @@ jobs:
         run: ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --no-daemon --stacktrace
 
       # ---------- Maestro ----------
+      # Versão fixa (o instalador lê MAESTRO_VERSION e baixa a release
+      # cli-<versão> do GitHub). 2.11.0: release estável de 2026-09-29.
       - name: Maestro - instala o CLI
+        env:
+          MAESTRO_VERSION: 2.11.0
         run: |
           curl -fsSL "https://get.maestro.mobile.dev" | bash
           echo "${HOME}/.maestro/bin" >> "$GITHUB_PATH"
