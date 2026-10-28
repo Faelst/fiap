@@ -22,7 +22,10 @@ declare module '@tanstack/react-query' {
 
 const MAX_RETRIES = 1;
 
-/** Os dados da escola mudam pouco: 5 min sem refetch automático. */
+/**
+ * Os dados da escola mudam pouco: por 5 min nada é refeito. Depois disso, a
+ * query é refeita ao voltar do background (`appFocus.ts`) ou ao montar de novo.
+ */
 const STALE_TIME_MS = 5 * 60 * 1000;
 
 export function shouldRetry(failureCount: number, error: unknown): boolean {
