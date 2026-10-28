@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Express } from 'express';
+import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 import { setupSwagger } from './app.swagger';
 import {
@@ -27,8 +28,19 @@ export function configureApp(app: INestApplication): void {
   if (secretWarning) {
     new NestLogger('Config').warn(secretWarning);
   }
-  // Atrás de proxy, define de onde vem o req.ip (que o rate limit usa).
   const http = app.getHttpAdapter().getInstance() as Express;
+  http.disable('x-powered-by');
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        // A CSP padrão já serve ao Swagger UI (scripts do próprio /docs e
+        // <style> inline). O upgrade para https quebraria o /docs servido por
+        // http no IP da rede local.
+        directives: { upgradeInsecureRequests: null },
+      },
+    }),
+  );
+  // Atrás de proxy, define de onde vem o req.ip (que o rate limit usa).
   http.set(
     'trust proxy',
     parseTrustProxy(config.get('TRUST_PROXY', { infer: true })),
