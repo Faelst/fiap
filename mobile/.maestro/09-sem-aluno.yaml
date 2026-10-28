@@ -1,0 +1,30 @@
+# Carlos (sem aluno vinculado; extra do seed): estado vazio, sem abas e sem
+# TROCAR PERFIL, mas com SAIR.
+appId: br.com.fiap.school
+name: 09 - Responsável sem aluno vê o estado vazio
+tags:
+  - alunos
+---
+- runFlow: subflows/launch-clean.yaml
+- runFlow:
+    file: subflows/login.yaml
+    env:
+      CPF: '31415926590'
+      PASSWORD: '111111'
+- extendedWaitUntil:
+    visible:
+      id: no-student-screen
+    timeout: 10000
+- assertVisible:
+    id: no-student-empty
+- assertVisible:
+    text: 'Nenhum aluno vinculado'
+- assertVisible:
+    id: header-greeting
+    text: '(?i)olá, carlos'
+- assertVisible:
+    id: header-logout-button
+- assertNotVisible:
+    id: header-switch-student-button
+- assertNotVisible:
+    id: tab-bar

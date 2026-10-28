@@ -1,0 +1,12 @@
+# Preenche e envia o Login. Parâmetros: CPF (só dígitos; a máscara entra
+# sozinha) e PASSWORD. Quem chama espera a tela seguinte.
+appId: br.com.fiap.school
+---
+- tapOn:
+    id: login-cpf-input
+- inputText: ${CPF}
+- tapOn:
+    id: login-password-input
+- inputText: ${PASSWORD}
+- tapOn:
+    id: login-submit-button

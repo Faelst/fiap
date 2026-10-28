@@ -1,0 +1,34 @@
+# Adelaide (1 aluna, Bianca): sem TROCAR PERFIL, nas duas abas.
+appId: br.com.fiap.school
+name: 08 - Responsável com 1 aluno não vê TROCAR PERFIL
+tags:
+  - alunos
+---
+- runFlow: subflows/launch-clean.yaml
+- runFlow:
+    file: subflows/login.yaml
+    env:
+      CPF: '50879567007'
+      PASSWORD: '987654'
+- extendedWaitUntil:
+    visible:
+      id: agenda-screen
+    timeout: 10000
+- assertVisible:
+    id: header-greeting
+    text: '(?i)olá, adelaide'
+- assertVisible:
+    text: '(?i)aluno bianca,.*'
+- assertVisible:
+    id: header-logout-button
+- assertNotVisible:
+    id: header-switch-student-button
+- tapOn:
+    id: tab-boletim
+- extendedWaitUntil:
+    visible:
+      id: boletim-year-dropdown
+      text: '.*1EF - 2025'
+    timeout: 10000
+- assertNotVisible:
+    id: header-switch-student-button

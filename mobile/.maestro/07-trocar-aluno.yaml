@@ -1,0 +1,54 @@
+# Gustavo (2 alunos): troca de aluno a partir do Boletim e volta ao Boletim,
+# já com os dados do aluno novo. Escolhe os dois alunos explicitamente, sem
+# depender de qual é o inicial.
+appId: br.com.fiap.school
+name: 07 - Trocar aluno volta à aba de origem
+tags:
+  - alunos
+---
+- runFlow: subflows/launch-clean.yaml
+- runFlow:
+    file: subflows/login.yaml
+    env:
+      CPF: '96929456004'
+      PASSWORD: '123456'
+- extendedWaitUntil:
+    visible:
+      id: agenda-screen
+    timeout: 10000
+- tapOn:
+    id: tab-boletim
+- extendedWaitUntil:
+    visible:
+      id: boletim-year-dropdown
+    timeout: 10000
+
+# Rafael (7EF).
+- runFlow:
+    file: subflows/select-student.yaml
+    env:
+      RM: '12567'
+- extendedWaitUntil:
+    visible:
+      id: boletim-year-dropdown
+      text: '.*7EF - 2025'
+    timeout: 10000
+- assertVisible:
+    text: '(?i)aluno rafael,.*'
+
+# Joana (2EM): continua no Boletim, com o boletim e o header dela.
+- runFlow:
+    file: subflows/select-student.yaml
+    env:
+      RM: '12568'
+- extendedWaitUntil:
+    visible:
+      id: boletim-year-dropdown
+      text: '.*2EM - 2025'
+    timeout: 10000
+- assertVisible:
+    text: '(?i)aluno joana,.*'
+- assertVisible:
+    id: boletim-screen
+- assertNotVisible:
+    id: agenda-day-dropdown

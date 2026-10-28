@@ -1,0 +1,85 @@
+# Boletim do Rafael em 2025: "7EF - 2025"; no 1º trimestre, Língua
+# Portuguesa com nota 9,5 e 0 faltas; no 2º (não avaliado), "-".
+appId: br.com.fiap.school
+name: 05 - Boletim de 2025
+tags:
+  - boletim
+---
+- runFlow: subflows/launch-clean.yaml
+- runFlow:
+    file: subflows/login.yaml
+    env:
+      CPF: '96929456004'
+      PASSWORD: '123456'
+- extendedWaitUntil:
+    visible:
+      id: agenda-screen
+    timeout: 10000
+- runFlow:
+    file: subflows/select-student.yaml
+    env:
+      RM: '12567'
+- tapOn:
+    id: tab-boletim
+- extendedWaitUntil:
+    visible:
+      id: boletim-year-dropdown
+      text: '.*7EF - 2025'
+    timeout: 10000
+
+# 1º trimestre > Língua Portuguesa (a 1ª disciplina da API).
+- tapOn:
+    id: boletim-term-1
+- tapOn:
+    id: boletim-term-1-subject-0
+- assertVisible:
+    id: boletim-term-1-subject-0
+    text: 'Língua Portuguesa'
+- scrollUntilVisible:
+    element:
+      id: boletim-term-1-subject-0-result
+    direction: DOWN
+# Nota e faltas num elemento só para o leitor de tela (vale nas 2 plataformas).
+- assertVisible:
+    id: boletim-term-1-subject-0-result
+    text: 'Nota 9,5, 0 faltas'
+# No Android os textos de dentro também aparecem na hierarquia.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertVisible:
+          id: boletim-term-1-subject-0-grade
+          text: '9,5'
+      - assertVisible:
+          id: boletim-term-1-subject-0-absences
+          text: '0'
+
+# 2º trimestre ainda não avaliado: "-".
+- tapOn:
+    id: boletim-term-1
+- scrollUntilVisible:
+    element:
+      id: boletim-term-2
+    direction: DOWN
+- tapOn:
+    id: boletim-term-2
+- tapOn:
+    id: boletim-term-2-subject-0
+- scrollUntilVisible:
+    element:
+      id: boletim-term-2-subject-0-result
+    direction: DOWN
+- assertVisible:
+    id: boletim-term-2-subject-0-result
+    text: 'Nota e faltas ainda não lançadas'
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertVisible:
+          id: boletim-term-2-subject-0-grade
+          text: '-'
+      - assertVisible:
+          id: boletim-term-2-subject-0-absences
+          text: '-'

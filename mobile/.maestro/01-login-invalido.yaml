@@ -1,0 +1,22 @@
+# CPF certo com senha errada: mensagem de erro e continua no Login.
+appId: br.com.fiap.school
+name: 01 - Login inválido mostra o erro
+tags:
+  - login
+---
+- runFlow: subflows/launch-clean.yaml
+- runFlow:
+    file: subflows/login.yaml
+    env:
+      CPF: '96929456004'
+      PASSWORD: '000000'
+# O texto tem quebra de linha (no iOS o rótulo acessível vem sem ela).
+- extendedWaitUntil:
+    visible:
+      id: login-error-message
+      text: '(?s)Usuário ou senha inválida\..*'
+    timeout: 10000
+- assertVisible:
+    id: login-screen
+- assertNotVisible:
+    id: agenda-screen
