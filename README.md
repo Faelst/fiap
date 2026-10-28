@@ -1,5 +1,10 @@
 # FIAP School
 
+[![api](https://github.com/Faelst/fiap/actions/workflows/api.yml/badge.svg)](https://github.com/Faelst/fiap/actions/workflows/api.yml)
+[![mobile](https://github.com/Faelst/fiap/actions/workflows/mobile.yml/badge.svg)](https://github.com/Faelst/fiap/actions/workflows/mobile.yml)
+[![maestro](https://github.com/Faelst/fiap/actions/workflows/maestro.yml/badge.svg)](https://github.com/Faelst/fiap/actions/workflows/maestro.yml)
+[![commitlint](https://github.com/Faelst/fiap/actions/workflows/commitlint.yml/badge.svg)](https://github.com/Faelst/fiap/actions/workflows/commitlint.yml)
+
 Teste técnico de Mobile da FIAP School. É um app para os responsáveis
 acompanharem as aulas do dia e o boletim anual (notas e faltas) dos alunos,
 mais uma API própria em NestJS, que substitui o JSON do enunciado.
