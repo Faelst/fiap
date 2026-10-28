@@ -29,19 +29,6 @@ describe('ErrorState', () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
-  it('retryTestID explícito vence o derivado', async () => {
-    await renderWithTheme(
-      <ErrorState
-        {...base}
-        retryTestID="boot-error-retry-x"
-        onRetry={jest.fn()}
-        retrying={false}
-      />,
-    );
-
-    expect(screen.getByTestId('boot-error-retry-x')).toBeOnTheScreen();
-  });
-
   it('tentando: spinner no botão, busy e sem novo toque', async () => {
     const onRetry = jest.fn();
     await renderWithTheme(<ErrorState {...base} onRetry={onRetry} retrying />);

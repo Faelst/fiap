@@ -35,7 +35,6 @@ describe('useLoginMutation', () => {
     expect(body).toEqual({ cpf: '96929456004', password: '123456' });
     const state = useSessionStore.getState();
     expect(state.status).toBe('signedIn');
-    expect(state.guardian).toEqual(loginResponse.guardian);
     expect(await createSecureStorage().getToken()).toBe('jwt-gustavo');
   });
 

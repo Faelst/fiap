@@ -5,7 +5,6 @@ import { queryClient } from '../../../../app/queryClient';
 import { useSessionStore } from '../../../../stores/session.store';
 import {
   API_URL,
-  loginResponse,
   meResponse,
   meWithoutStudents,
 } from '../../../../test/fixtures';
@@ -30,7 +29,7 @@ describe('useMeQuery', () => {
   });
 
   it('200: devolve o responsável e os alunos validados', async () => {
-    await useSessionStore.getState().signIn('jwt-1', loginResponse.guardian);
+    await useSessionStore.getState().signIn('jwt-1');
     const { result } = await render();
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -38,7 +37,7 @@ describe('useMeQuery', () => {
   });
 
   it('responsável sem aluno: students vazio, sem erro', async () => {
-    await useSessionStore.getState().signIn('jwt-1', loginResponse.guardian);
+    await useSessionStore.getState().signIn('jwt-1');
     server.use(
       http.get(`${API_URL}/me`, () => HttpResponse.json(meWithoutStudents)),
     );
@@ -49,7 +48,7 @@ describe('useMeQuery', () => {
   });
 
   it('401: encerra a sessão como expirada', async () => {
-    await useSessionStore.getState().signIn('jwt-1', loginResponse.guardian);
+    await useSessionStore.getState().signIn('jwt-1');
     server.use(
       http.get(`${API_URL}/me`, () =>
         HttpResponse.json({ statusCode: 401 }, { status: 401 }),
@@ -65,7 +64,7 @@ describe('useMeQuery', () => {
 
   it('resposta fora do contrato vira erro tratado, sem crash e sem retry', async () => {
     jest.spyOn(console, 'error').mockImplementation(() => {});
-    await useSessionStore.getState().signIn('jwt-1', loginResponse.guardian);
+    await useSessionStore.getState().signIn('jwt-1');
     let calls = 0;
     server.use(
       http.get(`${API_URL}/me`, () => {

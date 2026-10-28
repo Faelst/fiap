@@ -13,8 +13,6 @@ type ErrorStateProps = {
   onRetry: () => void;
   retrying: boolean;
   testID: string;
-  /** Padrão: `${testID}-retry`. */
-  retryTestID?: string;
   /** Muda a cada retry que falha: dispara o shake curto (4.8). */
   shakeKey?: number;
   /**
@@ -37,7 +35,6 @@ export function ErrorState({
   onRetry,
   retrying,
   testID,
-  retryTestID,
   shakeKey = 0,
   announce,
 }: ErrorStateProps) {
@@ -76,7 +73,7 @@ export function ErrorState({
         </Animated.View>
         <Animated.View entering={enter(2)} style={{ marginTop: spacing.l }}>
           <SecondaryButton
-            testID={retryTestID ?? `${testID}-retry`}
+            testID={`${testID}-retry`}
             label={strings.common.retry}
             accessibilityLabel={strings.common.retryAccessibilityLabel}
             loading={retrying}

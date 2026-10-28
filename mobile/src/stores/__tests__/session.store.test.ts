@@ -5,8 +5,6 @@ import { mmkv } from '../../services/storage/mmkv';
 import { createSecureStorage } from '../../services/storage/secureStorage';
 import { SESSION_STORAGE_KEY, useSessionStore } from '../session.store';
 
-const guardian = { id: 'g1', firstName: 'Gustavo', lastName: 'da Silva' };
-
 /** Token como o app veria depois de reaberto (lido do keychain). */
 const tokenInKeychain = () => createSecureStorage().getToken();
 
@@ -79,18 +77,17 @@ describe('session store', () => {
     expect(useSessionStore.getState().status).toBe('signedOut');
   });
 
-  it('signIn grava o token no keychain e guarda o responsável', async () => {
-    await useSessionStore.getState().signIn('jwt-1', guardian);
+  it('signIn grava o token no keychain', async () => {
+    await useSessionStore.getState().signIn('jwt-1');
 
     const state = useSessionStore.getState();
     expect(state.status).toBe('signedIn');
-    expect(state.guardian).toEqual(guardian);
     expect(state.signOutReason).toBeNull();
     expect(await tokenInKeychain()).toBe('jwt-1');
   });
 
   it('selectStudent persiste só o aluno no mmkv, nunca o token', async () => {
-    await useSessionStore.getState().signIn('jwt-1', guardian);
+    await useSessionStore.getState().signIn('jwt-1');
     useSessionStore.getState().selectStudent('s2');
 
     const persisted = mmkv.getString(SESSION_STORAGE_KEY) ?? '';
@@ -110,7 +107,7 @@ describe('session store', () => {
   });
 
   it('signOut apaga o token, limpa o estado e o cache do React Query', async () => {
-    await useSessionStore.getState().signIn('jwt-1', guardian);
+    await useSessionStore.getState().signIn('jwt-1');
     useSessionStore.getState().selectStudent('s2');
     queryClient.setQueryData(['me'], { id: 'g1' });
 
@@ -118,7 +115,6 @@ describe('session store', () => {
 
     const state = useSessionStore.getState();
     expect(state.status).toBe('signedOut');
-    expect(state.guardian).toBeNull();
     expect(state.selectedStudentId).toBeNull();
     expect(state.signOutReason).toBe('expired');
     expect(await tokenInKeychain()).toBeNull();
@@ -141,7 +137,7 @@ describe('session store', () => {
   });
 
   it('signOut sem motivo é logout do usuário', async () => {
-    await useSessionStore.getState().signIn('jwt-1', guardian);
+    await useSessionStore.getState().signIn('jwt-1');
     await useSessionStore.getState().signOut();
     expect(useSessionStore.getState().signOutReason).toBe('manual');
   });

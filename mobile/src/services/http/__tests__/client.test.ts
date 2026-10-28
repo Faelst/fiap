@@ -9,10 +9,8 @@ import { createSecureStorage } from '../../storage/secureStorage';
 import { http } from '../client';
 import { ApiError } from '../errors';
 
-const guardian = loginResponse.guardian;
-
 async function signedIn(token = 'jwt-1') {
-  await useSessionStore.getState().signIn(token, guardian);
+  await useSessionStore.getState().signIn(token);
 }
 
 describe('http client', () => {
@@ -137,7 +135,7 @@ describe('http client', () => {
     const slow = http.get('/students/s1/agenda');
     expect(await reachedApi).toBe('Bearer jwt-antigo');
     await useSessionStore.getState().signOut('expired');
-    await useSessionStore.getState().signIn('jwt-novo', guardian);
+    await useSessionStore.getState().signIn('jwt-novo');
     release();
 
     await expect(slow).rejects.toMatchObject({ kind: 'unauthorized' });

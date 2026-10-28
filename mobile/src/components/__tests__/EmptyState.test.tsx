@@ -1,5 +1,4 @@
 import { screen } from '@testing-library/react-native';
-import { Text } from 'react-native';
 import { ReduceMotion, useReducedMotion } from 'react-native-reanimated';
 
 import type { RecordedAnimation } from '../../test/recordingAnimations';
@@ -25,20 +24,18 @@ const illustrationEntering = () =>
   );
 
 describe('EmptyState', () => {
-  it('ilustração decorativa no tamanho do tema, título, descrição e ação', async () => {
+  it('ilustração decorativa no tamanho do tema, título e descrição', async () => {
     await renderWithTheme(
       <EmptyState
         testID="vazio"
         title="Nenhum aluno vinculado"
         description="Fale com a secretaria."
-        action={<Text>ação</Text>}
       />,
     );
 
     expect(screen.getByTestId('vazio')).toBeOnTheScreen();
     expect(screen.getByText('Nenhum aluno vinculado')).toBeOnTheScreen();
     expect(screen.getByText('Fale com a secretaria.')).toBeOnTheScreen();
-    expect(screen.getByText('ação')).toBeOnTheScreen();
     const illustration = screen.getByTestId('vazio-illustration', {
       includeHiddenElements: true,
     });
@@ -78,12 +75,7 @@ describe('EmptyState', () => {
 
     it('com ilustração, o título espera um stagger e o resto vem em seguida', async () => {
       await renderWithTheme(
-        <EmptyState
-          testID="vazio"
-          title="Sem aulas"
-          description="Descrição"
-          action={<Text>ação</Text>}
-        />,
+        <EmptyState testID="vazio" title="Sem aulas" description="Descrição" />,
       );
 
       const title = enteringOf(screen.getByText('Sem aulas'));
@@ -91,9 +83,6 @@ describe('EmptyState', () => {
       expect(title.calls.delay).toBe(motion.stagger);
       expect(enteringOf(screen.getByText('Descrição')).calls.delay).toBe(
         2 * motion.stagger,
-      );
-      expect(enteringOf(screen.getByText('ação')).calls.delay).toBe(
-        3 * motion.stagger,
       );
     });
 

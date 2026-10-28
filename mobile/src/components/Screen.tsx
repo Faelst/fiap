@@ -4,41 +4,33 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Box, useTheme } from '../theme';
 
-type Edge = 'top' | 'bottom';
-
 type ScreenProps = {
   children: ReactNode;
   testID: string;
-  /** Lados em que a tela aplica a área segura (padrão: só em cima). */
-  edges?: Edge[];
   scroll?: boolean;
   keyboard?: boolean;
   /**
-   * Fica fora da rolagem, colado na base (ex.: o botão do login). Quando não
-   * há `bottom` em `edges`, é ele quem cuida do inset de baixo.
+   * Fica fora da rolagem, colado na base (ex.: o botão do login), e cuida do
+   * inset de baixo.
    */
   footer?: ReactNode;
 };
 
 /**
  * Base de toda tela (01-design.md, 2.1): fundo `background` na janela
- * inteira, área segura por `edges`, rolagem e teclado opcionais. No tablet o
+ * inteira, área segura em cima, rolagem e teclado opcionais. No tablet o
  * conteúdo fica numa coluna centralizada.
  */
 export function Screen({
   children,
   testID,
-  edges = ['top'],
   scroll = false,
   keyboard = false,
   footer,
 }: ScreenProps) {
   const insets = useSafeAreaInsets();
   const { sizes } = useTheme();
-  const insetStyle = {
-    paddingTop: edges.includes('top') ? insets.top : 0,
-    paddingBottom: edges.includes('bottom') ? insets.bottom : 0,
-  };
+  const insetStyle = { paddingTop: insets.top };
   const column = { width: '100%', maxWidth: sizes.contentMaxWidth } as const;
 
   const content = scroll ? (
@@ -77,9 +69,7 @@ export function Screen({
           // O rodapé pinta o inset de baixo (home indicator no iOS, barra de
           // navegação no Android); com o teclado aberto esse pedaço fica
           // atrás do teclado, não acima dele.
-          keyboardVerticalOffset={
-            footer && !edges.includes('bottom') ? -insets.bottom : 0
-          }
+          keyboardVerticalOffset={footer ? -insets.bottom : 0}
         >
           {body}
         </KeyboardAvoidingView>

@@ -2,7 +2,7 @@ import { delay, http, HttpResponse } from 'msw';
 
 import { queryClient, queryKeys } from '../../../../app/queryClient';
 import { useSessionStore } from '../../../../stores/session.store';
-import { API_URL, loginResponse, meResponse } from '../../../../test/fixtures';
+import { API_URL, meResponse } from '../../../../test/fixtures';
 import { server } from '../../../../test/msw/server';
 import { loadMeOnBoot } from '../loadMeOnBoot';
 
@@ -10,7 +10,7 @@ describe('loadMeOnBoot', () => {
   beforeEach(async () => {
     await useSessionStore.getState().signOut();
     queryClient.clear();
-    await useSessionStore.getState().signIn('jwt-1', loginResponse.guardian);
+    await useSessionStore.getState().signIn('jwt-1');
   });
 
   it('devolve o /me e já deixa no cache da query do /me', async () => {

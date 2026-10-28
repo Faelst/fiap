@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react';
 import { Image, StyleSheet } from 'react-native';
 import Animated, {
   FadeIn,
@@ -16,7 +15,6 @@ type EmptyStateProps = {
   title: string;
   description?: string;
   illustration?: boolean;
-  action?: ReactNode;
   testID: string;
 };
 
@@ -70,7 +68,6 @@ export function EmptyState({
   title,
   description,
   illustration = true,
-  action,
   testID,
 }: EmptyStateProps) {
   const { motion, sizes, spacing } = useTheme();
@@ -107,14 +104,6 @@ export function EmptyState({
           <Text variant="body" textAlign="center">
             {description}
           </Text>
-        </Animated.View>
-      ) : null}
-      {action ? (
-        <Animated.View
-          entering={enter.text(2)}
-          style={{ marginTop: spacing.l }}
-        >
-          {action}
         </Animated.View>
       ) : null}
     </Box>

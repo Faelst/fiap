@@ -2,11 +2,7 @@ import { renderHook, waitFor } from '@testing-library/react-native';
 
 import { queryClient } from '../../../../app/queryClient';
 import { useSessionStore } from '../../../../stores/session.store';
-import {
-  loginResponse,
-  reportCard2025,
-  reportCardsResponse,
-} from '../../../../test/fixtures';
+import { reportCard2025, reportCardsResponse } from '../../../../test/fixtures';
 import { QueryWrapper } from '../../../../test/queryWrapper';
 import { useReportCardQuery } from '../useReportCardQuery';
 import { useReportCardsQuery } from '../useReportCardsQuery';
@@ -14,7 +10,7 @@ import { useReportCardsQuery } from '../useReportCardsQuery';
 describe('boletim', () => {
   beforeEach(async () => {
     queryClient.clear();
-    await useSessionStore.getState().signIn('jwt-1', loginResponse.guardian);
+    await useSessionStore.getState().signIn('jwt-1');
   });
 
   it('useReportCardsQuery lista os anos do aluno', async () => {

@@ -3,11 +3,7 @@ import { http, HttpResponse } from 'msw';
 
 import { queryClient } from '../../../../app/queryClient';
 import { useSessionStore } from '../../../../stores/session.store';
-import {
-  agendaResponse,
-  API_URL,
-  loginResponse,
-} from '../../../../test/fixtures';
+import { agendaResponse, API_URL } from '../../../../test/fixtures';
 import { server } from '../../../../test/msw/server';
 import { QueryWrapper } from '../../../../test/queryWrapper';
 import { useAgendaQuery } from '../useAgendaQuery';
@@ -15,7 +11,7 @@ import { useAgendaQuery } from '../useAgendaQuery';
 describe('useAgendaQuery', () => {
   beforeEach(async () => {
     queryClient.clear();
-    await useSessionStore.getState().signIn('jwt-1', loginResponse.guardian);
+    await useSessionStore.getState().signIn('jwt-1');
   });
 
   it('sem aluno selecionado não chama a API', async () => {

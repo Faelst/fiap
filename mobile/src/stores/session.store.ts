@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { queryClient } from '../app/queryClient';
-import type { Guardian } from '../features/auth/schemas';
 import { mmkvStateStorage } from '../services/storage/mmkv';
 import { secureStorage } from '../services/storage/secureStorage';
 
@@ -13,8 +12,6 @@ export type SignOutReason = 'manual' | 'expired';
 
 type SessionState = {
   status: SessionStatus;
-  /** Vem do login; ao reabrir o app fica `null` até o `/me` responder. */
-  guardian: Guardian | null;
   selectedStudentId: string | null;
   signOutReason: SignOutReason | null;
 };
@@ -27,7 +24,7 @@ type SessionActions = {
    * `signedOut`, e o `bootstrap` que responder depois é ignorado.
    */
   bootstrapTimedOut: () => void;
-  signIn: (token: string, guardian: Guardian) => Promise<void>;
+  signIn: (token: string) => Promise<void>;
   signOut: (reason?: SignOutReason) => Promise<void>;
   selectStudent: (studentId: string) => void;
 };
@@ -40,7 +37,6 @@ export const useSessionStore = create<SessionStore>()(
   persist(
     (set, get) => ({
       status: 'loading',
-      guardian: null,
       selectedStudentId: null,
       signOutReason: null,
 
@@ -55,9 +51,9 @@ export const useSessionStore = create<SessionStore>()(
         if (get().status === 'loading') set({ status: 'signedOut' });
       },
 
-      signIn: async (token, guardian) => {
+      signIn: async token => {
         await secureStorage.setToken(token);
-        set({ status: 'signedIn', guardian, signOutReason: null });
+        set({ status: 'signedIn', signOutReason: null });
       },
 
       signOut: async (reason = 'manual') => {
@@ -65,7 +61,6 @@ export const useSessionStore = create<SessionStore>()(
         queryClient.clear();
         set({
           status: 'signedOut',
-          guardian: null,
           selectedStudentId: null,
           signOutReason: reason,
         });

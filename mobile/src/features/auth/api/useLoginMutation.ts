@@ -27,7 +27,7 @@ export function useLoginMutation() {
       const me = await getMe(undefined, { token: accessToken });
       queryClient.setQueryData(queryKeys.me(), me);
       try {
-        await signIn(accessToken, guardian);
+        await signIn(accessToken);
       } catch (cause) {
         // Sem sessão, os dados do responsável não ficam no cache.
         queryClient.removeQueries({ queryKey: queryKeys.me() });
