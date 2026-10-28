@@ -1,8 +1,7 @@
 import { ThemeProvider } from '@shopify/restyle';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { StatusBar, StyleSheet } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { useSessionStore } from '../stores/session.store';
@@ -18,19 +17,13 @@ export function App() {
   }, [bootstrap]);
 
   return (
-    <GestureHandlerRootView style={styles.fill}>
-      <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <ThemeProvider theme={theme}>
-            <StatusBar barStyle="light-content" />
-            <Navigation />
-          </ThemeProvider>
-        </QueryClientProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <SafeAreaProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider theme={theme}>
+          <StatusBar barStyle="light-content" />
+          <Navigation />
+        </ThemeProvider>
+      </QueryClientProvider>
+    </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-});

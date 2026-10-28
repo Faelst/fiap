@@ -3136,7 +3136,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/babel__core@npm:*, @types/babel__core@npm:^7.1.14":
+"@types/babel__core@npm:^7.1.14":
   version: 7.20.5
   resolution: "@types/babel__core@npm:7.20.5"
   dependencies:
@@ -3239,26 +3239,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/react-refresh@npm:^0":
-  version: 0.14.7
-  resolution: "@types/react-refresh@npm:0.14.7"
-  dependencies:
-    "@types/babel__core": "npm:*"
-    csstype: "npm:^3.2.2"
-  checksum: 10c0/f96088ecfcb12f07aa925a3f485ec3f573bdd2586980315d582fedef8ef16dc3f3aa141b26455364f86e9df5f6e50f156aa99d887f36ae089abdd2c5c6954048
-  languageName: node
-  linkType: hard
-
-"@types/react-test-renderer@npm:^19.1.0":
-  version: 19.3.0
-  resolution: "@types/react-test-renderer@npm:19.3.0"
-  dependencies:
-    "@types/react": "npm:*"
-  checksum: 10c0/37f5588f698a057a33c1f4d5fd28a042f3df7f29a3554ddebb7f9c8ecd3e5fba085e5b12d14b30734c30b51959ef17544650b2a9704d629d0af251f126d8ae73
-  languageName: node
-  linkType: hard
-
-"@types/react@npm:*, @types/react@npm:^19.2.0":
+"@types/react@npm:^19.2.0":
   version: 19.3.0
   resolution: "@types/react@npm:19.3.0"
   dependencies:
@@ -5527,7 +5508,6 @@ __metadata:
     "@testing-library/react-native": "npm:^14.1.0"
     "@types/jest": "npm:^29.5.13"
     "@types/react": "npm:^19.2.0"
-    "@types/react-refresh": "npm:^0"
     axios: "npm:1.20.0"
     eslint: "npm:^8.19.0"
     jest: "npm:^29.6.3"
@@ -5539,7 +5519,6 @@ __metadata:
     react-native-asset: "npm:^2.3.0"
     react-native-bootsplash: "npm:^7.3.4"
     react-native-config: "npm:1.7.2"
-    react-native-gesture-handler: "npm:~3.3.0"
     react-native-keychain: "npm:10.0.0"
     react-native-mmkv: "npm:4.3.2"
     react-native-nitro-modules: "npm:0.37.1"
@@ -5548,7 +5527,6 @@ __metadata:
     react-native-screens: "npm:~4.30.0"
     react-native-svg: "npm:15.16.0"
     react-native-worklets: "npm:0.13.0"
-    react-refresh: "npm:^0.19.0"
     reactotron-react-native: "npm:5.3.1"
     test-renderer: "npm:^1.0.0"
     typescript: "npm:^6.0.3"
@@ -8578,19 +8556,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-gesture-handler@npm:~3.3.0":
-  version: 3.3.0
-  resolution: "react-native-gesture-handler@npm:3.3.0"
-  dependencies:
-    "@types/react-test-renderer": "npm:^19.1.0"
-    invariant: "npm:^2.2.4"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-  checksum: 10c0/6a710722f59eca293e2ff30852cbaf8fb4705712068c9ebb4d1d9d737cda61f175b2b0b452c9fab322d9e14efae3b6d0ab7c884439125b7f5cfb57934f7a65f8
-  languageName: node
-  linkType: hard
-
 "react-native-is-edge-to-edge@npm:^1.3.1":
   version: 1.3.1
   resolution: "react-native-is-edge-to-edge@npm:1.3.1"
@@ -8768,13 +8733,6 @@ __metadata:
   version: 0.14.2
   resolution: "react-refresh@npm:0.14.2"
   checksum: 10c0/875b72ef56b147a131e33f2abd6ec059d1989854b3ff438898e4f9310bfcc73acff709445b7ba843318a953cb9424bcc2c05af2b3d80011cee28f25aef3e2ebb
-  languageName: node
-  linkType: hard
-
-"react-refresh@npm:^0.19.0":
-  version: 0.19.0
-  resolution: "react-refresh@npm:0.19.0"
-  checksum: 10c0/8c7af6d165fefdd9f01f62a62e5a3f32c853faec083f67d059f597cd5dbd513004201f5778eb9928dea304dc96fc47f49e9e58684833d305854ecb6b42e91df5
   languageName: node
   linkType: hard
 

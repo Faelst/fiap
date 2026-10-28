@@ -1912,30 +1912,6 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - RNGestureHandler (3.3.0):
-    - hermes-engine
-    - RCTRequired
-    - RCTTypeSafety
-    - React-bridging
-    - React-Core
-    - React-Core-prebuilt
-    - React-cxxstableapi
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-jsi
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/core
-    - ReactNativeDependencies
-    - RNWorklets (>= 0.8.0)
-    - Yoga
   - RNKeychain (10.0.0):
     - hermes-engine
     - RCTRequired
@@ -2328,7 +2304,6 @@ DEPENDENCIES:
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
   - ReactNativeDependencies (from `../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)
   - RNBootSplash (from `../node_modules/react-native-bootsplash`)
-  - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
   - RNKeychain (from `../node_modules/react-native-keychain`)
   - RNReanimated (from `../node_modules/react-native-reanimated`)
   - RNScreens (from `../node_modules/react-native-screens`)
@@ -2521,8 +2496,6 @@ EXTERNAL SOURCES:
     :podspec: "../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec"
   RNBootSplash:
     :path: "../node_modules/react-native-bootsplash"
-  RNGestureHandler:
-    :path: "../node_modules/react-native-gesture-handler"
   RNKeychain:
     :path: "../node_modules/react-native-keychain"
   RNReanimated:
@@ -2629,7 +2602,6 @@ SPEC CHECKSUMS:
   ReactCommon: 145a14b942b19fc2fe38927f261955ada56978aa
   ReactNativeDependencies: d3b7423ba1e52525e42085c8470109abde583d2e
   RNBootSplash: 53a2b3187fdd1f2242a7f064e43e45eea21beb06
-  RNGestureHandler: e19fcf39b0212e0eb8bc7ca1e645500eb492f6be
   RNKeychain: 990ea9078621f2617a9cdabdb4cfb485a8c1560d
   RNReanimated: 3018727dbf272754d0f31ef73f619e49ade7baf0
   RNScreens: 6d0d3b7819284dbf9f222899eb819f069fce4b8b
