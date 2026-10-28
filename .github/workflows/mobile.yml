@@ -117,9 +117,11 @@ jobs:
       - name: Env de exemplo
         run: cp .env.example .env
 
+      # Só x86_64 (o ABI do emulador do Maestro): o C++ das libs nativas
+      # compila para 1 ABI em vez de 4, e o 1º build sem cache cabe no tempo.
       - name: assembleDebug
         working-directory: mobile/android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --no-daemon --stacktrace
 
       - name: APK de debug
         uses: actions/upload-artifact@v4
