@@ -10,8 +10,34 @@ mais uma API própria em NestJS, que substitui o JSON do enunciado.
   telas extraídos do Figma)
 - Spec do projeto: [`00-brief.md`](.claude/team/tarefas/2026-10-27-fiap-school/00-brief.md)
 
+## Início rápido
+
+API local com yarn e app no simulador iOS (macOS, com Node 24, yarn, Xcode e
+CocoaPods). Detalhes, Android e Docker nas seções seguintes.
+
+```sh
+# Terminal 1: API em http://localhost:3333 (Swagger em /docs)
+cd api
+cp .env.example .env
+yarn install
+yarn prisma:setup
+yarn start:dev
+
+# Terminal 2: app no simulador iOS
+cd mobile
+yarn install
+cp .env.example .env
+cd ios && bundle install && bundle exec pod install && cd ..
+yarn ios
+```
+
+Entre com o Gustavo: CPF `969.294.560-04`, senha `123456` (outras contas em
+[Credenciais de teste](#credenciais-de-teste)). Para o Android, veja
+[Pré-requisitos](#pré-requisitos) e [Android](#android).
+
 ## Sumário
 
+- [Início rápido](#início-rápido)
 - [Visão geral](#visão-geral)
 - [Demonstração](#demonstração)
 - [Stack e dependências](#stack-e-dependências)
@@ -157,7 +183,7 @@ contra um SQLite de teste), `@nestjs/testing`, ESLint 9 + Prettier, TypeScript
 | Node.js | 24 (o `.nvmrc` da raiz) | tudo |
 | yarn | 1.22 na raiz e em `api/`; 4.18.1 em `mobile/` | ver abaixo |
 | Xcode + CocoaPods | Xcode 16 ou mais novo, CocoaPods 1.13+ | iOS (só macOS) |
-| JDK 17 + Android SDK (Android Studio) | SDK com um emulador criado | Android |
+| JDK 17 + Android Studio | SDK Platform 37, Build-Tools 37.0.0, NDK 27.1.12297006 e um emulador | Android (ver abaixo) |
 | Docker | opcional | subir a API com um comando |
 | Maestro | opcional | flows de tela (previsto) |
 
@@ -172,6 +198,19 @@ Ambiente do React Native: siga o
 e Android Studio. O watchman não é necessário (o Metro está configurado sem
 ele).
 
+Para o Android, o projeto compila com `compileSdkVersion` 37,
+`buildToolsVersion` 37.0.0, `ndkVersion` 27.1.12297006 e `minSdkVersion` 24
+(`mobile/android/build.gradle`). No Android Studio, em **SDK Manager**, instale
+o *Android SDK Platform 37*, o *Build-Tools 37.0.0* e o *NDK (Side by side)*
+27.1.12297006 (reanimated, worklets e mmkv têm código C++). Configure as
+variáveis no shell:
+
+```sh
+export JAVA_HOME=<caminho do JDK 17>
+export ANDROID_HOME=$HOME/Library/Android/sdk   # Linux: $HOME/Android/Sdk
+export PATH=$PATH:$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools
+```
+
 Na raiz, instale as dependências uma vez para ativar os hooks do git:
 
 ```sh
@@ -180,20 +219,24 @@ yarn install
 
 ## Como rodar a API
 
-Escolha um dos dois caminhos. Os dois sobem a API em `http://localhost:3333`.
+Os dois caminhos sobem a API em `http://localhost:3333`. A Opção A é a
+verificada durante o desenvolvimento; a Opção B ainda não foi executada (ver o
+aviso nela).
 
 ### Opção A: local, com yarn
 
 ```sh
 cd api
 cp .env.example .env
-# Opcional para uso local, obrigatório fora da sua máquina: troque o JWT_SECRET
-# do .env pelo resultado de
-openssl rand -base64 48
 yarn install          # também roda prisma generate
 yarn prisma:setup     # aplica as migrations e roda o seed (cria api/dev.db)
 yarn start:dev        # sobe em modo watch na porta 3333
 ```
+
+Para rodar local, o `JWT_SECRET` do `.env.example` serve. Ele é público, e com
+`NODE_ENV=production` a API se recusa a subir com ele. Para trocar, gere um
+valor com `openssl rand -base64 48` e cole entre aspas na linha `JWT_SECRET=`
+do `api/.env`.
 
 Confira:
 
@@ -208,11 +251,14 @@ curl -s -X POST http://localhost:3333/api/auth/login \
   -d '{"cpf":"969.294.560-04","password":"123456"}'
 ```
 
-O `JWT_SECRET` do `.env.example` é público e serve só para rodar local: com
-`NODE_ENV=production` a API se recusa a subir com ele. Para rodar o build
-compilado: `yarn build && yarn start:prod`.
+Para rodar o build compilado: `yarn build && yarn start:prod`.
 
 ### Opção B: Docker
+
+> **Ainda não executado.** O `Dockerfile`, o `docker-compose.yml` e o teste do
+> container estão prontos, mas a máquina de desenvolvimento não tem Docker. A
+> primeira execução real é o job `docker` do `api.yml`, no primeiro CI do
+> repositório. Se o build falhar, use a Opção A.
 
 Na raiz do repositório:
 
@@ -247,7 +293,7 @@ não sobe com valor inválido.
 | `PORT` | `3333` | Porta HTTP |
 | `JWT_SECRET` | valor de exemplo | Segredo HS256, com 32 caracteres ou mais. Gere com `openssl rand -base64 48`. O valor do exemplo é recusado com `NODE_ENV=production` |
 | `JWT_EXPIRES_IN` | `7d` | Validade do token, com unidade obrigatória (`s`, `m`, `h`, `d`, `w`, `y`) |
-| `CORS_ORIGINS` | `*` | Origens separadas por vírgula. `*` só fora de produção; com `NODE_ENV=production` é obrigatória |
+| `CORS_ORIGINS` | `*` | Origens separadas por vírgula, ou `*`. Sem a variável, vale `*` fora de produção; com `NODE_ENV=production` a variável é obrigatória (o compose define `*` de propósito) |
 | `LOGIN_THROTTLE_LIMIT` | `5` | Tentativas de login por IP dentro da janela |
 | `LOGIN_THROTTLE_TTL_MS` | `60000` | Janela do limite por IP (ms) |
 | `LOGIN_THROTTLE_CPF_LIMIT` | `10` | Falhas de login por CPF (de qualquer IP). Login certo não conta e zera as falhas |
@@ -287,7 +333,8 @@ O `API_URL` aponta para a API, com o sufixo `/api`:
 |---|---|
 | Simulador iOS | `http://localhost:3333/api` (o padrão do exemplo) |
 | Emulador Android | `http://10.0.2.2:3333/api` (o app também troca `localhost` por `10.0.2.2` sozinho no Android) |
-| Aparelho físico (iOS ou Android) | `http://<IP da máquina na rede>:3333/api`, com o celular na mesma rede Wi-Fi |
+| iPhone físico | `http://<IP da máquina na rede>:3333/api`, com o celular na mesma rede Wi-Fi |
+| Android físico (USB) | `http://localhost:3333/api` com `adb reverse tcp:3333 tcp:3333` (sem depender de IP nem de firewall), ou o IP da máquina como no iPhone |
 
 Sem `API_URL`, o app usa `localhost` no iOS e `10.0.2.2` no Android. O
 `react-native-config` grava o `.env` no binário: depois de mudar o `.env`, rode
@@ -304,6 +351,10 @@ cd ..
 yarn ios                  # ou: yarn ios --simulator "iPhone 16"
 ```
 
+iPhone físico: abra `ios/FiapSchool.xcworkspace` no Xcode, escolha o seu Team
+em *Signing & Capabilities* do target `FiapSchool` (uma conta Apple gratuita
+basta para instalar no próprio aparelho) e rode `yarn ios --device`.
+
 ### Android
 
 Abra um emulador pelo Android Studio (Device Manager) ou conecte um aparelho com
@@ -312,6 +363,10 @@ depuração USB, e então:
 ```sh
 yarn android
 ```
+
+Aparelho Android por USB: rode `adb reverse tcp:3333 tcp:3333` com o aparelho
+conectado (repita se reconectar) para o `localhost:3333` do celular chegar na
+API da máquina.
 
 ### Metro
 
@@ -338,9 +393,7 @@ Todas vêm do seed (`yarn prisma:setup` ou `docker compose up`):
   app abre no dia dessa semana que tem o **mesmo dia da semana de hoje**: numa
   terça, abre em 18/03/2025. Sábado e domingo mostram "Sem aulas neste dia".
 - O boletim abre em 2025, com só o 1º trimestre avaliado (2º e 3º mostram `-`).
-- O login tem rate limit: 5 tentativas por minuto por IP e 10 falhas por CPF em
-  15 minutos. Se travar durante os testes, espere a janela ou suba a API com os
-  limites mais altos (ver [Variáveis de ambiente](#variáveis-de-ambiente-da-api)).
+- Login devolvendo 429: ver [Troubleshooting](#troubleshooting).
 
 ## Testes e qualidade
 
@@ -405,11 +458,13 @@ api/src/
     auth/                   login, JWT, rate limit por IP e por CPF
     guardians/              GET /me
     students/               agenda e boletim
-    health/
-      controllers/          HTTP e DTOs, sem regra de negócio
-      use-cases/            uma classe com execute() por caso de uso, cada uma com seu .spec.ts
-      repositories/         interface + implementação Prisma, injetada por token
-      errors/               erros de domínio do módulo
+    health/                 GET /api/health (só controller e DTO)
+
+Padrão de auth/, guardians/ e students/:
+  controllers/              HTTP e DTOs, sem regra de negócio
+  use-cases/                uma classe com execute() por caso de uso, cada uma com seu .spec.ts
+  repositories/             interface + implementação Prisma, injetada por token (auth usa a de guardians)
+  errors/                   erros de domínio do módulo
 ```
 
 - **Controllers → use cases → repositórios.** O use case depende da interface do
@@ -613,18 +668,18 @@ As decisões completas, com o motivo de cada uma, estão no `00-brief.md`
   as respostas da API.
 - **Token único de 7 dias, sem refresh token**, guardado no Keychain/Keystore.
   O R4 pede sessão persistente e o escopo é de teste técnico.
-- **Segredo do JWT:** o do `.env.example` é público e recusado em produção; no
-  Docker, sem segredo informado, o container gera um aleatório no volume.
 - **Rate limit do login** por IP e por falhas de CPF. Quem souber um CPF consegue
   travar o login dele por 15 minutos (custo aceito em troca de segurar força
   bruta com rodízio de IP).
 - **Logo em PNG 1×:** o export do logo em SVG do Figma ficou bloqueado pelo
   limite do plano do Figma. O logo pode ficar levemente borrado em telas de alta
   densidade até a troca pelo SVG.
-- **Android validado só no CI:** a máquina de desenvolvimento não tem JDK nem
-  Android SDK. O iOS foi testado no simulador a cada tarefa; o Android é
-  compilado pelo `mobile.yml` (`assembleDebug`) e ainda não teve verificação
-  visual em emulador.
+- **Android ainda não buildado:** a máquina de desenvolvimento não tem JDK nem
+  Android SDK. O iOS foi testado no simulador a cada tarefa. O build Android
+  está configurado no CI (`assembleDebug` no `mobile.yml`), mas ainda não foi
+  executado, e o app não teve verificação visual em emulador.
+- **Docker ainda não executado:** ver o aviso na
+  [Opção B](#opção-b-docker).
 - **HTTP sem TLS em dev:** CPF e senha trafegam em HTTP na rede local. Em
   produção a API teria que ficar atrás de HTTPS.
 - **Fora do escopo:** recuperação de senha, cadastro, tela de configurações,
