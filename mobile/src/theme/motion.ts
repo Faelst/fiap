@@ -18,6 +18,14 @@ export const motion = {
   enterOffsetSmall: 8,
   /** Shake do formulário em erro (01-design.md, 4.2): 6 passos de 50 ms. */
   shake: { offsets: [-10, 10, -8, 8, -4, 0], step: 50 },
+  /** Shake curto do estado de erro quando o retry falha de novo (4.8). */
+  shakeShort: { offsets: [-6, 6, -3, 0], step: 50 },
+  /** Seleção de aluno: o modal fecha 120 ms depois da borda acender (4.7). */
+  selectStudentBackDelay: 120,
+  /** Atraso entre cards da seleção de aluno (4.7). */
+  cardStagger: 60,
+  /** Ícone da aba que ficou ativa: 1 → 1.12 → 1 (4.4). */
+  tabIconPop: 1.12,
   /** Splash animada (01-design.md, 3.1.3 a 3.1.6). */
   splash: {
     minDuration: 1200,
