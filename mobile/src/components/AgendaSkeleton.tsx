@@ -1,65 +1,66 @@
-import Animated, { FadeOut, ReduceMotion } from 'react-native-reanimated';
-
 import { strings } from '../constants/strings';
-import { useSkeletonPulse } from '../hooks/useSkeletonPulse';
 import { Box, useTheme } from '../theme';
-import { Skeleton } from './Skeleton';
+import { Skeleton, SkeletonGroup } from './Skeleton';
+
+const DAYS = 7;
 
 /**
- * Carregamento da Agenda (01-design.md, 2.13): o dropdown e 4 aulas no
- * formato do `LessonItem`. Para o leitor é um só "Carregando agenda".
+ * Carregamento da Agenda (01-design.md da v2, 2.16): a faixa com 7 chips, o
+ * banner e 4 blocos de aula a partir de 1 hora da grade, com um shimmer só.
+ * Para o leitor é um só "Carregando agenda…".
  */
 export function AgendaSkeleton({ testID }: { testID: string }) {
-  const { motion, sizes, textVariants } = useTheme();
-  const pulse = useSkeletonPulse();
-  const rows = Array.from({ length: sizes.skeletonLessonRows }, (_, i) => i);
+  const { sizes, textVariants } = useTheme();
+  const { weekChip, timetable, skeleton, banner, pill } = sizes;
 
   return (
-    <Animated.View
+    <Box
       testID={testID}
       accessible
       accessibilityRole="progressbar"
       accessibilityLabel={strings.agenda.loadingAccessibilityLabel}
-      exiting={FadeOut.duration(motion.fast).reduceMotion(ReduceMotion.System)}
+      paddingHorizontal="m"
     >
-      {/* O pulso fica num filho: a saída (layout animation) também mexe na opacidade. */}
-      <Animated.View style={pulse}>
+      <SkeletonGroup>
         <Box
           testID={`${testID}-blocks`}
           importantForAccessibility="no-hide-descendants"
         >
-          <Skeleton
-            testID={`${testID}-dropdown`}
-            marginHorizontal="l"
-            height={sizes.dropdown}
-          />
-          <Box paddingHorizontal="xxxl" marginTop="l" gap="m">
-            {rows.map(row => (
-              <Box
+          <Box height={pill.xs} justifyContent="center">
+            <Skeleton
+              radius="s"
+              width="35%"
+              height={textVariants.subtitle.lineHeight}
+            />
+          </Box>
+          <Box
+            testID={`${testID}-days`}
+            flexDirection="row"
+            gap="xs"
+            marginTop="s"
+          >
+            {Array.from({ length: DAYS }, (_, day) => (
+              <Skeleton
+                key={day}
+                radius="l"
+                flex={1}
+                height={weekChip.height}
+              />
+            ))}
+          </Box>
+          <Skeleton radius="m" height={banner} marginTop="m" />
+          <Box marginTop="m" style={{ paddingLeft: timetable.gutter }} gap="xs">
+            {skeleton.blockHeights.map((height, row) => (
+              <Skeleton
                 key={row}
                 testID={`${testID}-row-${row}`}
-                flexDirection="row"
-              >
-                <Box
-                  width={sizes.bulletSlot}
-                  height={textVariants.captionPlain.lineHeight}
-                  justifyContent="center"
-                >
-                  <Skeleton
-                    radius="round"
-                    width={sizes.bullet}
-                    height={sizes.bullet}
-                  />
-                </Box>
-                <Box gap="s">
-                  <Skeleton style={sizes.skeletonLessonTime} />
-                  <Skeleton style={sizes.skeletonLessonSubject} />
-                </Box>
-              </Box>
+                radius="s"
+                height={height}
+              />
             ))}
           </Box>
         </Box>
-      </Animated.View>
-    </Animated.View>
+      </SkeletonGroup>
+    </Box>
   );
 }

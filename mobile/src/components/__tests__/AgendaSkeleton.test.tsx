@@ -1,7 +1,6 @@
 import { screen } from '@testing-library/react-native';
 
 import { renderWithTheme } from '../../test/renderWithTheme';
-import { theme } from '../../theme';
 import { AgendaSkeleton } from '../AgendaSkeleton';
 
 describe('AgendaSkeleton', () => {
@@ -10,7 +9,7 @@ describe('AgendaSkeleton', () => {
 
     const skeleton = screen.getByTestId('agenda-skeleton');
     expect(skeleton).toHaveProp('accessibilityRole', 'progressbar');
-    expect(skeleton).toHaveAccessibleName('Carregando agenda');
+    expect(skeleton).toHaveAccessibleName('Carregando agenda…');
     // Android: `no-hide-descendants` esconde a própria view; fica num wrapper
     // interno, e o container continua anunciado.
     expect(
@@ -20,17 +19,14 @@ describe('AgendaSkeleton', () => {
     ).toHaveProp('importantForAccessibility', 'no-hide-descendants');
   });
 
-  it('um bloco do tamanho do dropdown e 4 linhas no formato da aula', async () => {
+  it('a faixa com 7 chips e 4 blocos de aula', async () => {
     await renderWithTheme(<AgendaSkeleton testID="agenda-skeleton" />);
 
     expect(
-      screen.getByTestId('agenda-skeleton-dropdown', {
+      screen.getByTestId('agenda-skeleton-days', {
         includeHiddenElements: true,
-      }),
-    ).toHaveStyle({
-      height: theme.sizes.dropdown,
-      backgroundColor: theme.colors.surfaceHigh,
-    });
+      }).children,
+    ).toHaveLength(7);
     expect(
       screen.getAllByTestId(/^agenda-skeleton-row-\d$/, {
         includeHiddenElements: true,

@@ -7,7 +7,6 @@ import { useSessionStore } from '../../../stores/session.store';
 import { agendaResponse, API_URL, meResponse } from '../../../test/fixtures';
 import { server } from '../../../test/msw/server';
 import { QueryWrapper } from '../../../test/queryWrapper';
-import { motion } from '../../../theme';
 import { useAgendaViewModel } from '../useAgendaViewModel';
 
 // 25/10/2026 é domingo; 27/10/2026, terça.
@@ -53,6 +52,10 @@ describe('useAgendaViewModel', () => {
     );
   });
 
+  type Vm = ReturnType<typeof useAgendaViewModel>;
+  const lessonsOf = (vm: Vm) => vm.pages[vm.selectedIndex]?.lessons ?? [];
+  const subjects = (vm: Vm) => lessonsOf(vm).map(lesson => lesson.subject);
+
   const renderAgenda = (now = TUESDAY) =>
     renderHook(() => useAgendaViewModel({ now }), { wrapper: QueryWrapper });
 
@@ -86,25 +89,45 @@ describe('useAgendaViewModel', () => {
     },
   );
 
-  it('lista os 7 dias da agenda como "17 de março, segunda-feira"', async () => {
+  it('lista os 7 dias da agenda na faixa, com o mês e a marca de aula', async () => {
     const { result } = await renderReady();
 
-    expect(result.current.dayOptions).toEqual([
-      { key: '2025-03-16', label: '16 de março, domingo' },
-      { key: '2025-03-17', label: '17 de março, segunda-feira' },
-      { key: '2025-03-18', label: '18 de março, terça-feira' },
-      { key: '2025-03-19', label: '19 de março, quarta-feira' },
-      { key: '2025-03-20', label: '20 de março, quinta-feira' },
-      { key: '2025-03-21', label: '21 de março, sexta-feira' },
-      { key: '2025-03-22', label: '22 de março, sábado' },
+    expect(result.current.monthLabel).toBe('Março 2025');
+    expect(result.current.days.map(day => day.date)).toEqual([
+      '2025-03-16',
+      '2025-03-17',
+      '2025-03-18',
+      '2025-03-19',
+      '2025-03-20',
+      '2025-03-21',
+      '2025-03-22',
     ]);
-    expect(result.current.selectedDayLabel).toBe('18 de março, terça-feira');
+    expect(result.current.days[1]).toMatchObject({
+      weekdayShort: 'seg',
+      dayNumber: 17,
+      hasLessons: true,
+      isToday: false,
+      accessibilityLabel: 'Segunda-feira, 17 de março, 2 aulas',
+    });
+    expect(result.current.days[0].hasLessons).toBe(false);
+    expect(result.current.days[2].accessibilityLabel).toBe(
+      'Terça-feira, 18 de março, 1 aula, hoje',
+    );
+    expect(result.current.selectedIndex).toBe(2);
+    expect(result.current.todayIndex).toBe(2);
   });
 
   it('mostra as aulas do dia selecionado, na ordem da API', async () => {
     const { result } = await renderReady(at(26));
 
-    expect(result.current.lessons).toEqual([
+    expect(
+      lessonsOf(result.current).map(({ key, startTime, endTime, subject }) => ({
+        key,
+        startTime,
+        endTime,
+        subject,
+      })),
+    ).toEqual([
       {
         key: '2025-03-17-0',
         startTime: '07:15',
@@ -118,7 +141,6 @@ describe('useAgendaViewModel', () => {
         subject: 'Língua Inglesa',
       },
     ]);
-    expect(result.current.isEmpty).toBe(false);
   });
 
   it('trocar de dia mostra as aulas do novo dia', async () => {
@@ -127,8 +149,8 @@ describe('useAgendaViewModel', () => {
     await act(() => result.current.onSelectDay('2025-03-17'));
 
     expect(result.current.selectedDate).toBe('2025-03-17');
-    expect(result.current.selectedDayLabel).toBe('17 de março, segunda-feira');
-    expect(result.current.lessons.map(lesson => lesson.subject)).toEqual([
+    expect(result.current.showTodayButton).toBe(true);
+    expect(subjects(result.current)).toEqual([
       'Matemática I',
       'Língua Inglesa',
     ]);
@@ -139,20 +161,9 @@ describe('useAgendaViewModel', () => {
 
     await act(() => result.current.onSelectDay('2025-03-16'));
 
-    expect(result.current.lessons).toEqual([]);
-    expect(result.current.isEmpty).toBe(true);
-  });
-
-  it('contentKey muda com o dia e com o aluno (a lista entra de novo)', async () => {
-    const { result } = await renderReady();
-    expect(result.current.contentKey).toBe('s1:2025-03-18');
-
-    await act(() => result.current.onSelectDay('2025-03-17'));
-    expect(result.current.contentKey).toBe('s1:2025-03-17');
-
-    await act(() => useSessionStore.getState().selectStudent('s2'));
-    await waitFor(() =>
-      expect(result.current.contentKey).toBe('s2:2025-03-18'),
+    expect(lessonsOf(result.current)).toEqual([]);
+    expect(result.current.pages[0].emptyDescription).toBe(
+      'Aproveite o fim de semana.',
     );
   });
 
@@ -169,14 +180,12 @@ describe('useAgendaViewModel', () => {
     await act(() => result.current.onSelectDay('2025-03-17'));
 
     await act(() => useSessionStore.getState().selectStudent('s2'));
-    await waitFor(() =>
-      expect(result.current.lessons[0]?.subject).toBe('Geografia'),
-    );
+    await waitFor(() => expect(subjects(result.current)[0]).toBe('Geografia'));
     expect(result.current.selectedDate).toBe('2025-03-18');
 
     await act(() => useSessionStore.getState().selectStudent('s1'));
     await waitFor(() =>
-      expect(result.current.lessons[0]?.subject).toBe(
+      expect(subjects(result.current)[0]).toBe(
         'Produção e Interpretação de Textos',
       ),
     );
@@ -189,8 +198,8 @@ describe('useAgendaViewModel', () => {
     const { result } = await renderAgenda();
 
     await waitFor(() => expect(result.current.status).toBe('error'));
-    expect(result.current.dayOptions).toEqual([]);
-    expect(result.current.lessons).toEqual([]);
+    expect(result.current.days).toEqual([]);
+    expect(result.current.pages).toEqual([]);
     expect(result.current.retrying).toBe(false);
     expect(result.current.shakeKey).toBe(0);
   });
@@ -243,21 +252,9 @@ describe('useAgendaViewModel', () => {
 
     const { result } = await renderReady();
 
-    expect(result.current.dayOptions).toEqual([]);
+    expect(result.current.days).toEqual([]);
     expect(result.current.selectedDate).toBeNull();
-    expect(result.current.isEmpty).toBe(true);
-  });
-
-  it('a 1ª lista espera a entrada do header (4 × stagger); as seguintes, não', async () => {
-    const { result } = await renderReady();
-    expect(result.current.contentEnterDelay).toBe(4 * motion.stagger);
-
-    await act(() => result.current.onSelectDay('2025-03-17'));
-    expect(result.current.contentEnterDelay).toBe(0);
-
-    // Voltar ao dia da 1ª exibição não repete o atraso.
-    await act(() => result.current.onSelectDay('2025-03-18'));
-    expect(result.current.contentEnterDelay).toBe(0);
+    expect(result.current.isWeekEmpty).toBe(true);
   });
 
   it('trocar de aluno durante o TENTAR DE NOVO não leva o spinner nem o shake ao outro aluno', async () => {
