@@ -1,4 +1,4 @@
-import { firstName, fullName, upper } from '../names';
+import { firstName, fullName } from '../names';
 
 describe('firstName', () => {
   it('pega a primeira palavra, sem espaços sobrando', () => {
@@ -21,12 +21,5 @@ describe('fullName', () => {
   it('não deixa espaço quando falta uma parte', () => {
     expect(fullName('Rafael', '')).toBe('Rafael');
     expect(fullName('', 'Silva')).toBe('Silva');
-  });
-});
-
-describe('upper', () => {
-  it('põe em maiúsculas, inclusive acentos', () => {
-    expect(upper('Gustavo')).toBe('GUSTAVO');
-    expect(upper('João Lúcia ção')).toBe('JOÃO LÚCIA ÇÃO');
   });
 });

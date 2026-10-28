@@ -9,8 +9,3 @@ export function firstName(name: string): string {
 export function fullName(first: string, last: string): string {
   return [first.trim(), last.trim()].filter(Boolean).join(' ');
 }
-
-/** Maiúsculas em pt-BR (acentos e cedilha incluídos). */
-export function upper(value: string): string {
-  return value.toLocaleUpperCase('pt-BR');
-}
