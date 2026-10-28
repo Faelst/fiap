@@ -151,15 +151,18 @@ export function TextField({
     opacity: fade(hasError ? 1 : 0),
   }));
   // O ícone que entra cresce de 0,85 a 1 (sem escala com reduzir movimento).
+  // Calculadas no JS: o worklet só lê números.
   const iconScale = (visible: boolean) =>
-    reducedMotion ? 1 : visible ? 1 : motion.toggleIconFrom;
+    reducedMotion || visible ? 1 : motion.toggleIconFrom;
+  const showIconScale = iconScale(secureHidden);
+  const hideIconScale = iconScale(!secureHidden);
   const showIconStyle = useAnimatedStyle(() => ({
     opacity: fade(secureHidden ? 1 : 0),
-    transform: [{ scale: move(iconScale(secureHidden)) }],
+    transform: [{ scale: move(showIconScale) }],
   }));
   const hideIconStyle = useAnimatedStyle(() => ({
     opacity: fade(secureHidden ? 0 : 1),
-    transform: [{ scale: move(iconScale(!secureHidden)) }],
+    transform: [{ scale: move(hideIconScale) }],
   }));
 
   const errorEntering = reducedMotion
