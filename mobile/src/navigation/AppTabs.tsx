@@ -3,17 +3,21 @@ import {
   type BottomTabBarProps,
 } from '@react-navigation/bottom-tabs';
 
+import { FloatingTabBar } from '../components/FloatingTabBar';
 import { AgendaIcon } from '../components/icons/AgendaIcon';
 import { BoletimIcon } from '../components/icons/BoletimIcon';
-import { TabBar } from '../components/TabBar';
+import { ProfileIcon } from '../components/icons/ProfileIcon';
 import { strings } from '../constants/strings';
 import { LessonsScreen } from '../features/lessons/LessonsScreen';
+import { ProfileScreen } from '../features/profile/ProfileScreen';
 import { ReportCardScreen } from '../features/report-card/ReportCardScreen';
 import type { AppTabsParamList } from './types';
 
 const Tab = createBottomTabNavigator<AppTabsParamList>();
 
-const renderTabBar = (props: BottomTabBarProps) => <TabBar {...props} />;
+const renderTabBar = (props: BottomTabBarProps) => (
+  <FloatingTabBar {...props} />
+);
 
 type TabIconProps = { color: string; size: number };
 
@@ -23,12 +27,20 @@ const agendaIcon = ({ color, size }: TabIconProps) => (
 const boletimIcon = ({ color, size }: TabIconProps) => (
   <BoletimIcon color={color} size={size} />
 );
+const profileIcon = ({ color, size }: TabIconProps) => (
+  <ProfileIcon color={color} size={size} />
+);
 
-/** Abas Agenda e Boletim com a tab bar do Figma (01-design.md, 2.4 e 4.4). */
+/**
+ * Abas Agenda, Boletim e Perfil com a tab bar flutuante (01-design.md da
+ * v2, 2.4 e 3.0). O voltar do Android numa aba que não é a Agenda volta para
+ * ela (`firstRoute`).
+ */
 export function AppTabs() {
   return (
     <Tab.Navigator
       tabBar={renderTabBar}
+      backBehavior="firstRoute"
       screenOptions={{ headerShown: false, animation: 'fade' }}
     >
       <Tab.Screen
@@ -49,6 +61,16 @@ export function AppTabs() {
           tabBarAccessibilityLabel: strings.tabs.boletimAccessibilityLabel,
           tabBarButtonTestID: 'tab-boletim',
           tabBarIcon: boletimIcon,
+        }}
+      />
+      <Tab.Screen
+        name="Perfil"
+        component={ProfileScreen}
+        options={{
+          title: strings.tabs.perfil,
+          tabBarAccessibilityLabel: strings.tabs.perfilAccessibilityLabel,
+          tabBarButtonTestID: 'tab-perfil',
+          tabBarIcon: profileIcon,
         }}
       />
     </Tab.Navigator>

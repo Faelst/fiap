@@ -139,4 +139,16 @@ describe('tema v2', () => {
     expect(theme.motion.loginLogoScale).toBeCloseTo(0.8, 2);
     expect(theme.motion.emphasized).toBe(theme.motion.splash.exitToLoginEasing);
   });
+
+  it('Perfil (3.5 e 4.6): linhas, rádio, selo e a escala da linha escolhida', () => {
+    expect(theme.sizes.profile).toEqual({
+      studentRow: 72,
+      logoutRow: 56,
+      radio: 22,
+      radioBorder: 1.5,
+      currentBadge: 28,
+      currentBadgeIcon: 16,
+    });
+    expect(theme.motion.rowSelectFrom).toBe(0.98);
+  });
 });

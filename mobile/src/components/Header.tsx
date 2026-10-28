@@ -26,6 +26,11 @@ type HeaderProps = {
   onSwitchStudent: () => void;
   onLogout: () => void;
   logoutDisabled?: boolean;
+  /**
+   * Padding de baixo da rolagem: nas abas, `useFloatingTabBarInset()`, para
+   * o fim do conteúdo não ficar atrás da tab bar flutuante.
+   */
+  contentInsetBottom?: number;
   /** Conteúdo da tela, que rola junto com a saudação. */
   children?: ReactNode;
 };
@@ -43,6 +48,7 @@ export function Header({
   onSwitchStudent,
   onLogout,
   logoutDisabled,
+  contentInsetBottom = 0,
   children,
 }: HeaderProps) {
   const { motion, spacing } = useTheme();
@@ -61,8 +67,13 @@ export function Header({
         logoutDisabled={logoutDisabled}
       />
       <ScrollView
+        testID="header-scroll"
         style={styles.fill}
-        contentContainerStyle={styles.grow}
+        contentContainerStyle={[
+          styles.grow,
+          { paddingBottom: contentInsetBottom },
+        ]}
+        scrollIndicatorInsets={{ bottom: contentInsetBottom }}
         showsVerticalScrollIndicator={false}
       >
         <Animated.View

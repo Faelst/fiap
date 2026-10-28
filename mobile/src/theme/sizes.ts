@@ -60,6 +60,15 @@ export const sizes = {
     subjectCards: 4,
     shimmerWidth: 120,
   },
+  /** Perfil (3.5): linha do aluno, linha de sair, rádio e selo "Atual". */
+  profile: {
+    studentRow: 72,
+    logoutRow: 56,
+    radio: 22,
+    radioBorder: 1.5,
+    currentBadge: 28,
+    currentBadgeIcon: 16,
+  },
   /** Teto da fonte grande do sistema em elementos de altura fixa (1.8). */
   fixedHeightFontScale: 1.3,
 

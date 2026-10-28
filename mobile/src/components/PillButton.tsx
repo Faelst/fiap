@@ -1,5 +1,10 @@
-import type { ReactNode } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
+import type { ComponentRef, ReactNode, Ref } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  type View,
+} from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useReducedMotion,
@@ -31,6 +36,8 @@ type PillButtonProps = {
   /** Lido enquanto carrega (ex.: "Entrando…"). */
   loadingAccessibilityLabel?: string;
   accessibilityHint?: string;
+  /** Do pressionável: para mover o foco do leitor de tela até o botão. */
+  ref?: Ref<ComponentRef<typeof View>>;
 };
 
 type Color = keyof Theme['colors'];
@@ -66,6 +73,7 @@ export function PillButton({
   accessibilityLabel,
   loadingAccessibilityLabel,
   accessibilityHint,
+  ref,
 }: PillButtonProps) {
   const { colors, motion, opacities, shadows, sizes, spacing } = useTheme();
   const reducedMotion = useReducedMotion();
@@ -110,6 +118,7 @@ export function PillButton({
 
   return (
     <Pressable
+      ref={ref}
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={

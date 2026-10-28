@@ -1,5 +1,6 @@
 import { fireEvent, screen } from '@testing-library/react-native';
-import { StyleSheet, Text } from 'react-native';
+import { createRef, type ComponentRef } from 'react';
+import { StyleSheet, Text, type View } from 'react-native';
 
 import { renderWithTheme } from '../../test/renderWithTheme';
 import { theme } from '../../theme';
@@ -241,5 +242,20 @@ describe('PillButton', () => {
       'accessibilityHint',
       'Encerra a sessão',
     );
+  });
+
+  it('repassa o `ref` ao pressionável (para mover o foco do leitor até ele)', async () => {
+    const ref = createRef<ComponentRef<typeof View>>();
+    await renderWithTheme(
+      <PillButton
+        testID="btn"
+        label="Cancelar"
+        onPress={jest.fn()}
+        ref={ref}
+      />,
+    );
+
+    // A instância é a do próprio pressionável (o que tem o testID do botão).
+    expect(ref.current).toHaveProperty('props.testID', 'btn');
   });
 });

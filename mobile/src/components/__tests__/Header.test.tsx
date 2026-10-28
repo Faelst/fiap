@@ -170,4 +170,39 @@ describe('Header', () => {
       theme.sizes.touchTarget,
     );
   });
+
+  it('contentInsetBottom: a rolagem termina acima da tab bar flutuante', async () => {
+    await renderWithTheme(
+      <Header
+        guardianFirstName="Gustavo"
+        student={rafael}
+        canSwitchStudent
+        onSwitchStudent={onSwitchStudent}
+        onLogout={onLogout}
+        contentInsetBottom={96}
+      />,
+    );
+
+    const scroll = screen.getByTestId('header-scroll');
+    expect(scroll.props.contentContainerStyle).toEqual(
+      expect.arrayContaining([{ paddingBottom: 96 }]),
+    );
+    expect(scroll).toHaveProp('scrollIndicatorInsets', { bottom: 96 });
+  });
+
+  it('sem contentInsetBottom (tela sem tab bar), sem padding extra', async () => {
+    await renderWithTheme(
+      <Header
+        guardianFirstName="Carlos"
+        canSwitchStudent={false}
+        onSwitchStudent={onSwitchStudent}
+        onLogout={onLogout}
+      />,
+    );
+
+    const scroll = screen.getByTestId('header-scroll');
+    expect(scroll.props.contentContainerStyle).toEqual(
+      expect.arrayContaining([{ paddingBottom: 0 }]),
+    );
+  });
 });

@@ -8,6 +8,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 export type AppTabsParamList = {
   Agenda: undefined;
   Boletim: undefined;
+  Perfil: undefined;
 };
 
 /**

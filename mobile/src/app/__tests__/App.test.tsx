@@ -190,6 +190,71 @@ describe('App', () => {
     expect(screen.queryByTestId('splash-screen')).toBeNull();
   });
 
+  it('tab bar flutuante com Agenda, Boletim e Perfil; tocar em Perfil abre o Perfil', async () => {
+    await createSecureStorage().setToken('jwt-salvo');
+    await render(<App />);
+    expect(
+      await screen.findByTestId('agenda-screen', {}, AFTER_SPLASH),
+    ).toBeOnTheScreen();
+
+    for (const id of ['tab-agenda', 'tab-boletim', 'tab-perfil']) {
+      expect(screen.getByTestId(id)).toHaveProp('accessibilityRole', 'tab');
+    }
+    expect(screen.getByTestId('tab-bar-container')).toHaveStyle({
+      position: 'absolute',
+    });
+
+    await act(() => fireEvent.press(screen.getByTestId('tab-perfil')));
+
+    expect(await screen.findByTestId('profile-screen')).toBeOnTheScreen();
+    expect(screen.getByTestId('tab-perfil')).toBeSelected();
+  });
+
+  it('trocar de aluno no Perfil atualiza as outras abas, sem sair do Perfil (N5)', async () => {
+    await createSecureStorage().setToken('jwt-salvo');
+    await render(<App />);
+    expect(
+      await screen.findByTestId('agenda-screen', {}, AFTER_SPLASH),
+    ).toBeOnTheScreen();
+    expect(screen.getByTestId('header-student-name')).toHaveTextContent(
+      'Rafael',
+    );
+
+    await act(() => fireEvent.press(screen.getByTestId('tab-perfil')));
+    await act(() =>
+      fireEvent.press(screen.getByTestId('profile-student-12568')),
+    );
+    expect(screen.getByTestId('profile-screen')).toBeOnTheScreen();
+    expect(screen.getByTestId('profile-student-12568')).toBeSelected();
+
+    await act(() => fireEvent.press(screen.getByTestId('tab-agenda')));
+    await waitFor(() =>
+      expect(screen.getByTestId('header-student-name')).toHaveTextContent(
+        'Marina',
+      ),
+    );
+    expect(useSessionStore.getState().selectedStudentId).toBe('s2');
+  });
+
+  it('Sair no Perfil, depois de confirmar, apaga o token e volta ao Login (N5)', async () => {
+    await createSecureStorage().setToken('jwt-salvo');
+    await render(<App />);
+    expect(
+      await screen.findByTestId('agenda-screen', {}, AFTER_SPLASH),
+    ).toBeOnTheScreen();
+
+    await act(() => fireEvent.press(screen.getByTestId('tab-perfil')));
+    await act(() =>
+      fireEvent.press(screen.getByTestId('profile-logout-button')),
+    );
+    await act(() =>
+      fireEvent.press(screen.getByTestId('profile-logout-confirm')),
+    );
+
+    expect(await screen.findByTestId('login-screen')).toBeOnTheScreen();
+    expect(await createSecureStorage().getToken()).toBeNull();
+  });
+
   it('SAIR no Boletim apaga o token e volta ao Login', async () => {
     await createSecureStorage().setToken('jwt-salvo');
     await render(<App />);

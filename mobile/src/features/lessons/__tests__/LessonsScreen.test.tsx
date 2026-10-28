@@ -64,6 +64,18 @@ describe('LessonsScreen', () => {
     );
   };
 
+  it('o fim da rolagem fica acima da tab bar flutuante (N1)', async () => {
+    await renderScreen();
+
+    const { floatingTabBar } = theme.sizes;
+    // Sem home indicator: barra (64) + `m` da borda + `m` de folga.
+    const inset = floatingTabBar.height + 2 * theme.spacing.m;
+    expect(
+      screen.getByTestId('header-scroll').props.contentContainerStyle,
+    ).toEqual(expect.arrayContaining([{ paddingBottom: inset }]));
+    await screen.findByTestId('agenda-day-dropdown');
+  });
+
   it('título AGENDA e skeleton enquanto a agenda carrega', async () => {
     const gate = deferred();
     server.use(

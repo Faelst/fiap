@@ -41,10 +41,12 @@ export const strings = {
     logoutAccessibilityLabel: 'Sair da conta',
   },
   tabs: {
-    agenda: 'AGENDA',
+    agenda: 'Agenda',
     agendaAccessibilityLabel: 'Agenda',
-    boletim: 'BOLETIM',
+    boletim: 'Boletim',
     boletimAccessibilityLabel: 'Boletim',
+    perfil: 'Perfil',
+    perfilAccessibilityLabel: 'Perfil',
   },
   agenda: {
     title: 'AGENDA',
@@ -94,6 +96,35 @@ export const strings = {
       rm: number,
       period: string,
     ) => `${fullName}, turma ${className}, RM ${rm}, ${period}`,
+  },
+  profile: {
+    title: 'Perfil',
+    guardianRole: 'Responsável',
+    cpfLabel: 'CPF',
+    /** O leitor lê o card do responsável num elemento só (6.4). */
+    guardianAccessibilityLabel: (fullName: string, cpf: string) =>
+      `${fullName}, responsável. CPF ${cpf}`,
+    /** Maiúsculas pela variante `overline`. */
+    studentsHeader: 'Alunos',
+    studentsHint: 'Toque em um aluno para ver as aulas e o boletim dele.',
+    /** `7EF · RM 12567 · Matutino`. */
+    studentInfo: (className: string, rm: number, period: string) =>
+      `${className} · RM ${rm} · ${period}`,
+    current: 'Atual',
+    studentAccessibilityLabel: (
+      fullName: string,
+      className: string,
+      rm: number,
+      period: string,
+    ) => `${fullName}, turma ${className}, RM ${rm}, ${period}`,
+    studentHint: 'Mostra as aulas e o boletim deste aluno',
+    switchedAnnouncement: (fullName: string) => `Agora mostrando ${fullName}.`,
+    accountHeader: 'Conta',
+    logout: 'Sair da conta',
+    logoutConfirmQuestion: 'Sair deste aparelho?',
+    logoutCancel: 'Cancelar',
+    logoutConfirm: 'Sair',
+    loggingOutAccessibilityLabel: 'Saindo…',
   },
   noStudent: {
     title: 'Nenhum aluno vinculado',
