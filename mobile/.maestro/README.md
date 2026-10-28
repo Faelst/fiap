@@ -1,5 +1,9 @@
 # Flows do Maestro
 
+> Os flows ainda não foram executados: a máquina de desenvolvimento não tem
+> Maestro, Java nem Android SDK. Hoje roda só a checagem estática
+> (`yarn maestro:check`). A primeira execução real é o `maestro.yml` no CI.
+
 Um flow por caso de uso (brief, seção 6), usando `testID` e os responsáveis do
 seed da API.
 
@@ -27,7 +31,8 @@ hoje (o dia da Agenda é escolhido no dropdown).
 
 ## Pré-requisitos
 
-- [Maestro CLI](https://docs.maestro.dev/getting-started/installing-maestro) (o CI usa a 2.11.0):
+- [Maestro CLI](https://docs.maestro.dev/getting-started/installing-maestro)
+  (o CI usa a 2.11.0):
   `curl -fsSL "https://get.maestro.mobile.dev" | MAESTRO_VERSION=2.11.0 bash`.
 - Java 17 (o Maestro roda na JVM).
 - Simulador iOS ou emulador Android com o app instalado (`yarn ios` /
@@ -35,7 +40,7 @@ hoje (o dia da Agenda é escolhido no dropdown).
 - A API rodando com o seed e com os limites do login altos, porque os flows
   logam muitas vezes seguidas com o mesmo CPF. Em `api/.env`:
 
-  ```
+  ```sh
   LOGIN_THROTTLE_LIMIT=1000
   LOGIN_THROTTLE_CPF_LIMIT=1000
   ```
