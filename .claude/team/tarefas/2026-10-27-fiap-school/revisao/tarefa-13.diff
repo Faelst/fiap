@@ -1,0 +1,1432 @@
+2da2623 ci: workflow do mobile com lint, tsc, jest com cobertura e build Android
+c057a01 test(mobile): avisos de act intermitentes na agenda e no App
+b6b260f feat(mobile): estado do React Query e do zustand no Reactotron, sem variáveis de mutation nem token
+e8c635d fix(mobile): descrição do 404 do boletim não troca para conexão durante o retry
+fcea10b feat(mobile): foco do leitor de tela no título da seleção de aluno
+475eed6 feat(mobile): ErrorState anuncia o erro ao leitor de tela ao aparecer e a cada retry que falha
+7fc41fc feat(mobile): entrada do EmptyState com escala da ilustração e atraso do título
+ .github/workflows/mobile.yml                       | 176 +++++++++++++++++++++
+ mobile/src/app/__tests__/App.test.tsx              |  12 +-
+ mobile/src/app/__tests__/stateInspector.test.ts    | 124 +++++++++++++++
+ mobile/src/app/devtools.ts                         |  25 ++-
+ mobile/src/app/stateInspector.ts                   |  98 ++++++++++++
+ mobile/src/components/EmptyState.tsx               |  67 ++++++--
+ mobile/src/components/ErrorState.tsx               |  11 ++
+ .../src/components/__tests__/EmptyState.test.tsx   |  84 ++++++++++
+ .../src/components/__tests__/ErrorState.test.tsx   |  60 +++++++
+ .../lessons/api/__tests__/useAgendaQuery.test.tsx  |   5 +-
+ .../__tests__/useReportCardViewModel.test.tsx      |  28 ++++
+ .../features/report-card/useReportCardViewModel.ts |  10 +-
+ .../src/features/students/SelectStudentScreen.tsx  |  24 ++-
+ .../__tests__/SelectStudentScreen.test.tsx         |  59 ++++++-
+ mobile/src/services/logger/reactotron.ts           |  36 +++--
+ mobile/src/test/recordingAnimations.ts             |  61 +++++++
+ mobile/src/test/renderWithTheme.tsx                |  13 +-
+ mobile/src/theme/motion.ts                         |   2 +
+ 18 files changed, 854 insertions(+), 41 deletions(-)
+diff --git a/.github/workflows/mobile.yml b/.github/workflows/mobile.yml
+new file mode 100644
+index 0000000..73a1fd4
+--- /dev/null
++++ b/.github/workflows/mobile.yml
+@@ -0,0 +1,176 @@
++name: mobile
++
++on:
++  push:
++    branches: [main]
++    paths:
++      - "mobile/**"
++      - ".github/workflows/mobile.yml"
++  pull_request:
++    paths:
++      - "mobile/**"
++      - ".github/workflows/mobile.yml"
++  # O job ios só roda por aqui (ver o comentário dele).
++  workflow_dispatch:
++    inputs:
++      ios:
++        description: "Rodar também o build iOS (macOS, mais caro)"
++        type: boolean
++        default: false
++
++permissions:
++  contents: read
++
++concurrency:
++  group: mobile-${{ github.ref }}
++  cancel-in-progress: true
++
++defaults:
++  run:
++    working-directory: mobile
++
++jobs:
++  test:
++    name: lint, tsc e jest com cobertura
++    runs-on: ubuntu-latest
++    timeout-minutes: 15
++    steps:
++      - uses: actions/checkout@v4
++
++      - uses: actions/setup-node@v4
++        with:
++          node-version: 24
++
++      # yarn 4 fixado na pasta (packageManager + .yarn/releases), via corepack.
++      - name: Habilita o corepack (yarn 4 do mobile)
++        run: corepack enable
++
++      - name: Pasta de cache do yarn
++        id: yarn-cache
++        run: echo "dir=$(yarn config get cacheFolder)" >> "$GITHUB_OUTPUT"
++
++      - uses: actions/cache@v4
++        with:
++          path: ${{ steps.yarn-cache.outputs.dir }}
++          key: yarn-mobile-${{ runner.os }}-${{ hashFiles('mobile/yarn.lock') }}
++          restore-keys: yarn-mobile-${{ runner.os }}-
++
++      - name: Instala dependências
++        run: yarn install --immutable
++
++      - name: Lint
++        run: yarn lint
++
++      - name: Typecheck
++        run: yarn tsc
++
++      - name: Testes de componente e ViewModels (jest --coverage)
++        run: yarn test --coverage --ci
++
++      - name: Relatório de cobertura
++        if: ${{ !cancelled() }}
++        uses: actions/upload-artifact@v4
++        with:
++          name: mobile-coverage
++          path: mobile/coverage/
++          if-no-files-found: warn
++          retention-days: 14
++
++  # Primeira prova de que o Android compila (a máquina de desenvolvimento não
++  # tem JDK/SDK). Debug, sem assinatura.
++  android:
++    name: build Android (assembleDebug)
++    runs-on: ubuntu-latest
++    timeout-minutes: 45
++    steps:
++      - uses: actions/checkout@v4
++
++      - uses: actions/setup-node@v4
++        with:
++          node-version: 24
++
++      - name: Habilita o corepack (yarn 4 do mobile)
++        run: corepack enable
++
++      - name: Pasta de cache do yarn
++        id: yarn-cache
++        run: echo "dir=$(yarn config get cacheFolder)" >> "$GITHUB_OUTPUT"
++
++      - uses: actions/cache@v4
++        with:
++          path: ${{ steps.yarn-cache.outputs.dir }}
++          key: yarn-mobile-${{ runner.os }}-${{ hashFiles('mobile/yarn.lock') }}
++          restore-keys: yarn-mobile-${{ runner.os }}-
++
++      - name: Instala dependências
++        run: yarn install --immutable
++
++      - uses: actions/setup-java@v4
++        with:
++          distribution: temurin
++          java-version: 17
++
++      # Cache do Gradle (wrapper, dependências e build cache).
++      - uses: gradle/actions/setup-gradle@v4
++
++      # O react-native-config lê o .env no build.
++      - name: Env de exemplo
++        run: cp .env.example .env
++
++      - name: assembleDebug
++        working-directory: mobile/android
++        run: ./gradlew assembleDebug --no-daemon --stacktrace
++
++      - name: APK de debug
++        uses: actions/upload-artifact@v4
++        with:
++          name: mobile-android-debug-apk
++          path: mobile/android/app/build/outputs/apk/debug/*.apk
++          retention-days: 7
++
++  # Só no workflow_dispatch com ios=true: o runner macOS custa 10× o Linux e
++  # o pod install + xcodebuild leva uns 20–30 min. O iOS já é buildado e
++  # testado no simulador da máquina de desenvolvimento a cada tarefa.
++  ios:
++    name: build iOS (simulador)
++    if: ${{ github.event_name == 'workflow_dispatch' && inputs.ios }}
++    runs-on: macos-15
++    timeout-minutes: 60
++    steps:
++      - uses: actions/checkout@v4
++
++      - uses: actions/setup-node@v4
++        with:
++          node-version: 24
++
++      - name: Habilita o corepack (yarn 4 do mobile)
++        run: corepack enable
++
++      - name: Instala dependências
++        run: yarn install --immutable
++
++      - uses: ruby/setup-ruby@v1
++        with:
++          ruby-version: "3.3"
++          bundler-cache: true
++          working-directory: mobile
++
++      - name: Env de exemplo
++        run: cp .env.example .env
++
++      - name: pod install
++        working-directory: mobile/ios
++        run: bundle exec pod install
++
++      - name: xcodebuild (simulador, sem assinatura)
++        working-directory: mobile/ios
++        run: |
++          set -o pipefail
++          xcodebuild \
++            -workspace FiapSchool.xcworkspace \
++            -scheme FiapSchool \
++            -configuration Debug \
++            -sdk iphonesimulator \
++            -destination 'generic/platform=iOS Simulator' \
++            CODE_SIGNING_ALLOWED=NO \
++            build
+diff --git a/mobile/src/app/__tests__/App.test.tsx b/mobile/src/app/__tests__/App.test.tsx
+index d9fe727..dbb520d 100644
+--- a/mobile/src/app/__tests__/App.test.tsx
++++ b/mobile/src/app/__tests__/App.test.tsx
+@@ -12,37 +12,47 @@ import { createSecureStorage } from '../../services/storage/secureStorage';
+ import { useBootStore } from '../../stores/boot.store';
+ import { useSessionStore } from '../../stores/session.store';
+ import { API_URL, meResponse, meWithoutStudents } from '../../test/fixtures';
+ import { server } from '../../test/msw/server';
+ import { queryClient } from '../queryClient';
+ import { App } from '../App';
+ 
+ /** A splash tem duração mínima de 1200 ms (timers reais aqui, por causa do MSW). */
+ const AFTER_SPLASH = { timeout: 4000 };
+ 
++/** Fade das abas (150 ms) + o `setTimeout` de 32 ms do BottomTabView, com folga. */
++const TABS_SETTLE = 250;
++
+ const layout = {
+   nativeEvent: { layout: { x: 0, y: 0, width: 414, height: 736 } },
+ };
+ 
+ describe('App', () => {
+   beforeEach(async () => {
+     await useSessionStore.getState().signOut();
+     useSessionStore.setState({ status: 'loading', signOutReason: null });
+     useBootStore.setState({ splashDone: false });
+     queryClient.clear();
+     (BootSplash.hide as jest.Mock).mockClear();
+   });
+ 
+   // As abas buscam a agenda ao montar; a resposta não pode chegar depois do
+-  // fim do teste (atualização fora do act).
++  // fim do teste (atualização fora do act). O `isFetching` zera no cache antes
++  // de a tela saber: o TanStack avisa os observadores num `setTimeout(0)`. E o
++  // bottom-tabs, ao terminar o fade (150 ms), muda o próprio estado 32 ms
++  // depois. As duas coisas acontecem aqui, dentro do act, antes do unmount.
+   afterEach(async () => {
+     await waitFor(() => expect(queryClient.isFetching()).toBe(0));
++    await act(
++      () =>
++        new Promise<void>(resolve => setTimeout(() => resolve(), TABS_SETTLE)),
++    );
+   });
+ 
+   it('abre na splash JS, esconde a nativa sem fade e, sem token, vai ao Login', async () => {
+     await render(<App />);
+ 
+     const splash = await screen.findByTestId('splash-screen');
+     await fireEvent(splash, 'layout', layout);
+     expect(BootSplash.hide).toHaveBeenCalledWith({ fade: false });
+ 
+     expect(
+diff --git a/mobile/src/app/__tests__/stateInspector.test.ts b/mobile/src/app/__tests__/stateInspector.test.ts
+new file mode 100644
+index 0000000..14948eb
+--- /dev/null
++++ b/mobile/src/app/__tests__/stateInspector.test.ts
+@@ -0,0 +1,124 @@
++import { QueryClient } from '@tanstack/react-query';
++import { create } from 'zustand';
++
++import { REDACTED } from '../../services/logger/redact';
++import {
++  snapshotQueryCache,
++  snapshotStore,
++  watchAppState,
++} from '../stateInspector';
++
++const credentials = { cpf: '52998224725', password: 'senha-secreta-123' };
++
++const newClient = () =>
++  new QueryClient({
++    defaultOptions: { queries: { retry: false, gcTime: Infinity } },
++  });
++
++describe('stateInspector (Reactotron, D15)', () => {
++  it('queries: chave, status e dados, com CPF redigido', () => {
++    const client = newClient();
++    client.setQueryData(['me'], {
++      guardian: { firstName: 'Gustavo', cpf: '***.294.560-**' },
++    });
++
++    const { queries } = snapshotQueryCache(client);
++
++    expect(queries).toEqual([
++      expect.objectContaining({
++        queryKey: ['me'],
++        status: 'success',
++        fetchStatus: 'idle',
++        data: { guardian: { firstName: 'Gustavo', cpf: REDACTED } },
++      }),
++    ]);
++  });
++
++  it('mutations: só chave e status, nunca as variáveis (senha) nem o resultado (token)', async () => {
++    const client = newClient();
++    await client
++      .getMutationCache()
++      .build(client, {
++        mutationKey: ['login'],
++        mutationFn: async (_: typeof credentials) => ({
++          accessToken: 'jwt-de-verdade',
++        }),
++        gcTime: Infinity,
++      })
++      .execute(credentials);
++
++    const snapshot = snapshotQueryCache(client);
++
++    expect(snapshot.mutations).toEqual([
++      { mutationKey: ['login'], status: 'success' },
++    ]);
++    const serialized = JSON.stringify(snapshot);
++    expect(serialized).not.toContain(credentials.password);
++    expect(serialized).not.toContain(credentials.cpf);
++    expect(serialized).not.toContain('jwt-de-verdade');
++  });
++
++  it('erro de query vira só nome e mensagem', async () => {
++    const client = newClient();
++    const failure = Object.assign(new Error('falhou'), {
++      config: { headers: { Authorization: 'Bearer jwt-de-verdade' } },
++    });
++    await client
++      .fetchQuery({
++        queryKey: ['agenda', 's1'],
++        queryFn: () => Promise.reject(failure),
++      })
++      .catch(() => undefined);
++
++    const { queries } = snapshotQueryCache(client);
++
++    expect(queries[0].error).toEqual({ name: 'Error', message: 'falhou' });
++    expect(JSON.stringify(queries)).not.toContain('jwt-de-verdade');
++  });
++
++  it('store do zustand: só o estado (sem as ações), com CPF redigido', () => {
++    const store = create(() => ({
++      status: 'signedIn',
++      guardian: { firstName: 'Gustavo', cpf: '***.294.560-**' },
++      signOut: () => undefined,
++    }));
++
++    expect(snapshotStore(store)).toEqual({
++      status: 'signedIn',
++      guardian: { firstName: 'Gustavo', cpf: REDACTED },
++    });
++  });
++
++  describe('watchAppState', () => {
++    beforeEach(() => jest.useFakeTimers());
++    afterEach(() => jest.useRealTimers());
++
++    it('manda o retrato das queries e das stores quando mudam, agrupando rajadas', () => {
++      const client = newClient();
++      const session = create(() => ({ selectedStudentId: 's1' }));
++      const send = jest.fn();
++      const stop = watchAppState({
++        queryClient: client,
++        stores: { session },
++        send,
++      });
++
++      client.setQueryData(['me'], { ok: 1 });
++      client.setQueryData(['me'], { ok: 2 });
++      session.setState({ selectedStudentId: 's2' });
++      expect(send).not.toHaveBeenCalled();
++
++      jest.runOnlyPendingTimers();
++
++      expect(send).toHaveBeenCalledTimes(1);
++      const [state] = send.mock.calls[0];
++      expect(state.stores).toEqual({ session: { selectedStudentId: 's2' } });
++      expect(state.queryCache.queries[0].data).toEqual({ ok: 2 });
++
++      stop();
++      session.setState({ selectedStudentId: 's1' });
++      jest.runOnlyPendingTimers();
++      expect(send).toHaveBeenCalledTimes(1);
++    });
++  });
++});
+diff --git a/mobile/src/app/devtools.ts b/mobile/src/app/devtools.ts
+index d75e5f1..f4a5273 100644
+--- a/mobile/src/app/devtools.ts
++++ b/mobile/src/app/devtools.ts
+@@ -1,14 +1,35 @@
+ import { logger } from '../services/logger';
++import { useBootStore } from '../stores/boot.store';
++import { useSessionStore } from '../stores/session.store';
++import { queryClient } from './queryClient';
++import { watchAppState } from './stateInspector';
+ 
+-/** Só em dev: liga o Reactotron como mais um destino do logger. */
++/**
++ * Só em dev: liga o Reactotron como mais um destino do logger e manda para
++ * ele o retrato do cache do React Query e das stores do zustand (D15), sem
++ * variáveis de mutation nem token (ver `stateInspector.ts`).
++ */
+ export function setupDevtools() {
+   if (!__DEV__) {
+     return;
+   }
+   try {
+     const { connectReactotron } = require('../services/logger/reactotron');
+-    logger.addTransport(connectReactotron());
++    const reactotron = connectReactotron();
++    logger.addTransport(reactotron.transport);
++    watchAppState({
++      queryClient,
++      stores: { session: useSessionStore, boot: useBootStore },
++      send: snapshot => {
++        const { queries, mutations } = snapshot.queryCache;
++        reactotron.show(
++          'ESTADO',
++          `${queries.length} queries, ${mutations.length} mutations`,
++          snapshot,
++        );
++      },
++    });
+   } catch (error) {
+     logger.warn('Reactotron não conectou', { error });
+   }
+ }
+diff --git a/mobile/src/app/stateInspector.ts b/mobile/src/app/stateInspector.ts
+new file mode 100644
+index 0000000..704e4d0
+--- /dev/null
++++ b/mobile/src/app/stateInspector.ts
+@@ -0,0 +1,98 @@
++import type { QueryClient } from '@tanstack/react-query';
++import type { StoreApi } from 'zustand';
++
++import { redact } from '../services/logger/redact';
++
++/**
++ * Retratos do estado do app para o Reactotron (D15), só em dev. Os plugins
++ * prontos do React Query para o Reactotron mandam o estado inteiro das
++ * mutations, com as `variables` (CPF e senha do login) e o resultado (token),
++ * sem opção de filtrar. Aqui o retrato é montado à mão:
++ * - queries: chave, status e dados, redigidos (CPF, token);
++ * - mutations: só chave e status;
++ * - stores do zustand: só o estado (sem as ações), redigido.
++ * Erros viram nome + mensagem (o `redact` já faz isso).
++ */
++export function snapshotQueryCache(queryClient: QueryClient) {
++  const queries = queryClient
++    .getQueryCache()
++    .getAll()
++    .map(({ queryKey, state }) => ({
++      queryKey,
++      status: state.status,
++      fetchStatus: state.fetchStatus,
++      dataUpdatedAt: state.dataUpdatedAt,
++      data: state.data,
++      error: state.error,
++    }));
++  const mutations = queryClient
++    .getMutationCache()
++    .getAll()
++    .map(({ options, state }) => ({
++      mutationKey: options.mutationKey,
++      status: state.status,
++    }));
++  return redact({ queries, mutations });
++}
++
++type AnyStore = StoreApi<object>;
++
++export function snapshotStore(store: AnyStore) {
++  const state = Object.fromEntries(
++    Object.entries(store.getState()).filter(
++      ([, value]) => typeof value !== 'function',
++    ),
++  );
++  return redact(state);
++}
++
++export type AppStateSnapshot = {
++  queryCache: ReturnType<typeof snapshotQueryCache>;
++  stores: Record<string, ReturnType<typeof snapshotStore>>;
++};
++
++type WatchOptions = {
++  queryClient: QueryClient;
++  stores: Record<string, AnyStore>;
++  send: (snapshot: AppStateSnapshot) => void;
++  /** Agrupa rajadas de mudanças (um fetch muda o cache várias vezes). */
++  waitMs?: number;
++};
++
++/** Manda um retrato a cada mudança de cache ou de store. Devolve o `stop`. */
++export function watchAppState({
++  queryClient,
++  stores,
++  send,
++  waitMs = 300,
++}: WatchOptions) {
++  let timer: ReturnType<typeof setTimeout> | undefined;
++
++  const schedule = () => {
++    if (timer !== undefined) return;
++    timer = setTimeout(() => {
++      timer = undefined;
++      send({
++        queryCache: snapshotQueryCache(queryClient),
++        stores: Object.fromEntries(
++          Object.entries(stores).map(([name, store]) => [
++            name,
++            snapshotStore(store),
++          ]),
++        ),
++      });
++    }, waitMs);
++  };
++
++  const unsubscribers = [
++    queryClient.getQueryCache().subscribe(schedule),
++    queryClient.getMutationCache().subscribe(schedule),
++    ...Object.values(stores).map(store => store.subscribe(schedule)),
++  ];
++
++  return () => {
++    unsubscribers.forEach(unsubscribe => unsubscribe());
++    if (timer !== undefined) clearTimeout(timer);
++    timer = undefined;
++  };
++}
+diff --git a/mobile/src/components/EmptyState.tsx b/mobile/src/components/EmptyState.tsx
+index e7cab6a..b7c248a 100644
+--- a/mobile/src/components/EmptyState.tsx
++++ b/mobile/src/components/EmptyState.tsx
+@@ -1,90 +1,123 @@
+ import type { ReactNode } from 'react';
+ import { Image, StyleSheet } from 'react-native';
+ import Animated, {
+   FadeIn,
+   FadeInDown,
++  Keyframe,
+   ReduceMotion,
++  useReducedMotion,
+ } from 'react-native-reanimated';
+ 
+-import { Box, Text, useTheme } from '../theme';
++import { Box, Text, useTheme, type Theme } from '../theme';
+ 
+ const illustrationSource = require('../../assets/no-classroom.png');
+ 
+ type EmptyStateProps = {
+   title: string;
+   description?: string;
+   illustration?: boolean;
+   action?: ReactNode;
+   testID: string;
+ };
+ 
++type Motion = Theme['motion'];
++
++/**
++ * Entradas do estado vazio (01-design.md, 4.5 e 4.8). A ilustração cresce de
++ * 0,96 para 1 enquanto aparece, e o texto vem um stagger depois dela. Com
++ * reduzir movimento, tudo só aparece em fade: opacidade não é movimento, então
++ * o sistema não pode pular (`ReduceMotion.Never`).
++ */
++function entrances(motion: Motion, illustration: boolean, reduced: boolean) {
++  const first = illustration ? 1 : 0;
++  if (reduced) {
++    const fade = (delay: number) =>
++      FadeIn.duration(motion.base)
++        .delay(delay)
++        .reduceMotion(ReduceMotion.Never);
++    return {
++      illustration: fade(0),
++      text: (index: number) => fade((first + index) * motion.stagger),
++    };
++  }
++  return {
++    illustration: new Keyframe({
++      0: {
++        opacity: 0,
++        transform: [{ scale: motion.illustrationScaleFrom }],
++      },
++      100: { opacity: 1, transform: [{ scale: 1 }], easing: motion.easeOut },
++    })
++      .duration(motion.base)
++      .reduceMotion(ReduceMotion.System),
++    text: (index: number) =>
++      FadeInDown.duration(motion.base)
++        .delay((first + index) * motion.stagger)
++        .easing(motion.easeOut)
++        .withInitialValues({
++          transform: [{ translateY: motion.enterOffsetSmall }],
++        })
++        .reduceMotion(ReduceMotion.System),
++  };
++}
++
+ /**
+  * Estado vazio (01-design.md, 2.10): ilustração do "sem aulas" cortada em
+  * 328 × 208 (os 82 px de baixo do PNG são o degradê), título e descrição.
+  * A ilustração é decorativa.
+  */
+ export function EmptyState({
+   title,
+   description,
+   illustration = true,
+   action,
+   testID,
+ }: EmptyStateProps) {
+   const { motion, sizes, spacing } = useTheme();
+-  const enter = (index: number) =>
+-    FadeInDown.duration(motion.base)
+-      .delay(index * motion.stagger)
+-      .easing(motion.easeOut)
+-      .withInitialValues({
+-        transform: [{ translateY: motion.enterOffsetSmall }],
+-      })
+-      .reduceMotion(ReduceMotion.System);
++  const reducedMotion = useReducedMotion();
++  const enter = entrances(motion, illustration, reducedMotion);
+ 
+   return (
+     <Box testID={testID} alignItems="center">
+       {illustration ? (
+-        <Animated.View
+-          entering={FadeIn.duration(motion.base).reduceMotion(
+-            ReduceMotion.System,
+-          )}
+-        >
++        <Animated.View entering={enter.illustration}>
+           <Box
+             testID={`${testID}-illustration`}
+             accessible={false}
+             importantForAccessibility="no-hide-descendants"
+             overflow="hidden"
+             style={sizes.illustration}
+           >
+             <Image
+               source={illustrationSource}
+               style={styles.illustration}
+               resizeMode="cover"
+             />
+           </Box>
+         </Animated.View>
+       ) : null}
+-      <Animated.View entering={enter(0)} style={{ marginTop: spacing.m }}>
++      <Animated.View entering={enter.text(0)} style={{ marginTop: spacing.m }}>
+         <Text variant="emptyState">{title}</Text>
+       </Animated.View>
+       {description ? (
+         <Animated.View
+-          entering={enter(1)}
++          entering={enter.text(1)}
+           style={{ marginTop: spacing.s, paddingHorizontal: spacing.huge }}
+         >
+           <Text variant="body" textAlign="center">
+             {description}
+           </Text>
+         </Animated.View>
+       ) : null}
+       {action ? (
+-        <Animated.View entering={enter(2)} style={{ marginTop: spacing.l }}>
++        <Animated.View entering={enter.text(2)} style={{ marginTop: spacing.l }}>
+           {action}
+         </Animated.View>
+       ) : null}
+     </Box>
+   );
+ }
+ 
+ const styles = StyleSheet.create({
+   // PNG 328 × 290 alinhado ao topo; a caixa corta o degradê de baixo.
+   illustration: { width: '100%', aspectRatio: 328 / 290 },
+diff --git a/mobile/src/components/ErrorState.tsx b/mobile/src/components/ErrorState.tsx
+index 5a0803c..41105a2 100644
+--- a/mobile/src/components/ErrorState.tsx
++++ b/mobile/src/components/ErrorState.tsx
+@@ -1,10 +1,12 @@
++import { useEffect } from 'react';
++import { AccessibilityInfo } from 'react-native';
+ import Animated, { FadeInDown, ReduceMotion } from 'react-native-reanimated';
+ 
+ import { strings } from '../constants/strings';
+ import { useShakeStyle } from '../hooks/useShakeStyle';
+ import { Box, Text, useTheme } from '../theme';
+ import { SecondaryButton } from './SecondaryButton';
+ 
+ type ErrorStateProps = {
+   title: string;
+   description: string;
+@@ -13,32 +15,41 @@ type ErrorStateProps = {
+   testID: string;
+   /** Padrão: `${testID}-retry`. */
+   retryTestID?: string;
+   /** Muda a cada retry que falha: dispara o shake curto (4.8). */
+   shakeKey?: number;
+ };
+ 
+ /**
+  * Erro com TENTAR DE NOVO (01-design.md, 2.14): título em `emptyState`,
+  * descrição e o botão secundário. Sem ilustração, para não parecer "vazio".
++ * O leitor de tela ouve o erro quando ele aparece e a cada retry que falha
++ * (3.8); o spinner do retry não repete o anúncio.
+  */
+ export function ErrorState({
+   title,
+   description,
+   onRetry,
+   retrying,
+   testID,
+   retryTestID,
+   shakeKey = 0,
+ }: ErrorStateProps) {
+   const { motion, spacing } = useTheme();
+   const shakeStyle = useShakeStyle(shakeKey, 'short');
++  const spoken = `${title} ${description}`;
++
++  // Anúncio explícito nas duas plataformas, sem live region (que no Android
++  // só avisa mudança numa view que já existia e leria duas vezes).
++  useEffect(() => {
++    AccessibilityInfo.announceForAccessibility(spoken);
++  }, [spoken, shakeKey]);
+   const enter = (index: number) =>
+     FadeInDown.duration(motion.base)
+       .delay(index * motion.stagger)
+       .easing(motion.easeOut)
+       .withInitialValues({
+         transform: [{ translateY: motion.enterOffsetSmall }],
+       })
+       .reduceMotion(ReduceMotion.System);
+ 
+   return (
+diff --git a/mobile/src/components/__tests__/EmptyState.test.tsx b/mobile/src/components/__tests__/EmptyState.test.tsx
+index 161f636..3dcf936 100644
+--- a/mobile/src/components/__tests__/EmptyState.test.tsx
++++ b/mobile/src/components/__tests__/EmptyState.test.tsx
+@@ -1,17 +1,36 @@
+ import { screen } from '@testing-library/react-native';
+ import { Text } from 'react-native';
++import { ReduceMotion, useReducedMotion } from 'react-native-reanimated';
+ 
++import type { RecordedAnimation } from '../../test/recordingAnimations';
+ import { renderWithTheme } from '../../test/renderWithTheme';
+ import { theme } from '../../theme';
+ import { EmptyState } from '../EmptyState';
+ 
++jest.mock('react-native-reanimated', () => ({
++  ...jest.requireActual('react-native-reanimated/mock'),
++  ...jest.requireActual('../../test/recordingAnimations').recordingAnimations(),
++  useReducedMotion: jest.fn(() => false),
++}));
++
++const { motion } = theme;
++
++/** O `entering` da view animada que envolve o elemento. */
++const enteringOf = (node: { parent: unknown }) =>
++  (node.parent as { props: { entering: RecordedAnimation } }).props.entering;
++
++const illustrationEntering = () =>
++  enteringOf(
++    screen.getByTestId('vazio-illustration', { includeHiddenElements: true }),
++  );
++
+ describe('EmptyState', () => {
+   it('ilustração decorativa no tamanho do tema, título, descrição e ação', async () => {
+     await renderWithTheme(
+       <EmptyState
+         testID="vazio"
+         title="Nenhum aluno vinculado"
+         description="Fale com a secretaria."
+         action={<Text>ação</Text>}
+       />,
+     );
+@@ -31,11 +50,76 @@ describe('EmptyState', () => {
+     await renderWithTheme(
+       <EmptyState testID="vazio" title="Sem aulas" illustration={false} />,
+     );
+ 
+     expect(
+       screen.queryByTestId('vazio-illustration', {
+         includeHiddenElements: true,
+       }),
+     ).toBeNull();
+   });
++
++  describe('entrada (01-design.md, 4.5)', () => {
++    beforeEach(() => {
++      (useReducedMotion as jest.Mock).mockReturnValue(false);
++    });
++
++    it('ilustração: opacidade 0 → 1 e escala 0,96 → 1 em `base`', async () => {
++      await renderWithTheme(<EmptyState testID="vazio" title="Sem aulas" />);
++
++      const entering = illustrationEntering();
++      expect(entering.name).toBe('Keyframe');
++      expect(entering.keyframes).toEqual({
++        0: { opacity: 0, transform: [{ scale: 0.96 }] },
++        100: { opacity: 1, transform: [{ scale: 1 }], easing: motion.easeOut },
++      });
++      expect(entering.calls.duration).toBe(motion.base);
++      expect(entering.calls.reduceMotion).toBe(ReduceMotion.System);
++    });
++
++    it('com ilustração, o título espera um stagger e o resto vem em seguida', async () => {
++      await renderWithTheme(
++        <EmptyState
++          testID="vazio"
++          title="Sem aulas"
++          description="Descrição"
++          action={<Text>ação</Text>}
++        />,
++      );
++
++      const title = enteringOf(screen.getByText('Sem aulas'));
++      expect(title.name).toBe('FadeInDown');
++      expect(title.calls.delay).toBe(motion.stagger);
++      expect(enteringOf(screen.getByText('Descrição')).calls.delay).toBe(
++        2 * motion.stagger,
++      );
++      expect(enteringOf(screen.getByText('ação')).calls.delay).toBe(
++        3 * motion.stagger,
++      );
++    });
++
++    it('sem ilustração, o título entra sem atraso (4.8)', async () => {
++      await renderWithTheme(
++        <EmptyState testID="vazio" title="Sem boletim" illustration={false} />,
++      );
++
++      expect(enteringOf(screen.getByText('Sem boletim')).calls.delay).toBe(0);
++    });
++
++    it('com reduzir movimento: só fade, que o sistema não pula', async () => {
++      (useReducedMotion as jest.Mock).mockReturnValue(true);
++      await renderWithTheme(
++        <EmptyState testID="vazio" title="Sem aulas" description="Descrição" />,
++      );
++
++      const illustration = illustrationEntering();
++      expect(illustration.name).toBe('FadeIn');
++      expect(illustration.calls.duration).toBe(motion.base);
++      expect(illustration.calls.reduceMotion).toBe(ReduceMotion.Never);
++      for (const text of ['Sem aulas', 'Descrição']) {
++        const entering = enteringOf(screen.getByText(text));
++        expect(entering.name).toBe('FadeIn');
++        expect(entering.calls.reduceMotion).toBe(ReduceMotion.Never);
++      }
++    });
++  });
+ });
+diff --git a/mobile/src/components/__tests__/ErrorState.test.tsx b/mobile/src/components/__tests__/ErrorState.test.tsx
+index dfaed88..5a92886 100644
+--- a/mobile/src/components/__tests__/ErrorState.test.tsx
++++ b/mobile/src/components/__tests__/ErrorState.test.tsx
+@@ -1,11 +1,12 @@
+ import { fireEvent, screen } from '@testing-library/react-native';
++import { AccessibilityInfo } from 'react-native';
+ 
+ import { renderWithTheme } from '../../test/renderWithTheme';
+ import { ErrorState } from '../ErrorState';
+ 
+ describe('ErrorState', () => {
+   const base = {
+     title: 'Não conseguimos conectar.',
+     description: 'Confira sua conexão e tente de novo.',
+     testID: 'boot-error',
+   };
+@@ -43,11 +44,70 @@ describe('ErrorState', () => {
+   it('tentando: spinner no botão, busy e sem novo toque', async () => {
+     const onRetry = jest.fn();
+     await renderWithTheme(<ErrorState {...base} onRetry={onRetry} retrying />);
+ 
+     const retry = screen.getByTestId('boot-error-retry');
+     expect(retry).toBeBusy();
+     expect(screen.getByTestId('boot-error-retry-loading')).toBeOnTheScreen();
+     await fireEvent.press(retry);
+     expect(onRetry).not.toHaveBeenCalled();
+   });
++
++  describe('leitor de tela (3.8)', () => {
++    const announce = AccessibilityInfo.announceForAccessibility as jest.Mock;
++    const spoken =
++      'Não conseguimos conectar. Confira sua conexão e tente de novo.';
++
++    beforeEach(() => announce.mockClear());
++
++    it('anuncia título e descrição quando o erro aparece', async () => {
++      await renderWithTheme(
++        <ErrorState {...base} onRetry={jest.fn()} retrying={false} />,
++      );
++
++      expect(announce).toHaveBeenCalledTimes(1);
++      expect(announce).toHaveBeenCalledWith(spoken);
++    });
++
++    it('o spinner do TENTAR DE NOVO não repete o anúncio', async () => {
++      const { rerender } = await renderWithTheme(
++        <ErrorState {...base} onRetry={jest.fn()} retrying={false} />,
++      );
++      await rerender(<ErrorState {...base} onRetry={jest.fn()} retrying />);
++      await rerender(
++        <ErrorState {...base} onRetry={jest.fn()} retrying={false} />,
++      );
++
++      expect(announce).toHaveBeenCalledTimes(1);
++    });
++
++    it('anuncia de novo, uma vez, a cada TENTAR DE NOVO que falha', async () => {
++      const { rerender } = await renderWithTheme(
++        <ErrorState {...base} onRetry={jest.fn()} retrying={false} />,
++      );
++      await rerender(
++        <ErrorState {...base} onRetry={jest.fn()} retrying shakeKey={0} />,
++      );
++      await rerender(
++        <ErrorState
++          {...base}
++          onRetry={jest.fn()}
++          retrying={false}
++          shakeKey={1}
++        />,
++      );
++
++      expect(announce).toHaveBeenCalledTimes(2);
++      expect(announce).toHaveBeenLastCalledWith(spoken);
++
++      await rerender(
++        <ErrorState
++          {...base}
++          onRetry={jest.fn()}
++          retrying={false}
++          shakeKey={2}
++        />,
++      );
++      expect(announce).toHaveBeenCalledTimes(3);
++    });
++  });
+ });
+diff --git a/mobile/src/features/lessons/api/__tests__/useAgendaQuery.test.tsx b/mobile/src/features/lessons/api/__tests__/useAgendaQuery.test.tsx
+index 720b217..f2742b6 100644
+--- a/mobile/src/features/lessons/api/__tests__/useAgendaQuery.test.tsx
++++ b/mobile/src/features/lessons/api/__tests__/useAgendaQuery.test.tsx
+@@ -35,21 +35,24 @@ describe('useAgendaQuery', () => {
+     );
+     const { result, rerender } = await renderHook(
+       ({ id }: { id: string }) => useAgendaQuery(id),
+       { wrapper: QueryWrapper, initialProps: { id: 's1' } },
+     );
+ 
+     await waitFor(() => expect(result.current.isSuccess).toBe(true));
+     expect(result.current.data).toHaveLength(7);
+ 
+     await rerender({ id: 's2' });
+-    await waitFor(() => expect(requested).toEqual(['s1', 's2']));
++    // Espera o hook receber a resposta do s2, e não só o request sair: senão
++    // ela chega depois do último `waitFor` e atualiza o hook fora do act.
++    await waitFor(() => expect(result.current.isSuccess).toBe(true));
++    expect(requested).toEqual(['s1', 's2']);
+     expect(queryClient.getQueryData(['agenda', 's1'])).toHaveLength(7);
+   });
+ 
+   it('403 (aluno de outro responsável) vira erro forbidden', async () => {
+     server.use(
+       http.get(`${API_URL}/students/:id/agenda`, () =>
+         HttpResponse.json({ statusCode: 403 }, { status: 403 }),
+       ),
+     );
+     const { result } = await renderHook(() => useAgendaQuery('outro'), {
+diff --git a/mobile/src/features/report-card/__tests__/useReportCardViewModel.test.tsx b/mobile/src/features/report-card/__tests__/useReportCardViewModel.test.tsx
+index c665aa5..0efda11 100644
+--- a/mobile/src/features/report-card/__tests__/useReportCardViewModel.test.tsx
++++ b/mobile/src/features/report-card/__tests__/useReportCardViewModel.test.tsx
+@@ -383,20 +383,48 @@ describe('useReportCardViewModel', () => {
+       expect(result.current.retrying).toBe(true);
+       expect(result.current.termsStatus).toBe('error');
+ 
+       gate.release();
+       await act(() => retry);
+       expect(result.current.retrying).toBe(false);
+       expect(result.current.termsStatus).toBe('ready');
+       expect(result.current.terms[0].subjects[0].grade).toBe('9,5');
+     });
+ 
++    it('durante o TENTAR DE NOVO do 404, a descrição continua "Boletim não encontrado."', async () => {
++      server.use(
++        http.get(yearPath, () => HttpResponse.json(notFound, { status: 404 })),
++      );
++      const { result } = await renderBoletim();
++      await waitFor(() => expect(result.current.termsStatus).toBe('error'));
++
++      const gate = deferred();
++      server.use(
++        http.get(yearPath, async () => {
++          await gate.promise;
++          return HttpResponse.json(notFound, { status: 404 });
++        }),
++      );
++      let retry: Promise<void> = Promise.resolve();
++      await act(() => {
++        retry = result.current.onRetry();
++      });
++
++      expect(result.current.retrying).toBe(true);
++      expect(result.current.errorDescription).toBe('Boletim não encontrado.');
++
++      gate.release();
++      await act(() => retry);
++      expect(result.current.termsStatus).toBe('error');
++      expect(result.current.errorDescription).toBe('Boletim não encontrado.');
++    });
++
+     it('TENTAR DE NOVO que falha de novo continua no erro e muda o shakeKey', async () => {
+       server.use(http.get(listPath, () => HttpResponse.error()));
+       const { result } = await renderBoletim();
+       await waitFor(() => expect(result.current.status).toBe('error'));
+ 
+       await act(() => result.current.onRetry());
+ 
+       await waitFor(() => expect(result.current.retrying).toBe(false));
+       expect(result.current.status).toBe('error');
+       expect(result.current.shakeKey).toBe(1);
+diff --git a/mobile/src/features/report-card/useReportCardViewModel.ts b/mobile/src/features/report-card/useReportCardViewModel.ts
+index 44c2aa6..a125f97 100644
+--- a/mobile/src/features/report-card/useReportCardViewModel.ts
++++ b/mobile/src/features/report-card/useReportCardViewModel.ts
+@@ -143,22 +143,30 @@ export function useReportCardViewModel() {
+         index,
+         name: subject.name,
+         grade: formatGrade(subject.grade),
+         absences: formatAbsences(subject.absences),
+         resultAccessibilityLabel: resultAccessibilityLabel(subject),
+         expanded: openSubjects.includes(subjectKey(term, index)),
+       })),
+     }),
+   );
+ 
+-  const failedError =
++  // O refetch de uma query sem dados zera o `error` enquanto busca: durante o
++  // TENTAR DE NOVO a descrição vem do último erro que terminou, senão ela
++  // trocaria para o texto de conexão até a resposta chegar.
++  const currentError =
+     status === 'error' ? yearsQuery.error : reportQuery.error ?? null;
++  const [lastError, setLastError] = useState(currentError);
++  if (currentError !== null && currentError !== lastError) {
++    setLastError(currentError);
++  }
++  const failedError = currentError ?? (retrying ? lastError : null);
+   const errorDescription =
+     failedError?.kind === 'notFound'
+       ? strings.boletim.error.notFound
+       : strings.common.error.description;
+ 
+   const onSelectYear = (key: string) => {
+     const year = Number(key);
+     if (years.some(item => item.year === year)) setChosenYear(year);
+   };
+ 
+diff --git a/mobile/src/features/students/SelectStudentScreen.tsx b/mobile/src/features/students/SelectStudentScreen.tsx
+index dc121d5..3db5064 100644
+--- a/mobile/src/features/students/SelectStudentScreen.tsx
++++ b/mobile/src/features/students/SelectStudentScreen.tsx
+@@ -1,11 +1,18 @@
+-import { Pressable, ScrollView, StyleSheet } from 'react-native';
++import { useEffect, useRef, type ComponentRef } from 'react';
++import {
++  AccessibilityInfo,
++  Pressable,
++  ScrollView,
++  StyleSheet,
++  type Text as RNText,
++} from 'react-native';
+ import Animated, {
+   FadeIn,
+   FadeInDown,
+   ReduceMotion,
+ } from 'react-native-reanimated';
+ import { useSafeAreaInsets } from 'react-native-safe-area-context';
+ 
+ import { CloseIcon } from '../../components/icons/CloseIcon';
+ import { Screen } from '../../components/Screen';
+ import { StudentCard } from '../../components/StudentCard';
+@@ -21,41 +28,54 @@ const MAX_STAGGERED = 6;
+  * Seleção de aluno (R9, M6, 01-design.md 3.5): modal de tela cheia, fora do
+  * rodapé. FECHAR no topo direito; título e cards num bloco centralizado na
+  * vertical, que rola quando há muitos alunos.
+  */
+ export function SelectStudentScreen({
+   navigation,
+ }: RootStackScreenProps<'SelectStudent'>) {
+   const { colors, motion, sizes, spacing } = useTheme();
+   const insets = useSafeAreaInsets();
+   const vm = useSelectStudentViewModel(navigation);
++  const titleRef = useRef<ComponentRef<typeof RNText>>(null);
++
++  // O leitor de tela começa no título (6.4), e não no FECHAR, que fica acima
++  // dele. Só depois que o modal terminou de subir: antes disso o foco cai na
++  // tela de baixo.
++  useEffect(
++    () =>
++      navigation.addListener('transitionEnd', ({ data }) => {
++        if (data.closing || !titleRef.current) return;
++        AccessibilityInfo.sendAccessibilityEvent(titleRef.current, 'focus');
++      }),
++    [navigation],
++  );
+   const enterDown = (delay: number) =>
+     FadeInDown.duration(motion.base)
+       .delay(delay)
+       .easing(motion.easeOut)
+       .withInitialValues({
+         transform: [{ translateY: motion.enterOffsetSmall }],
+       })
+       .reduceMotion(ReduceMotion.System);
+ 
+   return (
+     <Screen testID="select-student-screen">
+       <ScrollView
+         style={styles.fill}
+         contentContainerStyle={[
+           styles.center,
+           { paddingHorizontal: spacing.m, paddingVertical: spacing.section },
+         ]}
+         showsVerticalScrollIndicator={false}
+       >
+         <Animated.View entering={enterDown(0)}>
+-          <Text variant="title" accessibilityRole="header">
++          <Text ref={titleRef} variant="title" accessibilityRole="header">
+             {strings.selectStudent.title}
+           </Text>
+         </Animated.View>
+         <Box gap="m" style={{ marginTop: spacing.section }}>
+           {vm.students.map((student, index) => (
+             <Animated.View
+               key={student.id}
+               entering={enterDown(
+                 motion.stagger +
+                   Math.min(index, MAX_STAGGERED - 1) * motion.cardStagger,
+diff --git a/mobile/src/features/students/__tests__/SelectStudentScreen.test.tsx b/mobile/src/features/students/__tests__/SelectStudentScreen.test.tsx
+index af94328..16702b7 100644
+--- a/mobile/src/features/students/__tests__/SelectStudentScreen.test.tsx
++++ b/mobile/src/features/students/__tests__/SelectStudentScreen.test.tsx
+@@ -1,12 +1,13 @@
+ import { ThemeProvider } from '@shopify/restyle';
+-import { render, screen } from '@testing-library/react-native';
++import { act, render, screen } from '@testing-library/react-native';
++import { AccessibilityInfo } from 'react-native';
+ 
+ import { queryClient, queryKeys } from '../../../app/queryClient';
+ import type { RootStackScreenProps } from '../../../navigation/types';
+ import { useSessionStore } from '../../../stores/session.store';
+ import { meResponse } from '../../../test/fixtures';
+ import { QueryWrapper } from '../../../test/queryWrapper';
+ import { theme } from '../../../theme';
+ import { SelectStudentScreen } from '../SelectStudentScreen';
+ 
+ const TOP_INSET = 47;
+@@ -23,26 +24,37 @@ jest.mock('react-native-safe-area-context', () => {
+ 
+ type Props = RootStackScreenProps<'SelectStudent'>;
+ 
+ describe('SelectStudentScreen', () => {
+   beforeEach(() => {
+     queryClient.clear();
+     queryClient.setQueryData(queryKeys.me(), meResponse);
+     useSessionStore.setState({ status: 'signedIn', selectedStudentId: 's1' });
+   });
+ 
++  type TransitionEnd = (event: { data: { closing: boolean } }) => void;
++  let transitionEnd: TransitionEnd | undefined;
++  const unsubscribe = jest.fn();
++  const navigation = {
++    goBack: jest.fn(),
++    addListener: jest.fn((event: string, listener: TransitionEnd) => {
++      if (event === 'transitionEnd') transitionEnd = listener;
++      return unsubscribe;
++    }),
++  };
++
+   const renderScreen = () =>
+     render(
+       <QueryWrapper>
+         <ThemeProvider theme={theme}>
+           <SelectStudentScreen
+-            {...({ navigation: { goBack: jest.fn() } } as unknown as Props)}
++            {...({ navigation } as unknown as Props)}
+           />
+         </ThemeProvider>
+       </QueryWrapper>,
+     );
+ 
+   it('FECHAR fica abaixo da área segura de cima (não sobre a status bar)', async () => {
+     await renderScreen();
+ 
+     expect(screen.getByTestId('select-student-close')).toHaveStyle({
+       top: TOP_INSET + theme.spacing.m,
+@@ -55,11 +67,54 @@ describe('SelectStudentScreen', () => {
+ 
+   it('título e um card por aluno, com o atual selecionado', async () => {
+     await renderScreen();
+ 
+     expect(
+       screen.getByText('Escolha o perfil\nque você quer visualizar'),
+     ).toBeOnTheScreen();
+     expect(screen.getByTestId('select-student-card-12567')).toBeSelected();
+     expect(screen.getByTestId('select-student-card-12568')).not.toBeSelected();
+   });
++
++  describe('foco do leitor de tela (6.4)', () => {
++    const sendEvent = AccessibilityInfo.sendAccessibilityEvent as jest.Mock;
++    const title = 'Escolha o perfil\nque você quer visualizar';
++
++    beforeEach(() => {
++      sendEvent.mockClear();
++      transitionEnd = undefined;
++    });
++
++    it('começa no título quando o modal termina de entrar', async () => {
++      await renderScreen();
++      expect(sendEvent).not.toHaveBeenCalled();
++
++      await act(() => transitionEnd?.({ data: { closing: false } }));
++
++      expect(sendEvent).toHaveBeenCalledTimes(1);
++      // O alvo é o `ref` do título (no Jest, a instância do Text mockado).
++      const [target, event] = sendEvent.mock.calls[0];
++      expect(event).toBe('focus');
++      expect(target.props).toMatchObject({
++        accessibilityRole: 'header',
++        children: title,
++      });
++    });
++
++    it('não mexe no foco quando o modal está saindo', async () => {
++      await renderScreen();
++
++      await act(() => transitionEnd?.({ data: { closing: true } }));
++
++      expect(sendEvent).not.toHaveBeenCalled();
++    });
++
++    it('para de ouvir a navegação ao desmontar', async () => {
++      const { unmount } = await renderScreen();
++      unsubscribe.mockClear();
++
++      await unmount();
++
++      expect(unsubscribe).toHaveBeenCalledTimes(1);
++    });
++  });
+ });
+diff --git a/mobile/src/services/logger/reactotron.ts b/mobile/src/services/logger/reactotron.ts
+index 5f22e72..420498c 100644
+--- a/mobile/src/services/logger/reactotron.ts
++++ b/mobile/src/services/logger/reactotron.ts
+@@ -1,26 +1,38 @@
+ import type { LogTransport } from './logger';
+ 
++export type ReactotronConnection = {
++  /** Destino do logger. */
++  transport: LogTransport;
++  /** Mostra um valor já redigido na timeline (estado do app). */
++  show: (name: string, preview: string, value: unknown) => void;
++};
++
+ /**
+- * Liga o Reactotron em dev e devolve um transporte para o logger. Os plugins
+- * de rede, de console e de AsyncStorage ficam desligados: o de rede mostraria
+- * o header Authorization e o corpo do login sem redação. Os requests aparecem
+- * pelo log do interceptor (já redigido).
++ * Liga o Reactotron em dev. Os plugins de rede, de console e de AsyncStorage
++ * ficam desligados: o de rede mostraria o header Authorization e o corpo do
++ * login sem redação. Os requests aparecem pelo log do interceptor (já
++ * redigido), e o estado do app pelo `show` (ver `app/stateInspector.ts`).
+  *
+  * No emulador Android rode `adb reverse tcp:9090 tcp:9090`.
+  */
+-export function connectReactotron(): LogTransport {
++export function connectReactotron(): ReactotronConnection {
+   const Reactotron = require('reactotron-react-native').default;
+ 
+   Reactotron.configure({ name: 'FIAP School' })
+     .useReactNative({ networking: false, log: false, asyncStorage: false })
+     .connect();
+ 
+-  return ({ level, message, context }) => {
+-    Reactotron.display({
+-      name: level.toUpperCase(),
+-      preview: message,
+-      value: context ?? message,
+-      important: level === 'warn' || level === 'error',
+-    });
++  return {
++    transport: ({ level, message, context }) => {
++      Reactotron.display({
++        name: level.toUpperCase(),
++        preview: message,
++        value: context ?? message,
++        important: level === 'warn' || level === 'error',
++      });
++    },
++    show: (name, preview, value) => {
++      Reactotron.display({ name, preview, value });
++    },
+   };
+ }
+diff --git a/mobile/src/test/recordingAnimations.ts b/mobile/src/test/recordingAnimations.ts
+new file mode 100644
+index 0000000..2af1952
+--- /dev/null
++++ b/mobile/src/test/recordingAnimations.ts
+@@ -0,0 +1,61 @@
++/**
++ * Builders de animação de layout que só anotam a configuração. O mock do
++ * Reanimated devolve sempre a mesma instância e ignora os argumentos, então
++ * não dá para conferir duração, atraso ou reduzir movimento de um `entering`.
++ * Use dentro de um `jest.mock('react-native-reanimated', ...)` do arquivo de
++ * teste e leia o `entering` da view: `node.props.entering`.
++ */
++export type RecordedAnimation = {
++  name: string;
++  /** Só no `Keyframe`: o objeto passado ao construtor. */
++  keyframes?: unknown;
++  /** Último argumento de cada método chamado (`duration`, `delay`...). */
++  calls: Record<string, unknown>;
++};
++
++const BUILDER_METHODS = [
++  'duration',
++  'delay',
++  'easing',
++  'withInitialValues',
++  'reduceMotion',
++  'withCallback',
++] as const;
++
++type Builder = RecordedAnimation &
++  Record<(typeof BUILDER_METHODS)[number], (value: unknown) => Builder>;
++
++function createBuilder(name: string, keyframes?: unknown): Builder {
++  const builder = { name, keyframes, calls: {} } as Builder;
++  for (const method of BUILDER_METHODS) {
++    builder[method] = (value: unknown) => {
++      builder.calls[method] = value;
++      return builder;
++    };
++  }
++  return builder;
++}
++
++/** `FadeIn.duration(...)`: cada cadeia começa num builder novo. */
++function presetAnimation(name: string) {
++  const preset = {} as Record<
++    (typeof BUILDER_METHODS)[number],
++    (value: unknown) => Builder
++  >;
++  for (const method of BUILDER_METHODS) {
++    preset[method] = (value: unknown) => createBuilder(name)[method](value);
++  }
++  return preset;
++}
++
++class RecordingKeyframe {
++  constructor(keyframes: unknown) {
++    return createBuilder('Keyframe', keyframes);
++  }
++}
++
++export const recordingAnimations = () => ({
++  FadeIn: presetAnimation('FadeIn'),
++  FadeInDown: presetAnimation('FadeInDown'),
++  Keyframe: RecordingKeyframe,
++});
+diff --git a/mobile/src/test/renderWithTheme.tsx b/mobile/src/test/renderWithTheme.tsx
+index 7eb977e..6119daa 100644
+--- a/mobile/src/test/renderWithTheme.tsx
++++ b/mobile/src/test/renderWithTheme.tsx
+@@ -1,9 +1,16 @@
+ import { ThemeProvider } from '@shopify/restyle';
+ import { render } from '@testing-library/react-native';
+-import type { ReactElement } from 'react';
++import type { PropsWithChildren, ReactElement } from 'react';
+ 
+ import { theme } from '../theme';
+ 
+-/** `render` com o tema do app, para componentes que usam Restyle. */
++function ThemeWrapper({ children }: PropsWithChildren) {
++  return <ThemeProvider theme={theme}>{children}</ThemeProvider>;
++}
++
++/**
++ * `render` com o tema do app, para componentes que usam Restyle. O tema é o
++ * `wrapper`, então o `rerender` também fica dentro dele.
++ */
+ export const renderWithTheme = (ui: ReactElement) =>
+-  render(<ThemeProvider theme={theme}>{ui}</ThemeProvider>);
++  render(ui, { wrapper: ThemeWrapper });
+diff --git a/mobile/src/theme/motion.ts b/mobile/src/theme/motion.ts
+index 0c0b613..d4a7be5 100644
+--- a/mobile/src/theme/motion.ts
++++ b/mobile/src/theme/motion.ts
+@@ -19,20 +19,22 @@ export const motion = {
+   easeOut: Easing.out(Easing.cubic),
+   easeIn: Easing.in(Easing.cubic),
+   press: { damping: 18, stiffness: 260, mass: 1 },
+   /** Opacidade de ações de texto pressionadas (barra, dropdown, acordeão). */
+   pressedOpacity: 0.6,
+   /** Escala do botão pressionado. */
+   pressScale: 0.98,
+   /** Deslocamento das entradas `FadeInDown` (campos do login e erro). */
+   enterOffset: 12,
+   enterOffsetSmall: 8,
++  /** Ilustração do estado vazio entra de 0,96 para 1 (01-design.md, 4.5). */
++  illustrationScaleFrom: 0.96,
+   /** Shake do formulário em erro (01-design.md, 4.2): 6 passos de 50 ms. */
+   shake: { offsets: [-10, 10, -8, 8, -4, 0], step: 50 },
+   /** Shake curto do estado de erro quando o retry falha de novo (4.8). */
+   shakeShort: { offsets: [-6, 6, -3, 0], step: 50 },
+   /** Seleção de aluno: o modal fecha 120 ms depois da borda acender (4.7). */
+   selectStudentBackDelay: 120,
+   /** Atraso entre cards da seleção de aluno (4.7) e dos trimestres (4.6). */
+   cardStagger: 60,
+   /** Atraso entre disciplinas na 1ª abertura do trimestre (4.6). */
+   subjectStagger: 20,

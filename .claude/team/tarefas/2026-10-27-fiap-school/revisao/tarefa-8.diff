@@ -1,0 +1,3381 @@
+a86adcd feat(mobile): sessão decide Login ou abas, react-native-config e reactotron em dev
+2a89b9a feat(mobile): camada de dados com axios, keychain, zustand, react query e zod
+6a35cae feat(mobile): utils de cpf, nomes, datas locais e notas
+ mobile/.env.example                                |   9 +
+ mobile/.gitignore                                  |   6 +-
+ mobile/android/app/build.gradle                    |   2 +
+ mobile/index.js                                    |   3 +
+ mobile/ios/Podfile.lock                            | 120 +++++
+ mobile/jest.config.js                              |   5 +-
+ mobile/jest.setup.ts                               |  31 ++
+ mobile/jest/mocks/react-native-keychain.ts         |  39 ++
+ mobile/package.json                                |  12 +-
+ mobile/src/app/App.tsx                             |  20 +-
+ mobile/src/app/Navigation.tsx                      |   8 +
+ mobile/src/app/__tests__/App.test.tsx              |  41 +-
+ mobile/src/app/__tests__/queryClient.test.ts       |  44 ++
+ mobile/src/app/devtools.ts                         |  14 +
+ mobile/src/app/queryClient.ts                      |  51 ++
+ mobile/src/features/auth/LoginScreen.tsx           |  17 +-
+ mobile/src/features/auth/__tests__/schemas.test.ts |  90 ++++
+ .../auth/api/__tests__/useLoginMutation.test.tsx   |  78 +++
+ .../auth/api/__tests__/useMeQuery.test.tsx         |  83 +++
+ mobile/src/features/auth/api/useLoginMutation.ts   |  14 +
+ mobile/src/features/auth/api/useMeQuery.ts         |  16 +
+ mobile/src/features/auth/schemas.ts                |  47 ++
+ mobile/src/features/auth/services/auth.service.ts  |  27 +
+ .../src/features/lessons/__tests__/schemas.test.ts |  38 ++
+ .../lessons/api/__tests__/useAgendaQuery.test.tsx  |  62 +++
+ mobile/src/features/lessons/api/useAgendaQuery.ts  |  12 +
+ mobile/src/features/lessons/schemas.ts             |  22 +
+ .../features/lessons/services/lessons.service.ts   |  10 +
+ .../src/features/report-card/ReportCardScreen.tsx  |  15 +-
+ .../features/report-card/__tests__/schemas.test.ts |  60 +++
+ .../api/__tests__/useReportCardQueries.test.tsx    |  64 +++
+ .../features/report-card/api/useReportCardQuery.ts |  18 +
+ .../report-card/api/useReportCardsQuery.ts         |  12 +
+ mobile/src/features/report-card/schemas.ts         |  29 ++
+ .../report-card/services/reportCard.service.ts     |  34 ++
+ mobile/src/navigation/RootStack.tsx                |  32 +-
+ mobile/src/services/http/__tests__/apiUrl.test.ts  |  24 +
+ mobile/src/services/http/__tests__/client.test.ts  | 159 ++++++
+ mobile/src/services/http/__tests__/errors.test.ts  |  83 +++
+ .../services/http/__tests__/parseResponse.test.ts  |  37 ++
+ mobile/src/services/http/apiUrl.ts                 |  16 +
+ mobile/src/services/http/client.ts                 |  40 ++
+ mobile/src/services/http/errors.ts                 |  84 +++
+ mobile/src/services/http/interceptors.ts           |  80 +++
+ mobile/src/services/http/parseResponse.ts          |  28 +
+ .../src/services/logger/__tests__/logger.test.ts   |  67 +++
+ .../src/services/logger/__tests__/redact.test.ts   |  61 +++
+ mobile/src/services/logger/index.ts                |  10 +
+ mobile/src/services/logger/logger.ts               |  67 +++
+ mobile/src/services/logger/reactotron.ts           |  26 +
+ mobile/src/services/logger/redact.ts               |  42 ++
+ mobile/src/services/logger/transports.ts           |  17 +
+ .../storage/__tests__/secureStorage.test.ts        |  64 +++
+ mobile/src/services/storage/mmkv.ts                |  17 +
+ mobile/src/services/storage/secureStorage.ts       |  63 +++
+ mobile/src/stores/__tests__/session.store.test.ts  |  84 +++
+ mobile/src/stores/session.store.ts                 |  73 +++
+ mobile/src/test/fixtures.ts                        |  93 ++++
+ mobile/src/test/msw/handlers.ts                    |  37 ++
+ mobile/src/test/msw/server.ts                      |   5 +
+ mobile/src/test/queryWrapper.tsx                   |  11 +
+ mobile/src/types/react-native-config.d.ts          |   9 +
+ mobile/src/utils/__tests__/cpf.test.ts             |  54 ++
+ mobile/src/utils/__tests__/dates.test.ts           |  57 +++
+ mobile/src/utils/__tests__/grades.test.ts          |  25 +
+ mobile/src/utils/__tests__/names.test.ts           |  32 ++
+ mobile/src/utils/cpf.ts                            |  49 ++
+ mobile/src/utils/dates.ts                          |  69 +++
+ mobile/src/utils/grades.ts                         |  11 +
+ mobile/src/utils/names.ts                          |  16 +
+ mobile/yarn.lock                                   | 568 ++++++++++++++++++++-
+ 71 files changed, 3306 insertions(+), 57 deletions(-)
+diff --git a/mobile/.env.example b/mobile/.env.example
+new file mode 100644
+index 0000000..4645a3a
+--- /dev/null
++++ b/mobile/.env.example
+@@ -0,0 +1,9 @@
++# Copie para .env (o .env não é versionado) e refaça o build nativo:
++# o react-native-config grava estes valores no binário.
++#
++# iOS simulator: localhost enxerga a API da máquina.
++# Emulador Android: use http://10.0.2.2:3333/api (o app troca localhost por
++# 10.0.2.2 sozinho no Android). Aparelho físico: o IP da máquina na rede.
++# Sem API_URL, o app usa http://localhost:3333/api (iOS) e
++# http://10.0.2.2:3333/api (Android).
++API_URL=http://localhost:3333/api
+diff --git a/mobile/.gitignore b/mobile/.gitignore
+index 29a2b90..d3ebad7 100644
+--- a/mobile/.gitignore
++++ b/mobile/.gitignore
+@@ -70,11 +70,15 @@ yarn-error.log
+ .yarn/*
+ !.yarn/patches
+ !.yarn/plugins
+ !.yarn/releases
+ !.yarn/sdks
+ !.yarn/versions
+ 
+ # Expo
+ .expo
+ dist/
+-web-build/
+\ No newline at end of file
++web-build/
++# react-native-config (copie de .env.example)
++.env
++.env.*
++!.env.example
+diff --git a/mobile/android/app/build.gradle b/mobile/android/app/build.gradle
+index 0534e70..e4eac81 100644
+--- a/mobile/android/app/build.gradle
++++ b/mobile/android/app/build.gradle
+@@ -1,13 +1,15 @@
+ apply plugin: "com.android.application"
+ apply plugin: "org.jetbrains.kotlin.android"
+ apply plugin: "com.facebook.react"
++// react-native-config: lê o .env e expõe no BuildConfig (API_URL).
++apply from: project(":react-native-config").projectDir.getPath() + "/dotenv.gradle"
+ 
+ /**
+  * This is the configuration block to customize your React Native Android app.
+  * By default you don't need to apply any configuration, just uncomment the lines you need.
+  */
+ react {
+     /* Folders */
+     //   The root of your project, i.e. where "package.json" lives. Default is '../..'
+     // root = file("../../")
+     //   The folder where the react-native NPM package is. Default is ../../node_modules/react-native
+diff --git a/mobile/index.js b/mobile/index.js
+index f942cc3..ad9e478 100644
+--- a/mobile/index.js
++++ b/mobile/index.js
+@@ -1,10 +1,13 @@
+ /**
+  * @format
+  */
+ 
+ import { AppRegistry } from 'react-native';
+ 
+ import { App } from './src/app/App';
++import { setupDevtools } from './src/app/devtools';
+ import { name as appName } from './app.json';
+ 
++setupDevtools();
++
+ AppRegistry.registerComponent(appName, () => App);
+diff --git a/mobile/jest.config.js b/mobile/jest.config.js
+index 7c0c0d2..ded5bb3 100644
+--- a/mobile/jest.config.js
++++ b/mobile/jest.config.js
+@@ -1,10 +1,13 @@
+ module.exports = {
+   preset: '@react-native/jest-preset',
+   resolver: './jest/resolver.js',
++  transform: {
++    '^.+\\.(js|ts|tsx|mjs)$': 'babel-jest',
++  },
+   setupFiles: ['./node_modules/react-native-gesture-handler/jestSetup.js'],
+   setupFilesAfterEnv: ['./jest.setup.ts'],
+   transformIgnorePatterns: [
+-    'node_modules/(?!((jest-)?react-native(-.*)?|@react-native(-community)?|@react-navigation|@shopify/restyle|expo(nent)?|@expo(nent)?/.*|expo-modules-core)/)',
++    'node_modules/(?!((jest-)?react-native(-.*)?|@react-native(-community)?|@react-navigation|@shopify/restyle|expo(nent)?|@expo(nent)?/.*|expo-modules-core|msw|@mswjs|rettime|until-async|@bundled-es-modules|@open-draft|outvariant|strict-event-emitter|headers-polyfill|is-node-process)/)',
+   ],
+   testPathIgnorePatterns: ['/node_modules/', '/ios/', '/android/'],
+ };
+diff --git a/mobile/jest.setup.ts b/mobile/jest.setup.ts
+index 8f0b9dd..81f08bc 100644
+--- a/mobile/jest.setup.ts
++++ b/mobile/jest.setup.ts
+@@ -11,10 +11,41 @@ jest.mock('react-native-reanimated', () =>
+ jest.mock(
+   'react-native-safe-area-context',
+   () => require('react-native-safe-area-context/jest/mock').default,
+ );
+ 
+ jest.mock('react-native-bootsplash', () => ({
+   hide: jest.fn().mockResolvedValue(undefined),
+   isVisible: jest.fn().mockReturnValue(false),
+   useHideAnimation: jest.fn().mockReturnValue({ container: {}, logo: {} }),
+ }));
++
++jest.mock('react-native-keychain', () =>
++  require('./jest/mocks/react-native-keychain'),
++);
++
++// O react-native-mmkv usa um mock em memória quando roda no Jest, mas importa o
++// Nitro, que procura o módulo nativo ao carregar.
++jest.mock('react-native-nitro-modules', () => ({
++  NitroModules: {
++    createHybridObject: jest.fn(() => {
++      throw new Error('Nitro não existe no Jest');
++    }),
++  },
++}));
++
++jest.mock('react-native-config', () => ({
++  __esModule: true,
++  default: { API_URL: 'http://localhost:3333/api' },
++  Config: { API_URL: 'http://localhost:3333/api' },
++}));
++
++beforeEach(() => {
++  require('./jest/mocks/react-native-keychain').__reset();
++});
++
++// API falsa (MSW) para services e hooks. Request sem handler falha o teste.
++const { server } = require('./src/test/msw/server');
++
++beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
++afterEach(() => server.resetHandlers());
++afterAll(() => server.close());
+diff --git a/mobile/jest/mocks/react-native-keychain.ts b/mobile/jest/mocks/react-native-keychain.ts
+new file mode 100644
+index 0000000..1727353
+--- /dev/null
++++ b/mobile/jest/mocks/react-native-keychain.ts
+@@ -0,0 +1,39 @@
++/** Keychain em memória para os testes (mesma forma da API do react-native-keychain). */
++const store = new Map<string, { username: string; password: string }>();
++
++const DEFAULT_SERVICE = 'default';
++
++export const ACCESSIBLE = {
++  WHEN_UNLOCKED: 'AccessibleWhenUnlocked',
++  AFTER_FIRST_UNLOCK: 'AccessibleAfterFirstUnlock',
++  WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'AccessibleWhenUnlockedThisDeviceOnly',
++  AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY:
++    'AccessibleAfterFirstUnlockThisDeviceOnly',
++};
++
++export const setGenericPassword = jest.fn(
++  async (
++    username: string,
++    password: string,
++    options?: { service?: string },
++  ) => {
++    const service = options?.service ?? DEFAULT_SERVICE;
++    store.set(service, { username, password });
++    return { service, storage: 'keychain' };
++  },
++);
++
++export const getGenericPassword = jest.fn(
++  async (options?: { service?: string }) => {
++    const entry = store.get(options?.service ?? DEFAULT_SERVICE);
++    return entry ? { ...entry, service: options?.service } : false;
++  },
++);
++
++export const resetGenericPassword = jest.fn(
++  async (options?: { service?: string }) =>
++    store.delete(options?.service ?? DEFAULT_SERVICE),
++);
++
++/** Só para os testes: zera o keychain falso. */
++export const __reset = () => store.clear();
+diff --git a/mobile/package.json b/mobile/package.json
+index 2d92d0f..7bdfe78 100644
+--- a/mobile/package.json
++++ b/mobile/package.json
+@@ -11,49 +11,59 @@
+     "format:check": "prettier --check .",
+     "tsc": "tsc --noEmit",
+     "test": "jest",
+     "link:assets": "react-native-asset"
+   },
+   "dependencies": {
+     "@react-navigation/bottom-tabs": "^7.21.0",
+     "@react-navigation/native": "^7.5.1",
+     "@react-navigation/native-stack": "^7.21.0",
+     "@shopify/restyle": "^2.4.5",
++    "@tanstack/react-query": "5.104.5",
++    "axios": "1.20.0",
+     "expo": "~58.0.0",
+     "react": "19.3.0",
+     "react-native": "0.88.0",
+     "react-native-bootsplash": "^7.3.4",
++    "react-native-config": "1.7.2",
+     "react-native-gesture-handler": "~3.3.0",
++    "react-native-keychain": "10.0.0",
++    "react-native-mmkv": "4.3.2",
++    "react-native-nitro-modules": "0.37.1",
+     "react-native-reanimated": "4.7.1",
+     "react-native-safe-area-context": "~5.10.1",
+     "react-native-screens": "~4.30.0",
+-    "react-native-worklets": "0.13.0"
++    "react-native-worklets": "0.13.0",
++    "reactotron-react-native": "5.3.1",
++    "zod": "4.6.7",
++    "zustand": "5.0.16"
+   },
+   "devDependencies": {
+     "@babel/core": "^7.25.2",
+     "@babel/preset-env": "^7.25.3",
+     "@babel/runtime": "^7.25.0",
+     "@react-native-community/cli": "20.2.0",
+     "@react-native-community/cli-platform-android": "20.2.0",
+     "@react-native-community/cli-platform-ios": "20.2.0",
+     "@react-native/babel-preset": "0.88.0",
+     "@react-native/eslint-config": "0.88.0",
+     "@react-native/jest-preset": "0.88.0",
+     "@react-native/metro-config": "0.88.0",
+     "@react-native/typescript-config": "0.88.0",
+     "@testing-library/react-native": "^14.1.0",
+     "@types/jest": "^29.5.13",
+     "@types/react": "^19.2.0",
+     "@types/react-refresh": "^0",
+     "babel-preset-expo": "~58.0.0",
+     "eslint": "^8.19.0",
+     "jest": "^29.6.3",
++    "msw": "2.15.0",
+     "prettier": "2.8.8",
+     "react-native-asset": "^2.3.0",
+     "react-refresh": "^0.19.0",
+     "test-renderer": "^1.0.0",
+     "typescript": "^6.0.3"
+   },
+   "engines": {
+     "node": ">= 22.11.0"
+   },
+   "packageManager": "yarn@4.18.1"
+diff --git a/mobile/src/app/App.tsx b/mobile/src/app/App.tsx
+index ff951d1..7c6843b 100644
+--- a/mobile/src/app/App.tsx
++++ b/mobile/src/app/App.tsx
+@@ -1,24 +1,36 @@
+ import { ThemeProvider } from '@shopify/restyle';
++import { QueryClientProvider } from '@tanstack/react-query';
++import { useEffect } from 'react';
+ import { StatusBar, StyleSheet } from 'react-native';
+ import { GestureHandlerRootView } from 'react-native-gesture-handler';
+ import { SafeAreaProvider } from 'react-native-safe-area-context';
+ 
++import { useSessionStore } from '../stores/session.store';
+ import { theme } from '../theme';
+ import { Navigation } from './Navigation';
++import { queryClient } from './queryClient';
+ 
+ export function App() {
++  const bootstrap = useSessionStore(state => state.bootstrap);
++
++  useEffect(() => {
++    bootstrap();
++  }, [bootstrap]);
++
+   return (
+     <GestureHandlerRootView style={styles.fill}>
+       <SafeAreaProvider>
+-        <ThemeProvider theme={theme}>
+-          <StatusBar barStyle="light-content" />
+-          <Navigation />
+-        </ThemeProvider>
++        <QueryClientProvider client={queryClient}>
++          <ThemeProvider theme={theme}>
++            <StatusBar barStyle="light-content" />
++            <Navigation />
++          </ThemeProvider>
++        </QueryClientProvider>
+       </SafeAreaProvider>
+     </GestureHandlerRootView>
+   );
+ }
+ 
+ const styles = StyleSheet.create({
+   fill: { flex: 1 },
+ });
+diff --git a/mobile/src/app/Navigation.tsx b/mobile/src/app/Navigation.tsx
+index 9b40ddd..2e2a790 100644
+--- a/mobile/src/app/Navigation.tsx
++++ b/mobile/src/app/Navigation.tsx
+@@ -1,33 +1,41 @@
+ import {
+   DarkTheme,
+   NavigationContainer,
+   type Theme as NavigationTheme,
+ } from '@react-navigation/native';
+ import BootSplash from 'react-native-bootsplash';
+ 
+ import { RootStack } from '../navigation/RootStack';
++import { useSessionStore } from '../stores/session.store';
+ import { theme } from '../theme';
+ 
+ const navigationTheme: NavigationTheme = {
+   ...DarkTheme,
+   colors: {
+     ...DarkTheme.colors,
+     primary: theme.colors.primary,
+     background: theme.colors.background,
+     card: theme.colors.surface,
+     text: theme.colors.text,
+     border: theme.colors.surface,
+   },
+ };
+ 
+ const hideSplash = () => {
+   BootSplash.hide({ fade: true });
+ };
+ 
+ export function Navigation() {
++  const loading = useSessionStore(state => state.status === 'loading');
++
++  // Enquanto o keychain é lido, a splash nativa continua na tela.
++  if (loading) {
++    return null;
++  }
++
+   return (
+     <NavigationContainer theme={navigationTheme} onReady={hideSplash}>
+       <RootStack />
+     </NavigationContainer>
+   );
+ }
+diff --git a/mobile/src/app/__tests__/App.test.tsx b/mobile/src/app/__tests__/App.test.tsx
+index f427333..a5432a9 100644
+--- a/mobile/src/app/__tests__/App.test.tsx
++++ b/mobile/src/app/__tests__/App.test.tsx
+@@ -1,27 +1,62 @@
+ import { act, fireEvent, render, screen } from '@testing-library/react-native';
+ import BootSplash from 'react-native-bootsplash';
+ 
++import { createSecureStorage } from '../../services/storage/secureStorage';
++import { useSessionStore } from '../../stores/session.store';
+ import { App } from '../App';
+ 
+ describe('App', () => {
+-  it('abre no Login e esconde a splash nativa quando a navegação fica pronta', async () => {
++  beforeEach(async () => {
++    await useSessionStore.getState().signOut();
++    useSessionStore.setState({ status: 'loading', signOutReason: null });
++    (BootSplash.hide as jest.Mock).mockClear();
++  });
++
++  it('sem token abre no Login e esconde a splash nativa', async () => {
+     await render(<App />);
+ 
+     expect(await screen.findByTestId('login-screen')).toBeOnTheScreen();
++    expect(useSessionStore.getState().status).toBe('signedOut');
+     expect(BootSplash.hide).toHaveBeenCalledWith({ fade: true });
+   });
+ 
+-  it('vai do Login para as abas e abre a seleção de aluno em modal', async () => {
++  it('com token no keychain abre direto nas abas e a seleção de aluno abre em modal', async () => {
++    await createSecureStorage().setToken('jwt-salvo');
++
+     await render(<App />);
+ 
+-    await act(() => fireEvent.press(screen.getByTestId('login-submit-button')));
+     expect(await screen.findByTestId('agenda-screen')).toBeOnTheScreen();
++    expect(screen.queryByTestId('login-screen')).toBeNull();
+ 
+     await act(() =>
+       fireEvent.press(screen.getByTestId('header-switch-student-button')),
+     );
+     expect(
+       await screen.findByTestId('select-student-screen'),
+     ).toBeOnTheScreen();
+   });
++
++  it('quando a sessão acaba (logout ou 401) volta ao Login', async () => {
++    await createSecureStorage().setToken('jwt-salvo');
++    await render(<App />);
++    expect(await screen.findByTestId('agenda-screen')).toBeOnTheScreen();
++
++    await act(() => useSessionStore.getState().signOut('expired'));
++
++    expect(await screen.findByTestId('login-screen')).toBeOnTheScreen();
++  });
++
++  it('SAIR no Boletim apaga o token e volta ao Login', async () => {
++    await createSecureStorage().setToken('jwt-salvo');
++    await render(<App />);
++    expect(await screen.findByTestId('agenda-screen')).toBeOnTheScreen();
++
++    await act(() => fireEvent.press(screen.getByTestId('tab-boletim')));
++    await act(() =>
++      fireEvent.press(screen.getByTestId('header-logout-button')),
++    );
++
++    expect(await screen.findByTestId('login-screen')).toBeOnTheScreen();
++    expect(await createSecureStorage().getToken()).toBeNull();
++  });
+ });
+diff --git a/mobile/src/app/__tests__/queryClient.test.ts b/mobile/src/app/__tests__/queryClient.test.ts
+new file mode 100644
+index 0000000..98f6026
+--- /dev/null
++++ b/mobile/src/app/__tests__/queryClient.test.ts
+@@ -0,0 +1,44 @@
++import { ApiError } from '../../services/http/errors';
++import { createQueryClient, queryKeys, shouldRetry } from '../queryClient';
++
++describe('shouldRetry', () => {
++  it.each([
++    'unauthorized',
++    'forbidden',
++    'notFound',
++    'invalidResponse',
++    'badRequest',
++  ] as const)('não tenta de novo em %p', kind => {
++    expect(shouldRetry(0, new ApiError(kind))).toBe(false);
++  });
++
++  it('tenta de novo uma vez em erro de rede ou de servidor', () => {
++    expect(shouldRetry(0, new ApiError('network'))).toBe(true);
++    expect(shouldRetry(1, new ApiError('network'))).toBe(false);
++    expect(shouldRetry(0, new ApiError('server', { status: 500 }))).toBe(true);
++    expect(shouldRetry(1, new ApiError('server', { status: 500 }))).toBe(false);
++  });
++});
++
++describe('createQueryClient', () => {
++  it('usa o shouldRetry nas queries e não repete mutation', () => {
++    const client = createQueryClient();
++    const defaults = client.getDefaultOptions();
++    expect(defaults.queries?.retry).toBe(shouldRetry);
++    expect(defaults.queries?.staleTime).toBeGreaterThan(0);
++    expect(defaults.mutations?.retry).toBe(false);
++  });
++});
++
++describe('queryKeys', () => {
++  it('separa o cache por aluno e por ano', () => {
++    expect(queryKeys.me()).toEqual(['me']);
++    expect(queryKeys.agenda('s1')).toEqual(['agenda', 's1']);
++    expect(queryKeys.reportCards('s1')).toEqual(['reportCards', 's1']);
++    expect(queryKeys.reportCard('s1', 2025)).toEqual([
++      'reportCard',
++      's1',
++      2025,
++    ]);
++  });
++});
+diff --git a/mobile/src/app/devtools.ts b/mobile/src/app/devtools.ts
+new file mode 100644
+index 0000000..d75e5f1
+--- /dev/null
++++ b/mobile/src/app/devtools.ts
+@@ -0,0 +1,14 @@
++import { logger } from '../services/logger';
++
++/** Só em dev: liga o Reactotron como mais um destino do logger. */
++export function setupDevtools() {
++  if (!__DEV__) {
++    return;
++  }
++  try {
++    const { connectReactotron } = require('../services/logger/reactotron');
++    logger.addTransport(connectReactotron());
++  } catch (error) {
++    logger.warn('Reactotron não conectou', { error });
++  }
++}
+diff --git a/mobile/src/app/queryClient.ts b/mobile/src/app/queryClient.ts
+new file mode 100644
+index 0000000..6616b27
+--- /dev/null
++++ b/mobile/src/app/queryClient.ts
+@@ -0,0 +1,51 @@
++import { QueryClient } from '@tanstack/react-query';
++
++import { ApiError } from '../services/http/errors';
++
++/** Erros que não mudam ao repetir o request. */
++const FINAL_KINDS = new Set<ApiError['kind']>([
++  'badRequest',
++  'unauthorized',
++  'forbidden',
++  'notFound',
++  'invalidResponse',
++]);
++
++declare module '@tanstack/react-query' {
++  interface Register {
++    /** Todo erro de query/mutation passa pelo interceptor e vira ApiError. */
++    defaultError: ApiError;
++  }
++}
++
++const MAX_RETRIES = 1;
++
++/** Os dados da escola mudam pouco: 5 min sem refetch automático. */
++const STALE_TIME_MS = 5 * 60 * 1000;
++
++export function shouldRetry(failureCount: number, error: unknown): boolean {
++  if (error instanceof ApiError && FINAL_KINDS.has(error.kind)) {
++    return false;
++  }
++  return failureCount < MAX_RETRIES;
++}
++
++export function createQueryClient(): QueryClient {
++  return new QueryClient({
++    defaultOptions: {
++      queries: { retry: shouldRetry, staleTime: STALE_TIME_MS },
++      mutations: { retry: false },
++    },
++  });
++}
++
++export const queryClient = createQueryClient();
++
++/** Query keys do app. Tudo que é de aluno leva o `studentId`. */
++export const queryKeys = {
++  me: () => ['me'] as const,
++  agenda: (studentId: string) => ['agenda', studentId] as const,
++  reportCards: (studentId: string) => ['reportCards', studentId] as const,
++  reportCard: (studentId: string, year: number) =>
++    ['reportCard', studentId, year] as const,
++};
+diff --git a/mobile/src/features/auth/LoginScreen.tsx b/mobile/src/features/auth/LoginScreen.tsx
+index 115e045..b8b3119 100644
+--- a/mobile/src/features/auth/LoginScreen.tsx
++++ b/mobile/src/features/auth/LoginScreen.tsx
+@@ -1,20 +1,15 @@
+ import { PlaceholderScreen } from '../../components/PlaceholderScreen';
+-import type { RootStackScreenProps } from '../../navigation/types';
+ 
+-/** Placeholder. O Login real (M1, M2) é a Tarefa 9. */
+-export function LoginScreen({ navigation }: RootStackScreenProps<'Login'>) {
++/**
++ * Placeholder. O Login real (M1, M2) é a Tarefa 9, com o `useLoginMutation`.
++ * Desde a Tarefa 8 a sessão decide a navegação: sem token o app abre aqui.
++ */
++export function LoginScreen() {
+   return (
+     <PlaceholderScreen
+       testID="login-screen"
+       title="Login"
+-      description="FIAP School: tema, Montserrat e navegação prontos."
+-      actions={[
+-        {
+-          label: 'ENTRAR',
+-          testID: 'login-submit-button',
+-          onPress: () => navigation.replace('App', { screen: 'Agenda' }),
+-        },
+-      ]}
++      description="O formulário de CPF e senha entra na Tarefa 9."
+     />
+   );
+ }
+diff --git a/mobile/src/features/auth/__tests__/schemas.test.ts b/mobile/src/features/auth/__tests__/schemas.test.ts
+new file mode 100644
+index 0000000..c46e5ea
+--- /dev/null
++++ b/mobile/src/features/auth/__tests__/schemas.test.ts
+@@ -0,0 +1,90 @@
++import {
++  loginResponse,
++  meResponse,
++  meWithoutStudents,
++} from '../../../test/fixtures';
++import {
++  CPF_INVALID_MESSAGE,
++  loginFormSchema,
++  loginResponseSchema,
++  meSchema,
++} from '../schemas';
++
++describe('loginResponseSchema', () => {
++  it('aceita a resposta do contrato', () => {
++    expect(loginResponseSchema.parse(loginResponse)).toEqual(loginResponse);
++  });
++
++  it('recusa resposta sem token', () => {
++    expect(
++      loginResponseSchema.safeParse({ guardian: loginResponse.guardian })
++        .success,
++    ).toBe(false);
++    expect(
++      loginResponseSchema.safeParse({ ...loginResponse, accessToken: '' })
++        .success,
++    ).toBe(false);
++  });
++});
++
++describe('meSchema', () => {
++  it('aceita responsável com e sem alunos', () => {
++    expect(meSchema.parse(meResponse)).toEqual(meResponse);
++    expect(meSchema.parse(meWithoutStudents).students).toEqual([]);
++  });
++
++  it('recusa aluno com rm em texto ou sem turma', () => {
++    const [student] = meResponse.students;
++    expect(
++      meSchema.safeParse({
++        ...meResponse,
++        students: [{ ...student, rm: '12567' }],
++      }).success,
++    ).toBe(false);
++    const withoutClass: Partial<typeof student> = { ...student };
++    delete withoutClass.className;
++    expect(
++      meSchema.safeParse({ ...meResponse, students: [withoutClass] }).success,
++    ).toBe(false);
++  });
++
++  it('ignora campos extras da API', () => {
++    const parsed = meSchema.parse({ ...meResponse, email: 'x@y.z' });
++    expect(parsed).not.toHaveProperty('email');
++  });
++});
++
++describe('loginFormSchema', () => {
++  it('aceita CPF válido (com ou sem máscara) e senha preenchida', () => {
++    expect(
++      loginFormSchema.safeParse({ cpf: '969.294.560-04', password: '1' })
++        .success,
++    ).toBe(true);
++    expect(
++      loginFormSchema.safeParse({ cpf: '96929456004', password: '123456' })
++        .success,
++    ).toBe(true);
++  });
++
++  it('recusa CPF com dígito verificador errado com a mensagem da tela', () => {
++    const result = loginFormSchema.safeParse({
++      cpf: '969.294.560-05',
++      password: '123456',
++    });
++    expect(result.success).toBe(false);
++    expect(result.error?.issues[0]).toMatchObject({
++      path: ['cpf'],
++      message: CPF_INVALID_MESSAGE,
++    });
++    expect(CPF_INVALID_MESSAGE).toBe('Confira o CPF digitado.');
++  });
++
++  it('recusa senha vazia', () => {
++    const result = loginFormSchema.safeParse({
++      cpf: '969.294.560-04',
++      password: '',
++    });
++    expect(result.success).toBe(false);
++    expect(result.error?.issues[0].path).toEqual(['password']);
++  });
++});
+diff --git a/mobile/src/features/auth/api/__tests__/useLoginMutation.test.tsx b/mobile/src/features/auth/api/__tests__/useLoginMutation.test.tsx
+new file mode 100644
+index 0000000..5fd6cd3
+--- /dev/null
++++ b/mobile/src/features/auth/api/__tests__/useLoginMutation.test.tsx
+@@ -0,0 +1,78 @@
++import { act, renderHook, waitFor } from '@testing-library/react-native';
++import { http, HttpResponse } from 'msw';
++
++import { queryClient } from '../../../../app/queryClient';
++import { createSecureStorage } from '../../../../services/storage/secureStorage';
++import { useSessionStore } from '../../../../stores/session.store';
++import { API_URL, loginResponse } from '../../../../test/fixtures';
++import { server } from '../../../../test/msw/server';
++import { QueryWrapper } from '../../../../test/queryWrapper';
++import { useLoginMutation } from '../useLoginMutation';
++
++describe('useLoginMutation', () => {
++  beforeEach(async () => {
++    await useSessionStore.getState().signOut();
++    queryClient.clear();
++  });
++
++  it('200: manda o CPF só com dígitos e abre a sessão com o token', async () => {
++    let body: unknown;
++    server.use(
++      http.post(`${API_URL}/auth/login`, async ({ request }) => {
++        body = await request.json();
++        return HttpResponse.json(loginResponse);
++      }),
++    );
++    const { result } = await renderHook(() => useLoginMutation(), {
++      wrapper: QueryWrapper,
++    });
++
++    await act(() =>
++      result.current.mutateAsync({ cpf: '969.294.560-04', password: '123456' }),
++    );
++
++    expect(body).toEqual({ cpf: '96929456004', password: '123456' });
++    const state = useSessionStore.getState();
++    expect(state.status).toBe('signedIn');
++    expect(state.guardian).toEqual(loginResponse.guardian);
++    expect(await createSecureStorage().getToken()).toBe('jwt-gustavo');
++  });
++
++  it('401: erro unauthorized com a mensagem da API e sessão fechada', async () => {
++    const { result } = await renderHook(() => useLoginMutation(), {
++      wrapper: QueryWrapper,
++    });
++
++    await act(async () => {
++      result.current.mutate({ cpf: '969.294.560-04', password: 'errada' });
++    });
++
++    await waitFor(() => expect(result.current.isError).toBe(true));
++    expect(result.current.error).toMatchObject({
++      kind: 'unauthorized',
++      apiMessage: 'Usuário ou senha inválida.',
++    });
++    expect(useSessionStore.getState().status).toBe('signedOut');
++    expect(await createSecureStorage().getToken()).toBeNull();
++  });
++
++  it('resposta sem token é tratada como invalidResponse e não abre sessão', async () => {
++    jest.spyOn(console, 'error').mockImplementation(() => {});
++    server.use(
++      http.post(`${API_URL}/auth/login`, () =>
++        HttpResponse.json({ guardian: loginResponse.guardian }),
++      ),
++    );
++    const { result } = await renderHook(() => useLoginMutation(), {
++      wrapper: QueryWrapper,
++    });
++
++    await act(async () => {
++      result.current.mutate({ cpf: '969.294.560-04', password: '123456' });
++    });
++
++    await waitFor(() => expect(result.current.isError).toBe(true));
++    expect(result.current.error?.kind).toBe('invalidResponse');
++    expect(useSessionStore.getState().status).toBe('signedOut');
++  });
++});
+diff --git a/mobile/src/features/auth/api/__tests__/useMeQuery.test.tsx b/mobile/src/features/auth/api/__tests__/useMeQuery.test.tsx
+new file mode 100644
+index 0000000..1b0c1a6
+--- /dev/null
++++ b/mobile/src/features/auth/api/__tests__/useMeQuery.test.tsx
+@@ -0,0 +1,83 @@
++import { renderHook, waitFor } from '@testing-library/react-native';
++import { http, HttpResponse } from 'msw';
++
++import { queryClient } from '../../../../app/queryClient';
++import { useSessionStore } from '../../../../stores/session.store';
++import {
++  API_URL,
++  loginResponse,
++  meResponse,
++  meWithoutStudents,
++} from '../../../../test/fixtures';
++import { server } from '../../../../test/msw/server';
++import { QueryWrapper } from '../../../../test/queryWrapper';
++import { useMeQuery } from '../useMeQuery';
++
++const render = () => renderHook(() => useMeQuery(), { wrapper: QueryWrapper });
++
++describe('useMeQuery', () => {
++  beforeEach(async () => {
++    await useSessionStore.getState().signOut();
++    queryClient.clear();
++  });
++
++  afterEach(() => jest.restoreAllMocks());
++
++  it('sem sessão não chama a API', async () => {
++    const { result } = await render();
++    expect(result.current.fetchStatus).toBe('idle');
++    expect(result.current.data).toBeUndefined();
++  });
++
++  it('200: devolve o responsável e os alunos validados', async () => {
++    await useSessionStore.getState().signIn('jwt-1', loginResponse.guardian);
++    const { result } = await render();
++
++    await waitFor(() => expect(result.current.isSuccess).toBe(true));
++    expect(result.current.data).toEqual(meResponse);
++  });
++
++  it('responsável sem aluno: students vazio, sem erro', async () => {
++    await useSessionStore.getState().signIn('jwt-1', loginResponse.guardian);
++    server.use(
++      http.get(`${API_URL}/me`, () => HttpResponse.json(meWithoutStudents)),
++    );
++    const { result } = await render();
++
++    await waitFor(() => expect(result.current.isSuccess).toBe(true));
++    expect(result.current.data?.students).toEqual([]);
++  });
++
++  it('401: encerra a sessão como expirada', async () => {
++    await useSessionStore.getState().signIn('jwt-1', loginResponse.guardian);
++    server.use(
++      http.get(`${API_URL}/me`, () =>
++        HttpResponse.json({ statusCode: 401 }, { status: 401 }),
++      ),
++    );
++    await render();
++
++    await waitFor(() =>
++      expect(useSessionStore.getState().status).toBe('signedOut'),
++    );
++    expect(useSessionStore.getState().signOutReason).toBe('expired');
++  });
++
++  it('resposta fora do contrato vira erro tratado, sem crash e sem retry', async () => {
++    jest.spyOn(console, 'error').mockImplementation(() => {});
++    await useSessionStore.getState().signIn('jwt-1', loginResponse.guardian);
++    let calls = 0;
++    server.use(
++      http.get(`${API_URL}/me`, () => {
++        calls += 1;
++        return HttpResponse.json({ ...meResponse, students: 'nenhum' });
++      }),
++    );
++    const { result } = await render();
++
++    await waitFor(() => expect(result.current.isError).toBe(true));
++    expect(result.current.error?.kind).toBe('invalidResponse');
++    expect(calls).toBe(1);
++    expect(useSessionStore.getState().status).toBe('signedIn');
++  });
++});
+diff --git a/mobile/src/features/auth/api/useLoginMutation.ts b/mobile/src/features/auth/api/useLoginMutation.ts
+new file mode 100644
+index 0000000..9b1173d
+--- /dev/null
++++ b/mobile/src/features/auth/api/useLoginMutation.ts
+@@ -0,0 +1,14 @@
++import { useMutation } from '@tanstack/react-query';
++
++import { useSessionStore } from '../../../stores/session.store';
++import { login } from '../services/auth.service';
++
++/** Login: em caso de sucesso grava o token no keychain e abre a sessão. */
++export function useLoginMutation() {
++  const signIn = useSessionStore(state => state.signIn);
++
++  return useMutation({
++    mutationFn: login,
++    onSuccess: ({ accessToken, guardian }) => signIn(accessToken, guardian),
++  });
++}
+diff --git a/mobile/src/features/auth/api/useMeQuery.ts b/mobile/src/features/auth/api/useMeQuery.ts
+new file mode 100644
+index 0000000..d361dbe
+--- /dev/null
++++ b/mobile/src/features/auth/api/useMeQuery.ts
+@@ -0,0 +1,16 @@
++import { useQuery } from '@tanstack/react-query';
++
++import { queryKeys } from '../../../app/queryClient';
++import { useSessionStore } from '../../../stores/session.store';
++import { getMe } from '../services/auth.service';
++
++/** Responsável logado e seus alunos. Também valida o token ao abrir o app. */
++export function useMeQuery() {
++  const signedIn = useSessionStore(state => state.status === 'signedIn');
++
++  return useQuery({
++    queryKey: queryKeys.me(),
++    queryFn: getMe,
++    enabled: signedIn,
++  });
++}
+diff --git a/mobile/src/features/auth/schemas.ts b/mobile/src/features/auth/schemas.ts
+new file mode 100644
+index 0000000..a0bc967
+--- /dev/null
++++ b/mobile/src/features/auth/schemas.ts
+@@ -0,0 +1,47 @@
++import { z } from 'zod';
++
++import { isValidCpf } from '../../utils/cpf';
++
++/* Respostas da API (contrato do plano). Os tipos saem daqui por z.infer. */
++
++export const guardianSchema = z.object({
++  id: z.string().min(1),
++  firstName: z.string(),
++  lastName: z.string(),
++});
++
++export const loginResponseSchema = z.object({
++  accessToken: z.string().min(1),
++  guardian: guardianSchema,
++});
++
++export const studentSchema = z.object({
++  id: z.string().min(1),
++  rm: z.number().int(),
++  firstName: z.string(),
++  lastName: z.string(),
++  className: z.string(),
++  period: z.string(),
++});
++
++export const meSchema = guardianSchema.extend({
++  /** Já vem mascarado da API (`***.294.560-**`). */
++  cpf: z.string(),
++  students: z.array(studentSchema),
++});
++
++export type Guardian = z.infer<typeof guardianSchema>;
++export type LoginResponse = z.infer<typeof loginResponseSchema>;
++export type Student = z.infer<typeof studentSchema>;
++export type Me = z.infer<typeof meSchema>;
++
++/* Formulário de login (react-hook-form + zodResolver na Tarefa 9). */
++
++export const CPF_INVALID_MESSAGE = 'Confira o CPF digitado.';
++
++export const loginFormSchema = z.object({
++  cpf: z.string().refine(isValidCpf, { message: CPF_INVALID_MESSAGE }),
++  password: z.string().min(1),
++});
++
++export type LoginForm = z.infer<typeof loginFormSchema>;
+diff --git a/mobile/src/features/auth/services/auth.service.ts b/mobile/src/features/auth/services/auth.service.ts
+new file mode 100644
+index 0000000..491af02
+--- /dev/null
++++ b/mobile/src/features/auth/services/auth.service.ts
+@@ -0,0 +1,27 @@
++import { http } from '../../../services/http/client';
++import { parseResponse } from '../../../services/http/parseResponse';
++import { onlyDigits } from '../../../utils/cpf';
++import {
++  loginResponseSchema,
++  meSchema,
++  type LoginResponse,
++  type Me,
++} from '../schemas';
++
++export type LoginInput = { cpf: string; password: string };
++
++export async function login({
++  cpf,
++  password,
++}: LoginInput): Promise<LoginResponse> {
++  const { data } = await http.post('/auth/login', {
++    cpf: onlyDigits(cpf),
++    password,
++  });
++  return parseResponse(loginResponseSchema, data, 'POST /auth/login');
++}
++
++export async function getMe(): Promise<Me> {
++  const { data } = await http.get('/me');
++  return parseResponse(meSchema, data, 'GET /me');
++}
+diff --git a/mobile/src/features/lessons/__tests__/schemas.test.ts b/mobile/src/features/lessons/__tests__/schemas.test.ts
+new file mode 100644
+index 0000000..b60b881
+--- /dev/null
++++ b/mobile/src/features/lessons/__tests__/schemas.test.ts
+@@ -0,0 +1,38 @@
++import { agendaResponse } from '../../../test/fixtures';
++import { agendaSchema } from '../schemas';
++
++describe('agendaSchema', () => {
++  it('aceita os 7 dias do contrato, inclusive dia sem aula', () => {
++    const agenda = agendaSchema.parse(agendaResponse);
++    expect(agenda).toHaveLength(7);
++    expect(agenda[0].lessons).toEqual([]);
++    expect(agenda[1].lessons[0]).toEqual({
++      startTime: '07:15',
++      endTime: '08:00',
++      subject: 'Matemática I',
++    });
++  });
++
++  it('recusa data fora de AAAA-MM-DD', () => {
++    expect(
++      agendaSchema.safeParse([{ date: '17/03/2025', lessons: [] }]).success,
++    ).toBe(false);
++  });
++
++  it('recusa horário fora de HH:mm', () => {
++    expect(
++      agendaSchema.safeParse([
++        {
++          date: '2025-03-17',
++          lessons: [{ startTime: '7:15', endTime: '08:00', subject: 'X' }],
++        },
++      ]).success,
++    ).toBe(false);
++  });
++
++  it('recusa dia sem a lista de aulas', () => {
++    expect(agendaSchema.safeParse([{ date: '2025-03-17' }]).success).toBe(
++      false,
++    );
++  });
++});
+diff --git a/mobile/src/features/lessons/api/__tests__/useAgendaQuery.test.tsx b/mobile/src/features/lessons/api/__tests__/useAgendaQuery.test.tsx
+new file mode 100644
+index 0000000..720b217
+--- /dev/null
++++ b/mobile/src/features/lessons/api/__tests__/useAgendaQuery.test.tsx
+@@ -0,0 +1,62 @@
++import { renderHook, waitFor } from '@testing-library/react-native';
++import { http, HttpResponse } from 'msw';
++
++import { queryClient } from '../../../../app/queryClient';
++import { useSessionStore } from '../../../../stores/session.store';
++import {
++  agendaResponse,
++  API_URL,
++  loginResponse,
++} from '../../../../test/fixtures';
++import { server } from '../../../../test/msw/server';
++import { QueryWrapper } from '../../../../test/queryWrapper';
++import { useAgendaQuery } from '../useAgendaQuery';
++
++describe('useAgendaQuery', () => {
++  beforeEach(async () => {
++    queryClient.clear();
++    await useSessionStore.getState().signIn('jwt-1', loginResponse.guardian);
++  });
++
++  it('sem aluno selecionado não chama a API', async () => {
++    const { result } = await renderHook(() => useAgendaQuery(null), {
++      wrapper: QueryWrapper,
++    });
++    expect(result.current.fetchStatus).toBe('idle');
++  });
++
++  it('busca a agenda do aluno e guarda no cache por aluno', async () => {
++    const requested: string[] = [];
++    server.use(
++      http.get(`${API_URL}/students/:id/agenda`, ({ params }) => {
++        requested.push(String(params.id));
++        return HttpResponse.json(agendaResponse);
++      }),
++    );
++    const { result, rerender } = await renderHook(
++      ({ id }: { id: string }) => useAgendaQuery(id),
++      { wrapper: QueryWrapper, initialProps: { id: 's1' } },
++    );
++
++    await waitFor(() => expect(result.current.isSuccess).toBe(true));
++    expect(result.current.data).toHaveLength(7);
++
++    await rerender({ id: 's2' });
++    await waitFor(() => expect(requested).toEqual(['s1', 's2']));
++    expect(queryClient.getQueryData(['agenda', 's1'])).toHaveLength(7);
++  });
++
++  it('403 (aluno de outro responsável) vira erro forbidden', async () => {
++    server.use(
++      http.get(`${API_URL}/students/:id/agenda`, () =>
++        HttpResponse.json({ statusCode: 403 }, { status: 403 }),
++      ),
++    );
++    const { result } = await renderHook(() => useAgendaQuery('outro'), {
++      wrapper: QueryWrapper,
++    });
++
++    await waitFor(() => expect(result.current.isError).toBe(true));
++    expect(result.current.error?.kind).toBe('forbidden');
++  });
++});
+diff --git a/mobile/src/features/lessons/api/useAgendaQuery.ts b/mobile/src/features/lessons/api/useAgendaQuery.ts
+new file mode 100644
+index 0000000..b333b42
+--- /dev/null
++++ b/mobile/src/features/lessons/api/useAgendaQuery.ts
+@@ -0,0 +1,12 @@
++import { skipToken, useQuery } from '@tanstack/react-query';
++
++import { queryKeys } from '../../../app/queryClient';
++import { getAgenda } from '../services/lessons.service';
++
++/** Agenda da semana do aluno. Sem aluno, a query fica parada. */
++export function useAgendaQuery(studentId: string | null) {
++  return useQuery({
++    queryKey: queryKeys.agenda(studentId ?? ''),
++    queryFn: studentId ? () => getAgenda(studentId) : skipToken,
++  });
++}
+diff --git a/mobile/src/features/lessons/schemas.ts b/mobile/src/features/lessons/schemas.ts
+new file mode 100644
+index 0000000..bd9c8c9
+--- /dev/null
++++ b/mobile/src/features/lessons/schemas.ts
+@@ -0,0 +1,22 @@
++import { z } from 'zod';
++
++const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
++const TIME = /^\d{2}:\d{2}$/;
++
++export const lessonSchema = z.object({
++  startTime: z.string().regex(TIME),
++  endTime: z.string().regex(TIME),
++  subject: z.string(),
++});
++
++export const agendaDaySchema = z.object({
++  /** Data local `AAAA-MM-DD`; leia com `parseLocalDate`, nunca `new Date()`. */
++  date: z.string().regex(ISO_DATE),
++  lessons: z.array(lessonSchema),
++});
++
++export const agendaSchema = z.array(agendaDaySchema);
++
++export type Lesson = z.infer<typeof lessonSchema>;
++export type AgendaDay = z.infer<typeof agendaDaySchema>;
++export type Agenda = z.infer<typeof agendaSchema>;
+diff --git a/mobile/src/features/lessons/services/lessons.service.ts b/mobile/src/features/lessons/services/lessons.service.ts
+new file mode 100644
+index 0000000..2083917
+--- /dev/null
++++ b/mobile/src/features/lessons/services/lessons.service.ts
+@@ -0,0 +1,10 @@
++import { http } from '../../../services/http/client';
++import { parseResponse } from '../../../services/http/parseResponse';
++import { agendaSchema, type Agenda } from '../schemas';
++
++export async function getAgenda(studentId: string): Promise<Agenda> {
++  const { data } = await http.get(
++    `/students/${encodeURIComponent(studentId)}/agenda`,
++  );
++  return parseResponse(agendaSchema, data, 'GET /students/:id/agenda');
++}
+diff --git a/mobile/src/features/report-card/ReportCardScreen.tsx b/mobile/src/features/report-card/ReportCardScreen.tsx
+index 859e59e..ac57668 100644
+--- a/mobile/src/features/report-card/ReportCardScreen.tsx
++++ b/mobile/src/features/report-card/ReportCardScreen.tsx
+@@ -1,22 +1,25 @@
+ import { PlaceholderScreen } from '../../components/PlaceholderScreen';
+-import type { AppTabsScreenProps } from '../../navigation/types';
++import { useSessionStore } from '../../stores/session.store';
++
++/**
++ * Placeholder. O Boletim real (M5) é a Tarefa 12, e o SAIR de verdade fica no
++ * Header (Tarefa 10), por um ViewModel.
++ */
++export function ReportCardScreen() {
++  const signOut = useSessionStore(state => state.signOut);
+ 
+-/** Placeholder. O Boletim real (M5) é a Tarefa 12. */
+-export function ReportCardScreen({
+-  navigation,
+-}: AppTabsScreenProps<'Boletim'>) {
+   return (
+     <PlaceholderScreen
+       testID="boletim-screen"
+       title="Boletim"
+       description="Notas e faltas por trimestre entram aqui."
+       actions={[
+         {
+           label: 'SAIR',
+           testID: 'header-logout-button',
+-          onPress: () => navigation.replace('Login'),
++          onPress: () => signOut(),
+         },
+       ]}
+     />
+   );
+ }
+diff --git a/mobile/src/features/report-card/__tests__/schemas.test.ts b/mobile/src/features/report-card/__tests__/schemas.test.ts
+new file mode 100644
+index 0000000..6eeba87
+--- /dev/null
++++ b/mobile/src/features/report-card/__tests__/schemas.test.ts
+@@ -0,0 +1,60 @@
++import { reportCard2025, reportCardsResponse } from '../../../test/fixtures';
++import { reportCardSchema, reportCardsSchema } from '../schemas';
++
++describe('reportCardsSchema', () => {
++  it('aceita a lista de anos', () => {
++    expect(reportCardsSchema.parse(reportCardsResponse)).toEqual(
++      reportCardsResponse,
++    );
++  });
++
++  it('recusa ano em texto', () => {
++    expect(
++      reportCardsSchema.safeParse([{ year: '2025', className: '7EF' }]).success,
++    ).toBe(false);
++  });
++});
++
++describe('reportCardSchema', () => {
++  it('aceita nota e falta lançadas e não lançadas (null)', () => {
++    const card = reportCardSchema.parse(reportCard2025);
++    expect(card.terms).toHaveLength(3);
++    expect(card.terms[0].subjects[0]).toEqual({
++      name: 'Língua Portuguesa',
++      grade: 9.5,
++      absences: 0,
++    });
++    expect(card.terms[1].subjects[0].grade).toBeNull();
++  });
++
++  it('recusa nota em texto, nota fora de 0–10 e falta negativa', () => {
++    const withSubject = (subject: object) => ({
++      ...reportCard2025,
++      terms: [{ term: 1, subjects: [subject] }],
++    });
++    expect(
++      reportCardSchema.safeParse(
++        withSubject({ name: 'X', grade: '9,5', absences: 0 }),
++      ).success,
++    ).toBe(false);
++    expect(
++      reportCardSchema.safeParse(
++        withSubject({ name: 'X', grade: 11, absences: 0 }),
++      ).success,
++    ).toBe(false);
++    expect(
++      reportCardSchema.safeParse(
++        withSubject({ name: 'X', grade: 9, absences: -1 }),
++      ).success,
++    ).toBe(false);
++  });
++
++  it('recusa trimestre sem a chave grade (undefined não é null)', () => {
++    expect(
++      reportCardSchema.safeParse({
++        ...reportCard2025,
++        terms: [{ term: 1, subjects: [{ name: 'X', absences: 0 }] }],
++      }).success,
++    ).toBe(false);
++  });
++});
+diff --git a/mobile/src/features/report-card/api/__tests__/useReportCardQueries.test.tsx b/mobile/src/features/report-card/api/__tests__/useReportCardQueries.test.tsx
+new file mode 100644
+index 0000000..e2cbeec
+--- /dev/null
++++ b/mobile/src/features/report-card/api/__tests__/useReportCardQueries.test.tsx
+@@ -0,0 +1,64 @@
++import { renderHook, waitFor } from '@testing-library/react-native';
++
++import { queryClient } from '../../../../app/queryClient';
++import { useSessionStore } from '../../../../stores/session.store';
++import {
++  loginResponse,
++  reportCard2025,
++  reportCardsResponse,
++} from '../../../../test/fixtures';
++import { QueryWrapper } from '../../../../test/queryWrapper';
++import { useReportCardQuery } from '../useReportCardQuery';
++import { useReportCardsQuery } from '../useReportCardsQuery';
++
++describe('boletim', () => {
++  beforeEach(async () => {
++    queryClient.clear();
++    await useSessionStore.getState().signIn('jwt-1', loginResponse.guardian);
++  });
++
++  it('useReportCardsQuery lista os anos do aluno', async () => {
++    const { result } = await renderHook(() => useReportCardsQuery('s1'), {
++      wrapper: QueryWrapper,
++    });
++    await waitFor(() => expect(result.current.isSuccess).toBe(true));
++    expect(result.current.data).toEqual(reportCardsResponse);
++  });
++
++  it('useReportCardQuery traz o boletim do ano', async () => {
++    const { result } = await renderHook(() => useReportCardQuery('s1', 2025), {
++      wrapper: QueryWrapper,
++    });
++    await waitFor(() => expect(result.current.isSuccess).toBe(true));
++    expect(result.current.data).toEqual(reportCard2025);
++    expect(queryClient.getQueryData(['reportCard', 's1', 2025])).toEqual(
++      reportCard2025,
++    );
++  });
++
++  it('ano sem boletim → notFound', async () => {
++    const { result } = await renderHook(() => useReportCardQuery('s1', 2019), {
++      wrapper: QueryWrapper,
++    });
++    await waitFor(() => expect(result.current.isError).toBe(true));
++    expect(result.current.error?.kind).toBe('notFound');
++  });
++
++  it('sem aluno ou sem ano não chama a API', async () => {
++    const { result: semAluno } = await renderHook(
++      () => useReportCardQuery(null, 2025),
++      { wrapper: QueryWrapper },
++    );
++    const { result: semAno } = await renderHook(
++      () => useReportCardQuery('s1', null),
++      { wrapper: QueryWrapper },
++    );
++    const { result: lista } = await renderHook(
++      () => useReportCardsQuery(null),
++      { wrapper: QueryWrapper },
++    );
++    expect(semAluno.current.fetchStatus).toBe('idle');
++    expect(semAno.current.fetchStatus).toBe('idle');
++    expect(lista.current.fetchStatus).toBe('idle');
++  });
++});
+diff --git a/mobile/src/features/report-card/api/useReportCardQuery.ts b/mobile/src/features/report-card/api/useReportCardQuery.ts
+new file mode 100644
+index 0000000..5297e30
+--- /dev/null
++++ b/mobile/src/features/report-card/api/useReportCardQuery.ts
+@@ -0,0 +1,18 @@
++import { skipToken, useQuery } from '@tanstack/react-query';
++
++import { queryKeys } from '../../../app/queryClient';
++import { getReportCard } from '../services/reportCard.service';
++
++/** Boletim de um ano (notas e faltas por trimestre). */
++export function useReportCardQuery(
++  studentId: string | null,
++  year: number | null,
++) {
++  return useQuery({
++    queryKey: queryKeys.reportCard(studentId ?? '', year ?? 0),
++    queryFn:
++      studentId && year !== null
++        ? () => getReportCard(studentId, year)
++        : skipToken,
++  });
++}
+diff --git a/mobile/src/features/report-card/api/useReportCardsQuery.ts b/mobile/src/features/report-card/api/useReportCardsQuery.ts
+new file mode 100644
+index 0000000..8f23e6d
+--- /dev/null
++++ b/mobile/src/features/report-card/api/useReportCardsQuery.ts
+@@ -0,0 +1,12 @@
++import { skipToken, useQuery } from '@tanstack/react-query';
++
++import { queryKeys } from '../../../app/queryClient';
++import { getReportCards } from '../services/reportCard.service';
++
++/** Anos com boletim do aluno, do mais recente para o mais antigo. */
++export function useReportCardsQuery(studentId: string | null) {
++  return useQuery({
++    queryKey: queryKeys.reportCards(studentId ?? ''),
++    queryFn: studentId ? () => getReportCards(studentId) : skipToken,
++  });
++}
+diff --git a/mobile/src/features/report-card/schemas.ts b/mobile/src/features/report-card/schemas.ts
+new file mode 100644
+index 0000000..54619b2
+--- /dev/null
++++ b/mobile/src/features/report-card/schemas.ts
+@@ -0,0 +1,29 @@
++import { z } from 'zod';
++
++export const reportCardSummarySchema = z.object({
++  year: z.number().int(),
++  className: z.string(),
++});
++
++export const reportCardsSchema = z.array(reportCardSummarySchema);
++
++export const subjectResultSchema = z.object({
++  name: z.string(),
++  /** `null` = ainda não lançada (a tela mostra `-`). */
++  grade: z.number().min(0).max(10).nullable(),
++  absences: z.number().int().min(0).nullable(),
++});
++
++export const termSchema = z.object({
++  term: z.number().int().min(1),
++  subjects: z.array(subjectResultSchema),
++});
++
++export const reportCardSchema = reportCardSummarySchema.extend({
++  terms: z.array(termSchema),
++});
++
++export type ReportCardSummary = z.infer<typeof reportCardSummarySchema>;
++export type SubjectResult = z.infer<typeof subjectResultSchema>;
++export type Term = z.infer<typeof termSchema>;
++export type ReportCard = z.infer<typeof reportCardSchema>;
+diff --git a/mobile/src/features/report-card/services/reportCard.service.ts b/mobile/src/features/report-card/services/reportCard.service.ts
+new file mode 100644
+index 0000000..8fe691c
+--- /dev/null
++++ b/mobile/src/features/report-card/services/reportCard.service.ts
+@@ -0,0 +1,34 @@
++import { http } from '../../../services/http/client';
++import { parseResponse } from '../../../services/http/parseResponse';
++import {
++  reportCardSchema,
++  reportCardsSchema,
++  type ReportCard,
++  type ReportCardSummary,
++} from '../schemas';
++
++const studentPath = (studentId: string) =>
++  `/students/${encodeURIComponent(studentId)}/report-cards`;
++
++export async function getReportCards(
++  studentId: string,
++): Promise<ReportCardSummary[]> {
++  const { data } = await http.get(studentPath(studentId));
++  return parseResponse(
++    reportCardsSchema,
++    data,
++    'GET /students/:id/report-cards',
++  );
++}
++
++export async function getReportCard(
++  studentId: string,
++  year: number,
++): Promise<ReportCard> {
++  const { data } = await http.get(`${studentPath(studentId)}/${year}`);
++  return parseResponse(
++    reportCardSchema,
++    data,
++    'GET /students/:id/report-cards/:year',
++  );
++}
+diff --git a/mobile/src/navigation/RootStack.tsx b/mobile/src/navigation/RootStack.tsx
+index ae7f773..c9edc95 100644
+--- a/mobile/src/navigation/RootStack.tsx
++++ b/mobile/src/navigation/RootStack.tsx
+@@ -1,38 +1,46 @@
+ import { createNativeStackNavigator } from '@react-navigation/native-stack';
+ 
+ import { LoginScreen } from '../features/auth/LoginScreen';
+ import { SelectStudentScreen } from '../features/students/SelectStudentScreen';
++import { useSessionStore } from '../stores/session.store';
+ import { useTheme } from '../theme';
+ import { AppTabs } from './AppTabs';
+ import type { RootStackParamList } from './types';
+ 
+ const Stack = createNativeStackNavigator<RootStackParamList>();
+ 
+ /**
+- * Stack raiz. A rota inicial é fixa em Login até a sessão existir (Tarefa 8).
++ * Stack raiz. A sessão decide as telas: sem sessão só existe o Login; com
++ * sessão, as abas e a seleção de aluno. Quando o logout ou um 401 encerra a
++ * sessão, o React Navigation troca para o Login sozinho.
+  */
+ export function RootStack() {
+   const { colors } = useTheme();
++  const signedIn = useSessionStore(state => state.status === 'signedIn');
+ 
+   return (
+     <Stack.Navigator
+-      initialRouteName="Login"
+       screenOptions={{
+         headerShown: false,
+         animation: 'fade',
+         contentStyle: { backgroundColor: colors.background },
+       }}
+     >
+-      <Stack.Screen name="Login" component={LoginScreen} />
+-      <Stack.Screen name="App" component={AppTabs} />
+-      <Stack.Screen
+-        name="SelectStudent"
+-        component={SelectStudentScreen}
+-        options={{
+-          presentation: 'fullScreenModal',
+-          animation: 'slide_from_bottom',
+-        }}
+-      />
++      {signedIn ? (
++        <>
++          <Stack.Screen name="App" component={AppTabs} />
++          <Stack.Screen
++            name="SelectStudent"
++            component={SelectStudentScreen}
++            options={{
++              presentation: 'fullScreenModal',
++              animation: 'slide_from_bottom',
++            }}
++          />
++        </>
++      ) : (
++        <Stack.Screen name="Login" component={LoginScreen} />
++      )}
+     </Stack.Navigator>
+   );
+ }
+diff --git a/mobile/src/services/http/__tests__/apiUrl.test.ts b/mobile/src/services/http/__tests__/apiUrl.test.ts
+new file mode 100644
+index 0000000..282be36
+--- /dev/null
++++ b/mobile/src/services/http/__tests__/apiUrl.test.ts
+@@ -0,0 +1,24 @@
++import { resolveApiUrl } from '../apiUrl';
++
++describe('resolveApiUrl', () => {
++  it('usa o API_URL do .env, sem barra no fim', () => {
++    expect(resolveApiUrl('http://192.168.0.10:3333/api/', 'ios')).toBe(
++      'http://192.168.0.10:3333/api',
++    );
++    expect(resolveApiUrl(' http://x/api ', 'android')).toBe('http://x/api');
++  });
++
++  it('sem .env usa localhost no iOS e 10.0.2.2 no emulador Android', () => {
++    expect(resolveApiUrl(undefined, 'ios')).toBe('http://localhost:3333/api');
++    expect(resolveApiUrl('', 'android')).toBe('http://10.0.2.2:3333/api');
++  });
++
++  it('no Android troca localhost por 10.0.2.2 (o emulador não enxerga o host por localhost)', () => {
++    expect(resolveApiUrl('http://localhost:3333/api', 'android')).toBe(
++      'http://10.0.2.2:3333/api',
++    );
++    expect(resolveApiUrl('http://localhost:3333/api', 'ios')).toBe(
++      'http://localhost:3333/api',
++    );
++  });
++});
+diff --git a/mobile/src/services/http/__tests__/client.test.ts b/mobile/src/services/http/__tests__/client.test.ts
+new file mode 100644
+index 0000000..30a55ac
+--- /dev/null
++++ b/mobile/src/services/http/__tests__/client.test.ts
+@@ -0,0 +1,159 @@
++import { http as mswHttp, HttpResponse } from 'msw';
++
++import { queryClient } from '../../../app/queryClient';
++import { useSessionStore } from '../../../stores/session.store';
++import { API_URL, loginResponse } from '../../../test/fixtures';
++import { server } from '../../../test/msw/server';
++import { logger } from '../../logger';
++import { createSecureStorage } from '../../storage/secureStorage';
++import { http } from '../client';
++import { ApiError } from '../errors';
++
++const guardian = loginResponse.guardian;
++
++async function signedIn(token = 'jwt-1') {
++  await useSessionStore.getState().signIn(token, guardian);
++}
++
++describe('http client', () => {
++  beforeEach(async () => {
++    await useSessionStore.getState().signOut();
++    useSessionStore.setState({ signOutReason: null });
++    queryClient.clear();
++  });
++
++  afterEach(() => jest.restoreAllMocks());
++
++  it('usa o API_URL do react-native-config como baseURL', () => {
++    expect(http.defaults.baseURL).toBe(API_URL);
++  });
++
++  it('manda o token do keychain como Bearer', async () => {
++    await signedIn('jwt-1');
++    let authorization: string | null = null;
++    server.use(
++      mswHttp.get(`${API_URL}/me`, ({ request }) => {
++        authorization = request.headers.get('authorization');
++        return HttpResponse.json({});
++      }),
++    );
++
++    await http.get('/me');
++    expect(authorization).toBe('Bearer jwt-1');
++  });
++
++  it('sem token não manda Authorization', async () => {
++    let authorization: string | null = 'x';
++    server.use(
++      mswHttp.get(`${API_URL}/me`, ({ request }) => {
++        authorization = request.headers.get('authorization');
++        return HttpResponse.json({});
++      }),
++    );
++
++    await http.get('/me');
++    expect(authorization).toBeNull();
++  });
++
++  it('401 numa rota protegida limpa a sessão (sessão expirada)', async () => {
++    await signedIn();
++    queryClient.setQueryData(['me'], { id: 'g1' });
++    server.use(
++      mswHttp.get(`${API_URL}/me`, () =>
++        HttpResponse.json({ statusCode: 401 }, { status: 401 }),
++      ),
++    );
++
++    await expect(http.get('/me')).rejects.toMatchObject({
++      kind: 'unauthorized',
++    });
++
++    const state = useSessionStore.getState();
++    expect(state.status).toBe('signedOut');
++    expect(state.signOutReason).toBe('expired');
++    expect(await createSecureStorage().getToken()).toBeNull();
++    expect(queryClient.getQueryData(['me'])).toBeUndefined();
++  });
++
++  it('vários 401 juntos encerram a sessão uma vez só', async () => {
++    await signedIn();
++    const signOut = jest.spyOn(useSessionStore.getState(), 'signOut');
++    server.use(
++      mswHttp.get(`${API_URL}/me`, () =>
++        HttpResponse.json({ statusCode: 401 }, { status: 401 }),
++      ),
++    );
++
++    await Promise.allSettled([http.get('/me'), http.get('/me')]);
++    expect(signOut).toHaveBeenCalledTimes(1);
++  });
++
++  it('401 no login é credencial errada: não mexe na sessão', async () => {
++    await signedIn('jwt-velho');
++
++    await expect(
++      http.post('/auth/login', { cpf: '96929456004', password: 'errada' }),
++    ).rejects.toMatchObject({
++      kind: 'unauthorized',
++      apiMessage: 'Usuário ou senha inválida.',
++    });
++    expect(useSessionStore.getState().status).toBe('signedIn');
++    expect(await createSecureStorage().getToken()).toBe('jwt-velho');
++  });
++
++  it('o login não leva o token de uma sessão anterior', async () => {
++    await signedIn('jwt-velho');
++    let authorization: string | null = 'x';
++    server.use(
++      mswHttp.post(`${API_URL}/auth/login`, ({ request }) => {
++        authorization = request.headers.get('authorization');
++        return HttpResponse.json(loginResponse);
++      }),
++    );
++
++    await http.post('/auth/login', { cpf: '96929456004', password: '123456' });
++    expect(authorization).toBeNull();
++  });
++
++  it('erro de rede vira ApiError network', async () => {
++    server.use(mswHttp.get(`${API_URL}/me`, () => HttpResponse.error()));
++
++    const error = await http.get('/me').catch(e => e);
++    expect(error).toBeInstanceOf(ApiError);
++    expect(error.kind).toBe('network');
++  });
++
++  it('loga método, URL, status e duração, sem token nem corpo', async () => {
++    await signedIn('jwt-secreto');
++    const info = jest.spyOn(logger, 'info');
++
++    await http.get('/me');
++
++    expect(info).toHaveBeenCalledWith(
++      'http GET /me 200',
++      expect.objectContaining({
++        method: 'GET',
++        url: '/me',
++        status: 200,
++        durationMs: expect.any(Number),
++      }),
++    );
++    expect(JSON.stringify(info.mock.calls)).not.toContain('jwt-secreto');
++  });
++
++  it('loga falha do login como warn sem CPF nem senha', async () => {
++    const warn = jest.spyOn(logger, 'warn');
++
++    await http
++      .post('/auth/login', { cpf: '96929456004', password: 'errada' })
++      .catch(() => undefined);
++
++    expect(warn).toHaveBeenCalledWith(
++      'http POST /auth/login 401',
++      expect.objectContaining({ status: 401, kind: 'unauthorized' }),
++    );
++    const logged = JSON.stringify(warn.mock.calls);
++    expect(logged).not.toContain('96929456004');
++    expect(logged).not.toContain('errada');
++  });
++});
+diff --git a/mobile/src/services/http/__tests__/errors.test.ts b/mobile/src/services/http/__tests__/errors.test.ts
+new file mode 100644
+index 0000000..60916b5
+--- /dev/null
++++ b/mobile/src/services/http/__tests__/errors.test.ts
+@@ -0,0 +1,83 @@
++import { AxiosError, AxiosHeaders } from 'axios';
++import { z } from 'zod';
++
++import { ApiError, toApiError } from '../errors';
++
++function axiosErrorWith(status: number, data: unknown) {
++  const config = { headers: new AxiosHeaders() };
++  return new AxiosError('Request failed', 'ERR_BAD_RESPONSE', config, null, {
++    status,
++    statusText: '',
++    data,
++    headers: {},
++    config,
++  });
++}
++
++describe('toApiError', () => {
++  it.each([
++    [400, 'badRequest'],
++    [401, 'unauthorized'],
++    [403, 'forbidden'],
++    [404, 'notFound'],
++    [429, 'rateLimited'],
++    [500, 'server'],
++    [503, 'server'],
++    [418, 'unknown'],
++  ] as const)('status %p vira kind %p', (status, kind) => {
++    const error = toApiError(axiosErrorWith(status, {}));
++    expect(error).toBeInstanceOf(ApiError);
++    expect(error.kind).toBe(kind);
++    expect(error.status).toBe(status);
++  });
++
++  it('guarda a mensagem da API (string ou lista do ValidationPipe)', () => {
++    expect(
++      toApiError(axiosErrorWith(401, { message: 'Usuário ou senha inválida.' }))
++        .apiMessage,
++    ).toBe('Usuário ou senha inválida.');
++    expect(
++      toApiError(axiosErrorWith(400, { message: ['cpf inválido', 'x'] }))
++        .apiMessage,
++    ).toBe('cpf inválido');
++    expect(
++      toApiError(
++        axiosErrorWith(403, {
++          statusCode: 403,
++          message: 'Você não tem acesso a este aluno.',
++          error: 'Forbidden',
++        }),
++      ).apiMessage,
++    ).toBe('Você não tem acesso a este aluno.');
++  });
++
++  it('corpo fora do formato do Nest não quebra: fica sem mensagem', () => {
++    expect(
++      toApiError(axiosErrorWith(500, '<html>')).apiMessage,
++    ).toBeUndefined();
++    expect(
++      toApiError(axiosErrorWith(400, { message: [] })).apiMessage,
++    ).toBeUndefined();
++  });
++
++  it('sem resposta (offline, timeout) vira network', () => {
++    const error = toApiError(
++      new AxiosError('Network Error', AxiosError.ERR_NETWORK),
++    );
++    expect(error.kind).toBe('network');
++    expect(error.status).toBeUndefined();
++  });
++
++  it('erro de schema vira invalidResponse', () => {
++    const result = z.object({ a: z.string() }).safeParse({ a: 1 });
++    expect(result.success).toBe(false);
++    expect(toApiError(result.error).kind).toBe('invalidResponse');
++  });
++
++  it('ApiError passa como está; qualquer outra coisa vira unknown', () => {
++    const original = new ApiError('forbidden', { status: 403 });
++    expect(toApiError(original)).toBe(original);
++    expect(toApiError(new Error('x')).kind).toBe('unknown');
++    expect(toApiError('x').kind).toBe('unknown');
++  });
++});
+diff --git a/mobile/src/services/http/__tests__/parseResponse.test.ts b/mobile/src/services/http/__tests__/parseResponse.test.ts
+new file mode 100644
+index 0000000..fbf1d7d
+--- /dev/null
++++ b/mobile/src/services/http/__tests__/parseResponse.test.ts
+@@ -0,0 +1,37 @@
++import { z } from 'zod';
++
++import { logger } from '../../logger';
++import { ApiError } from '../errors';
++import { parseResponse } from '../parseResponse';
++
++const schema = z.object({ name: z.string(), cpf: z.string() });
++
++describe('parseResponse', () => {
++  afterEach(() => jest.restoreAllMocks());
++
++  it('devolve o dado validado', () => {
++    expect(parseResponse(schema, { name: 'a', cpf: 'x' }, 'GET /me')).toEqual({
++      name: 'a',
++      cpf: 'x',
++    });
++  });
++
++  it('resposta fora do contrato vira ApiError invalidResponse e loga o caminho do campo, sem o valor', () => {
++    const error = jest.spyOn(logger, 'error').mockImplementation(() => {});
++
++    let thrown: unknown;
++    try {
++      parseResponse(schema, { name: 1, cpf: '96929456004' }, 'GET /me');
++    } catch (e) {
++      thrown = e;
++    }
++
++    expect(thrown).toBeInstanceOf(ApiError);
++    expect((thrown as ApiError).kind).toBe('invalidResponse');
++    expect(error).toHaveBeenCalledWith('resposta fora do contrato', {
++      endpoint: 'GET /me',
++      issues: [{ path: 'name', code: 'invalid_type' }],
++    });
++    expect(JSON.stringify(error.mock.calls)).not.toContain('96929456004');
++  });
++});
+diff --git a/mobile/src/services/http/apiUrl.ts b/mobile/src/services/http/apiUrl.ts
+new file mode 100644
+index 0000000..a9182fb
+--- /dev/null
++++ b/mobile/src/services/http/apiUrl.ts
+@@ -0,0 +1,16 @@
++const DEFAULT_PORT_AND_PATH = ':3333/api';
++/** O emulador Android chega ao localhost da máquina por 10.0.2.2. */
++const ANDROID_HOST_LOOPBACK = '10.0.2.2';
++const LOCALHOST = /\/\/(localhost|127\.0\.0\.1)(?=[:/]|$)/;
++
++/**
++ * Base da API: o `API_URL` do `.env` (react-native-config) ou, sem ele, o
++ * localhost da máquina de dev visto do simulador/emulador.
++ */
++export function resolveApiUrl(envUrl: string | undefined, os: string): string {
++  const fromEnv = envUrl?.trim().replace(/\/+$/, '');
++  const url = fromEnv || `http://localhost${DEFAULT_PORT_AND_PATH}`;
++  return os === 'android'
++    ? url.replace(LOCALHOST, `//${ANDROID_HOST_LOOPBACK}`)
++    : url;
++}
+diff --git a/mobile/src/services/http/client.ts b/mobile/src/services/http/client.ts
+new file mode 100644
+index 0000000..858b51a
+--- /dev/null
++++ b/mobile/src/services/http/client.ts
+@@ -0,0 +1,40 @@
++import axios from 'axios';
++import { Platform } from 'react-native';
++import Config from 'react-native-config';
++
++import { useSessionStore } from '../../stores/session.store';
++import { logger } from '../logger';
++import { secureStorage } from '../storage/secureStorage';
++import { resolveApiUrl } from './apiUrl';
++import { attachInterceptors } from './interceptors';
++
++const TIMEOUT_MS = 15_000;
++
++export const http = axios.create({
++  baseURL: resolveApiUrl(Config.API_URL, Platform.OS),
++  timeout: TIMEOUT_MS,
++  headers: { Accept: 'application/json' },
++});
++
++/** Um 401 por vez encerra a sessão; os outros esperam o mesmo signOut. */
++let expiringSession: Promise<void> | null = null;
++
++function expireSession(): Promise<void> {
++  const { status, signOut } = useSessionStore.getState();
++  if (status !== 'signedIn') {
++    return expiringSession ?? Promise.resolve();
++  }
++  if (!expiringSession) {
++    logger.warn('sessão expirada: voltando ao login');
++    expiringSession = signOut('expired').finally(() => {
++      expiringSession = null;
++    });
++  }
++  return expiringSession;
++}
++
++attachInterceptors(http, {
++  getToken: secureStorage.getToken,
++  onUnauthorized: expireSession,
++  logger,
++});
+diff --git a/mobile/src/services/http/errors.ts b/mobile/src/services/http/errors.ts
+new file mode 100644
+index 0000000..01054dd
+--- /dev/null
++++ b/mobile/src/services/http/errors.ts
+@@ -0,0 +1,84 @@
++import { isAxiosError } from 'axios';
++import { z, ZodError } from 'zod';
++
++export type ApiErrorKind =
++  | 'badRequest'
++  | 'unauthorized'
++  | 'forbidden'
++  | 'notFound'
++  | 'rateLimited'
++  | 'server'
++  | 'network'
++  | 'invalidResponse'
++  | 'unknown';
++
++type ApiErrorOptions = {
++  status?: number;
++  apiMessage?: string;
++  cause?: unknown;
++};
++
++/**
++ * Erro único da camada HTTP. Os ViewModels decidem o texto da tela pelo
++ * `kind`, sem conhecer axios nem zod.
++ */
++export class ApiError extends Error {
++  readonly kind: ApiErrorKind;
++  readonly status?: number;
++  readonly apiMessage?: string;
++
++  constructor(kind: ApiErrorKind, options: ApiErrorOptions = {}) {
++    super(options.apiMessage ?? kind);
++    this.name = 'ApiError';
++    this.kind = kind;
++    this.status = options.status;
++    this.apiMessage = options.apiMessage;
++  }
++}
++
++function kindFromStatus(status: number): ApiErrorKind {
++  if (status === 400) return 'badRequest';
++  if (status === 401) return 'unauthorized';
++  if (status === 403) return 'forbidden';
++  if (status === 404) return 'notFound';
++  if (status === 429) return 'rateLimited';
++  if (status >= 500) return 'server';
++  return 'unknown';
++}
++
++/**
++ * Corpo de erro do Nest: `{statusCode, message, error}`. O `message` é string
++ * (regra de negócio) ou lista (ValidationPipe); a UI recebe uma só, a primeira.
++ */
++export const apiErrorBodySchema = z.object({
++  statusCode: z.number().optional(),
++  message: z.union([z.string(), z.array(z.string())]),
++  error: z.string().optional(),
++});
++
++function messageFrom(data: unknown): string | undefined {
++  const parsed = apiErrorBodySchema.safeParse(data);
++  if (!parsed.success) return undefined;
++  const { message } = parsed.data;
++  return typeof message === 'string' ? message : message[0];
++}
++
++export function toApiError(error: unknown): ApiError {
++  if (error instanceof ApiError) {
++    return error;
++  }
++  if (error instanceof ZodError) {
++    return new ApiError('invalidResponse', { cause: error });
++  }
++  if (isAxiosError(error)) {
++    if (!error.response) {
++      return new ApiError('network', { cause: error });
++    }
++    const { status, data } = error.response;
++    return new ApiError(kindFromStatus(status), {
++      status,
++      apiMessage: messageFrom(data),
++    });
++  }
++  return new ApiError('unknown', { cause: error });
++}
+diff --git a/mobile/src/services/http/interceptors.ts b/mobile/src/services/http/interceptors.ts
+new file mode 100644
+index 0000000..d27357b
+--- /dev/null
++++ b/mobile/src/services/http/interceptors.ts
+@@ -0,0 +1,80 @@
++import type {
++  AxiosError,
++  AxiosInstance,
++  AxiosResponse,
++  InternalAxiosRequestConfig,
++} from 'axios';
++
++import type { Logger } from '../logger';
++import { toApiError } from './errors';
++
++/** Rotas sem token, em que 401 é resposta de negócio (credencial errada). */
++export const PUBLIC_PATHS = new Set(['/auth/login']);
++
++type InterceptorDeps = {
++  getToken: () => Promise<string | null>;
++  /** Chamado em 401 de rota protegida (token vencido ou revogado). */
++  onUnauthorized: () => Promise<void> | void;
++  logger: Logger;
++  now?: () => number;
++};
++
++const startedAt = new WeakMap<InternalAxiosRequestConfig, number>();
++
++const isPublic = (config?: InternalAxiosRequestConfig) =>
++  PUBLIC_PATHS.has(config?.url ?? '');
++
++export function attachInterceptors(
++  instance: AxiosInstance,
++  { getToken, onUnauthorized, logger, now = Date.now }: InterceptorDeps,
++) {
++  const describe = (config: InternalAxiosRequestConfig | undefined) => {
++    const method = (config?.method ?? 'get').toUpperCase();
++    const url = config?.url ?? '';
++    const start = config ? startedAt.get(config) : undefined;
++    return {
++      method,
++      url,
++      durationMs: start === undefined ? undefined : now() - start,
++    };
++  };
++
++  instance.interceptors.request.use(async config => {
++    startedAt.set(config, now());
++    if (!isPublic(config)) {
++      const token = await getToken();
++      if (token) {
++        config.headers.set('Authorization', `Bearer ${token}`);
++      }
++    }
++    return config;
++  });
++
++  instance.interceptors.response.use(
++    (response: AxiosResponse) => {
++      const request = describe(response.config);
++      logger.info(`http ${request.method} ${request.url} ${response.status}`, {
++        ...request,
++        status: response.status,
++        requestId: response.headers['x-request-id'],
++      });
++      return response;
++    },
++    async (error: AxiosError) => {
++      const apiError = toApiError(error);
++      const request = describe(error.config);
++      const status = apiError.status ?? 'sem resposta';
++      logger.warn(`http ${request.method} ${request.url} ${status}`, {
++        ...request,
++        status: apiError.status,
++        kind: apiError.kind,
++        requestId: error.response?.headers?.['x-request-id'],
++      });
++
++      if (apiError.kind === 'unauthorized' && !isPublic(error.config)) {
++        await onUnauthorized();
++      }
++      throw apiError;
++    },
++  );
++}
+diff --git a/mobile/src/services/http/parseResponse.ts b/mobile/src/services/http/parseResponse.ts
+new file mode 100644
+index 0000000..379f920
+--- /dev/null
++++ b/mobile/src/services/http/parseResponse.ts
+@@ -0,0 +1,28 @@
++import type { z } from 'zod';
++
++import { logger } from '../logger';
++import { ApiError } from './errors';
++
++/**
++ * Valida a resposta contra o schema do contrato. Fora do contrato vira
++ * `ApiError('invalidResponse')` (a tela mostra o estado de erro) e o log
++ * registra só o caminho e o código de cada problema, nunca o valor recebido.
++ */
++export function parseResponse<S extends z.ZodType>(
++  schema: S,
++  data: unknown,
++  endpoint: string,
++): z.infer<S> {
++  const result = schema.safeParse(data);
++  if (result.success) {
++    return result.data;
++  }
++  logger.error('resposta fora do contrato', {
++    endpoint,
++    issues: result.error.issues.map(issue => ({
++      path: issue.path.join('.'),
++      code: issue.code,
++    })),
++  });
++  throw new ApiError('invalidResponse', { cause: result.error });
++}
+diff --git a/mobile/src/services/logger/__tests__/logger.test.ts b/mobile/src/services/logger/__tests__/logger.test.ts
+new file mode 100644
+index 0000000..5d5010b
+--- /dev/null
++++ b/mobile/src/services/logger/__tests__/logger.test.ts
+@@ -0,0 +1,67 @@
++import { createLogger, type LogEntry, type LogTransport } from '../logger';
++import { REDACTED } from '../redact';
++
++function setup(minLevel: 'debug' | 'warn') {
++  const entries: LogEntry[] = [];
++  const transport: LogTransport = entry => entries.push(entry);
++  return {
++    entries,
++    logger: createLogger({ minLevel, transports: [transport] }),
++  };
++}
++
++describe('createLogger', () => {
++  it('em dev registra todos os níveis', () => {
++    const { entries, logger } = setup('debug');
++    logger.debug('d');
++    logger.info('i');
++    logger.warn('w');
++    logger.error('e');
++    expect(entries.map(e => e.level)).toEqual([
++      'debug',
++      'info',
++      'warn',
++      'error',
++    ]);
++  });
++
++  it('em produção registra só warn e error', () => {
++    const { entries, logger } = setup('warn');
++    logger.debug('d');
++    logger.info('i');
++    logger.warn('w');
++    logger.error('e');
++    expect(entries.map(e => e.message)).toEqual(['w', 'e']);
++  });
++
++  it('redige o contexto antes de entregar aos transportes', () => {
++    const { entries, logger } = setup('debug');
++    logger.info('login', {
++      cpf: '96929456004',
++      password: '123456',
++      headers: { Authorization: 'Bearer abc' },
++      status: 200,
++    });
++    expect(entries[0].context).toEqual({
++      cpf: REDACTED,
++      password: REDACTED,
++      headers: { Authorization: REDACTED },
++      status: 200,
++    });
++  });
++
++  it('um transporte que falha não derruba o app nem os outros', () => {
++    const entries: LogEntry[] = [];
++    const logger = createLogger({
++      minLevel: 'debug',
++      transports: [
++        () => {
++          throw new Error('quebrou');
++        },
++        entry => entries.push(entry),
++      ],
++    });
++    expect(() => logger.error('x')).not.toThrow();
++    expect(entries).toHaveLength(1);
++  });
++});
+diff --git a/mobile/src/services/logger/__tests__/redact.test.ts b/mobile/src/services/logger/__tests__/redact.test.ts
+new file mode 100644
+index 0000000..a1726bf
+--- /dev/null
++++ b/mobile/src/services/logger/__tests__/redact.test.ts
+@@ -0,0 +1,61 @@
++import { REDACTED, redact } from '../redact';
++
++describe('redact', () => {
++  it('troca o valor das chaves sensíveis, sem olhar maiúsculas', () => {
++    expect(
++      redact({
++        Authorization: 'Bearer abc',
++        password: '123456',
++        cpf: '96929456004',
++        accessToken: 'jwt',
++        url: '/me',
++      }),
++    ).toEqual({
++      Authorization: REDACTED,
++      password: REDACTED,
++      cpf: REDACTED,
++      accessToken: REDACTED,
++      url: '/me',
++    });
++  });
++
++  it('procura em objetos aninhados e em arrays', () => {
++    expect(
++      redact({
++        headers: { authorization: 'Bearer abc' },
++        list: [{ CPF: '1' }, 'texto', 3],
++      }),
++    ).toEqual({
++      headers: { authorization: REDACTED },
++      list: [{ CPF: REDACTED }, 'texto', 3],
++    });
++  });
++
++  it('não altera o objeto original', () => {
++    const original = { password: 'x', nested: { cpf: 'y' } };
++    redact(original);
++    expect(original).toEqual({ password: 'x', nested: { cpf: 'y' } });
++  });
++
++  it('reduz Error a nome e mensagem (sem config nem corpo de request)', () => {
++    const error = Object.assign(new Error('falhou'), {
++      config: { data: '{"password":"123456"}' },
++    });
++    expect(redact({ error })).toEqual({
++      error: { name: 'Error', message: 'falhou' },
++    });
++  });
++
++  it('aguenta referência circular', () => {
++    const a: Record<string, unknown> = { name: 'a' };
++    a.self = a;
++    expect(redact(a)).toEqual({ name: 'a', self: '[Circular]' });
++  });
++
++  it('devolve primitivos como estão', () => {
++    expect(redact('texto')).toBe('texto');
++    expect(redact(42)).toBe(42);
++    expect(redact(null)).toBeNull();
++    expect(redact(undefined)).toBeUndefined();
++  });
++});
+diff --git a/mobile/src/services/logger/index.ts b/mobile/src/services/logger/index.ts
+new file mode 100644
+index 0000000..9b977e5
+--- /dev/null
++++ b/mobile/src/services/logger/index.ts
+@@ -0,0 +1,10 @@
++import { createLogger } from './logger';
++import { consoleTransport } from './transports';
++
++/** Logger do app: tudo em dev; em produção só warn e error. */
++export const logger = createLogger({
++  minLevel: __DEV__ ? 'debug' : 'warn',
++  transports: [consoleTransport],
++});
++
++export type { LogContext, LogEntry, LogLevel, Logger } from './logger';
+diff --git a/mobile/src/services/logger/logger.ts b/mobile/src/services/logger/logger.ts
+new file mode 100644
+index 0000000..989df78
+--- /dev/null
++++ b/mobile/src/services/logger/logger.ts
+@@ -0,0 +1,67 @@
++import { redact } from './redact';
++
++export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
++
++export type LogContext = Record<string, unknown>;
++
++export type LogEntry = {
++  level: LogLevel;
++  message: string;
++  context?: LogContext;
++  timestamp: string;
++};
++
++/** Destino de um log já redigido (console, Reactotron...). */
++export type LogTransport = (entry: LogEntry) => void;
++
++export type Logger = Record<
++  LogLevel,
++  (message: string, context?: LogContext) => void
++> & {
++  addTransport: (transport: LogTransport) => void;
++};
++
++const LEVEL_WEIGHT: Record<LogLevel, number> = {
++  debug: 0,
++  info: 1,
++  warn: 2,
++  error: 3,
++};
++
++type LoggerOptions = {
++  minLevel: LogLevel;
++  transports: LogTransport[];
++};
++
++export function createLogger({ minLevel, transports }: LoggerOptions): Logger {
++  const targets = [...transports];
++
++  const write = (level: LogLevel, message: string, context?: LogContext) => {
++    if (LEVEL_WEIGHT[level] < LEVEL_WEIGHT[minLevel]) {
++      return;
++    }
++    const entry: LogEntry = {
++      level,
++      message,
++      context: context === undefined ? undefined : redact(context),
++      timestamp: new Date().toISOString(),
++    };
++    for (const transport of targets) {
++      try {
++        transport(entry);
++      } catch {
++        // Log nunca derruba o app.
++      }
++    }
++  };
++
++  return {
++    debug: (message, context) => write('debug', message, context),
++    info: (message, context) => write('info', message, context),
++    warn: (message, context) => write('warn', message, context),
++    error: (message, context) => write('error', message, context),
++    addTransport: transport => {
++      targets.push(transport);
++    },
++  };
++}
+diff --git a/mobile/src/services/logger/reactotron.ts b/mobile/src/services/logger/reactotron.ts
+new file mode 100644
+index 0000000..5f22e72
+--- /dev/null
++++ b/mobile/src/services/logger/reactotron.ts
+@@ -0,0 +1,26 @@
++import type { LogTransport } from './logger';
++
++/**
++ * Liga o Reactotron em dev e devolve um transporte para o logger. Os plugins
++ * de rede, de console e de AsyncStorage ficam desligados: o de rede mostraria
++ * o header Authorization e o corpo do login sem redação. Os requests aparecem
++ * pelo log do interceptor (já redigido).
++ *
++ * No emulador Android rode `adb reverse tcp:9090 tcp:9090`.
++ */
++export function connectReactotron(): LogTransport {
++  const Reactotron = require('reactotron-react-native').default;
++
++  Reactotron.configure({ name: 'FIAP School' })
++    .useReactNative({ networking: false, log: false, asyncStorage: false })
++    .connect();
++
++  return ({ level, message, context }) => {
++    Reactotron.display({
++      name: level.toUpperCase(),
++      preview: message,
++      value: context ?? message,
++      important: level === 'warn' || level === 'error',
++    });
++  };
++}
+diff --git a/mobile/src/services/logger/redact.ts b/mobile/src/services/logger/redact.ts
+new file mode 100644
+index 0000000..b06ed47
+--- /dev/null
++++ b/mobile/src/services/logger/redact.ts
+@@ -0,0 +1,42 @@
++export const REDACTED = '[REDACTED]';
++
++/** Chaves que nunca saem no log (comparação sem maiúsculas). */
++const SENSITIVE_KEYS = new Set([
++  'authorization',
++  'password',
++  'cpf',
++  'accesstoken',
++]);
++
++function redactValue(value: unknown, seen: WeakSet<object>): unknown {
++  if (value === null || typeof value !== 'object') {
++    return value;
++  }
++  if (seen.has(value)) {
++    return '[Circular]';
++  }
++  seen.add(value);
++
++  // Erro vira só nome e mensagem: um AxiosError carrega `config.headers`
++  // (token) e `config.data` (corpo do login em texto), que a redação por
++  // chave não alcança.
++  if (value instanceof Error) {
++    return { name: value.name, message: value.message };
++  }
++  if (Array.isArray(value)) {
++    return value.map(item => redactValue(item, seen));
++  }
++
++  const result: Record<string, unknown> = {};
++  for (const [key, item] of Object.entries(value)) {
++    result[key] = SENSITIVE_KEYS.has(key.toLowerCase())
++      ? REDACTED
++      : redactValue(item, seen);
++  }
++  return result;
++}
++
++/** Cópia do valor com token, senha e CPF trocados por `[REDACTED]`. */
++export function redact<T>(value: T): T {
++  return redactValue(value, new WeakSet()) as T;
++}
+diff --git a/mobile/src/services/logger/transports.ts b/mobile/src/services/logger/transports.ts
+new file mode 100644
+index 0000000..3621a73
+--- /dev/null
++++ b/mobile/src/services/logger/transports.ts
+@@ -0,0 +1,17 @@
++import type { LogTransport } from './logger';
++
++const CONSOLE_METHOD = {
++  debug: console.debug,
++  info: console.info,
++  warn: console.warn,
++  error: console.error,
++} as const;
++
++export const consoleTransport: LogTransport = ({ level, message, context }) => {
++  const method = CONSOLE_METHOD[level];
++  if (context === undefined) {
++    method(`[${level}] ${message}`);
++  } else {
++    method(`[${level}] ${message}`, context);
++  }
++};
+diff --git a/mobile/src/services/storage/__tests__/secureStorage.test.ts b/mobile/src/services/storage/__tests__/secureStorage.test.ts
+new file mode 100644
+index 0000000..3ada208
+--- /dev/null
++++ b/mobile/src/services/storage/__tests__/secureStorage.test.ts
+@@ -0,0 +1,64 @@
++import * as Keychain from 'react-native-keychain';
++
++import { createSecureStorage } from '../secureStorage';
++
++describe('secureStorage', () => {
++  let secureStorage = createSecureStorage();
++  beforeEach(() => {
++    secureStorage = createSecureStorage();
++  });
++
++  it('começa sem token', async () => {
++    expect(await secureStorage.getToken()).toBeNull();
++  });
++
++  it('grava o token no keychain e lê de volta', async () => {
++    await secureStorage.setToken('jwt-1');
++
++    expect(Keychain.setGenericPassword).toHaveBeenCalledWith(
++      'session',
++      'jwt-1',
++      expect.objectContaining({
++        service: 'br.com.fiap.school.session',
++        accessible: Keychain.ACCESSIBLE.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
++      }),
++    );
++    secureStorage = createSecureStorage(); // app reaberto: memória vazia
++    expect(await secureStorage.getToken()).toBe('jwt-1');
++  });
++
++  it('guarda o token em memória para não ir ao keychain a cada request', async () => {
++    await secureStorage.setToken('jwt-1');
++    (Keychain.getGenericPassword as jest.Mock).mockClear();
++
++    expect(await secureStorage.getToken()).toBe('jwt-1');
++    expect(Keychain.getGenericPassword).not.toHaveBeenCalled();
++  });
++
++  it('apaga o token do keychain e da memória', async () => {
++    await secureStorage.setToken('jwt-1');
++    await secureStorage.clearToken();
++
++    expect(Keychain.resetGenericPassword).toHaveBeenCalledWith({
++      service: 'br.com.fiap.school.session',
++    });
++    expect(await secureStorage.getToken()).toBeNull();
++    secureStorage = createSecureStorage(); // app reaberto: memória vazia
++    expect(await secureStorage.getToken()).toBeNull();
++  });
++
++  it('loadToken relê o keychain mesmo com cópia em memória', async () => {
++    expect(await secureStorage.getToken()).toBeNull();
++    await createSecureStorage().setToken('jwt-de-outra-sessao');
++
++    expect(await secureStorage.loadToken()).toBe('jwt-de-outra-sessao');
++    expect(await secureStorage.getToken()).toBe('jwt-de-outra-sessao');
++  });
++
++  it('devolve null se o keychain falhar na leitura', async () => {
++    (Keychain.getGenericPassword as jest.Mock).mockRejectedValueOnce(
++      new Error('keychain indisponível'),
++    );
++    expect(await secureStorage.getToken()).toBeNull();
++  });
++});
+diff --git a/mobile/src/services/storage/mmkv.ts b/mobile/src/services/storage/mmkv.ts
+new file mode 100644
+index 0000000..6cb98b1
+--- /dev/null
++++ b/mobile/src/services/storage/mmkv.ts
+@@ -0,0 +1,17 @@
++import { createMMKV } from 'react-native-mmkv';
++import type { StateStorage } from 'zustand/middleware';
++
++/**
++ * Armazenamento rápido e não criptografado, para preferência de tela
++ * (aluno selecionado). Token e dado pessoal não entram aqui.
++ */
++export const mmkv = createMMKV({ id: 'fiap-school' });
++
++/** Adaptador do mmkv para o `persist` do zustand. */
++export const mmkvStateStorage: StateStorage = {
++  getItem: name => mmkv.getString(name) ?? null,
++  setItem: (name, value) => mmkv.set(name, value),
++  removeItem: name => {
++    mmkv.remove(name);
++  },
++};
+diff --git a/mobile/src/services/storage/secureStorage.ts b/mobile/src/services/storage/secureStorage.ts
+new file mode 100644
+index 0000000..27e7d86
+--- /dev/null
++++ b/mobile/src/services/storage/secureStorage.ts
+@@ -0,0 +1,63 @@
++import * as Keychain from 'react-native-keychain';
++
++import { logger } from '../logger';
++
++const SERVICE = 'br.com.fiap.school.session';
++const USERNAME = 'session';
++
++export type SecureStorage = {
++  /** Lê o keychain e atualiza a memória (abertura do app). */
++  loadToken: () => Promise<string | null>;
++  /** Token da memória; vai ao keychain só na primeira vez. */
++  getToken: () => Promise<string | null>;
++  setToken: (token: string) => Promise<void>;
++  clearToken: () => Promise<void>;
++};
++
++/**
++ * O JWT mora só no Keychain (iOS) / Keystore (Android). A cópia em memória
++ * evita uma ida ao keychain por request e some quando o app fecha.
++ */
++export function createSecureStorage(): SecureStorage {
++  let cached: string | null | undefined;
++
++  const loadToken = async () => {
++    try {
++      const credentials = await Keychain.getGenericPassword({
++        service: SERVICE,
++      });
++      cached = credentials ? credentials.password : null;
++    } catch (error) {
++      logger.warn('secureStorage: falha ao ler o token', { error });
++      cached = null;
++    }
++    return cached;
++  };
++
++  return {
++    loadToken,
++
++    async getToken() {
++      return cached !== undefined ? cached : loadToken();
++    },
++
++    async setToken(token) {
++      await Keychain.setGenericPassword(USERNAME, token, {
++        service: SERVICE,
++        accessible: Keychain.ACCESSIBLE.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
++      });
++      cached = token;
++    },
++
++    async clearToken() {
++      cached = null;
++      try {
++        await Keychain.resetGenericPassword({ service: SERVICE });
++      } catch (error) {
++        logger.warn('secureStorage: falha ao apagar o token', { error });
++      }
++    },
++  };
++}
++
++export const secureStorage = createSecureStorage();
+diff --git a/mobile/src/stores/__tests__/session.store.test.ts b/mobile/src/stores/__tests__/session.store.test.ts
+new file mode 100644
+index 0000000..5babefd
+--- /dev/null
++++ b/mobile/src/stores/__tests__/session.store.test.ts
+@@ -0,0 +1,84 @@
++import { queryClient } from '../../app/queryClient';
++import { mmkv } from '../../services/storage/mmkv';
++import { createSecureStorage } from '../../services/storage/secureStorage';
++import { SESSION_STORAGE_KEY, useSessionStore } from '../session.store';
++
++const guardian = { id: 'g1', firstName: 'Gustavo', lastName: 'da Silva' };
++
++/** Token como o app veria depois de reaberto (lido do keychain). */
++const tokenInKeychain = () => createSecureStorage().getToken();
++
++describe('session store', () => {
++  beforeEach(async () => {
++    await useSessionStore.getState().signOut();
++    useSessionStore.setState({ status: 'loading', signOutReason: null });
++    queryClient.clear();
++  });
++
++  it('começa carregando', () => {
++    expect(useSessionStore.getState().status).toBe('loading');
++  });
++
++  it('bootstrap sem token → signedOut', async () => {
++    await useSessionStore.getState().bootstrap();
++    expect(useSessionStore.getState().status).toBe('signedOut');
++  });
++
++  it('bootstrap com token no keychain → signedIn', async () => {
++    await createSecureStorage().setToken('jwt-antigo');
++    await useSessionStore.getState().bootstrap();
++    expect(useSessionStore.getState().status).toBe('signedIn');
++  });
++
++  it('signIn grava o token no keychain e guarda o responsável', async () => {
++    await useSessionStore.getState().signIn('jwt-1', guardian);
++
++    const state = useSessionStore.getState();
++    expect(state.status).toBe('signedIn');
++    expect(state.guardian).toEqual(guardian);
++    expect(state.signOutReason).toBeNull();
++    expect(await tokenInKeychain()).toBe('jwt-1');
++  });
++
++  it('selectStudent persiste só o aluno no mmkv, nunca o token', async () => {
++    await useSessionStore.getState().signIn('jwt-1', guardian);
++    useSessionStore.getState().selectStudent('s2');
++
++    const persisted = mmkv.getString(SESSION_STORAGE_KEY) ?? '';
++    expect(JSON.parse(persisted).state).toEqual({ selectedStudentId: 's2' });
++    expect(persisted).not.toContain('jwt-1');
++    expect(persisted).not.toContain('Gustavo');
++  });
++
++  it('reidrata o aluno selecionado do mmkv', async () => {
++    mmkv.set(
++      SESSION_STORAGE_KEY,
++      JSON.stringify({ state: { selectedStudentId: 's3' }, version: 1 }),
++    );
++
++    await useSessionStore.persist.rehydrate();
++    expect(useSessionStore.getState().selectedStudentId).toBe('s3');
++  });
++
++  it('signOut apaga o token, limpa o estado e o cache do React Query', async () => {
++    await useSessionStore.getState().signIn('jwt-1', guardian);
++    useSessionStore.getState().selectStudent('s2');
++    queryClient.setQueryData(['me'], { id: 'g1' });
++
++    await useSessionStore.getState().signOut('expired');
++
++    const state = useSessionStore.getState();
++    expect(state.status).toBe('signedOut');
++    expect(state.guardian).toBeNull();
++    expect(state.selectedStudentId).toBeNull();
++    expect(state.signOutReason).toBe('expired');
++    expect(await tokenInKeychain()).toBeNull();
++    expect(queryClient.getQueryData(['me'])).toBeUndefined();
++  });
++
++  it('signOut sem motivo é logout do usuário', async () => {
++    await useSessionStore.getState().signIn('jwt-1', guardian);
++    await useSessionStore.getState().signOut();
++    expect(useSessionStore.getState().signOutReason).toBe('manual');
++  });
++});
+diff --git a/mobile/src/stores/session.store.ts b/mobile/src/stores/session.store.ts
+new file mode 100644
+index 0000000..a4893ca
+--- /dev/null
++++ b/mobile/src/stores/session.store.ts
+@@ -0,0 +1,73 @@
++import { create } from 'zustand';
++import { createJSONStorage, persist } from 'zustand/middleware';
++
++import { queryClient } from '../app/queryClient';
++import type { Guardian } from '../features/auth/schemas';
++import { mmkvStateStorage } from '../services/storage/mmkv';
++import { secureStorage } from '../services/storage/secureStorage';
++
++export type SessionStatus = 'loading' | 'signedOut' | 'signedIn';
++
++/** `expired`: o interceptor recebeu 401; o Login mostra "Sua sessão expirou". */
++export type SignOutReason = 'manual' | 'expired';
++
++type SessionState = {
++  status: SessionStatus;
++  /** Vem do login; ao reabrir o app fica `null` até o `/me` responder. */
++  guardian: Guardian | null;
++  selectedStudentId: string | null;
++  signOutReason: SignOutReason | null;
++};
++
++type SessionActions = {
++  /** Lê o token do keychain. Quem valida com `/me` é a query. */
++  bootstrap: () => Promise<void>;
++  signIn: (token: string, guardian: Guardian) => Promise<void>;
++  signOut: (reason?: SignOutReason) => Promise<void>;
++  selectStudent: (studentId: string) => void;
++};
++
++export type SessionStore = SessionState & SessionActions;
++
++export const SESSION_STORAGE_KEY = 'session';
++
++export const useSessionStore = create<SessionStore>()(
++  persist(
++    set => ({
++      status: 'loading',
++      guardian: null,
++      selectedStudentId: null,
++      signOutReason: null,
++
++      bootstrap: async () => {
++        const token = await secureStorage.loadToken();
++        set({ status: token ? 'signedIn' : 'signedOut' });
++      },
++
++      signIn: async (token, guardian) => {
++        await secureStorage.setToken(token);
++        set({ status: 'signedIn', guardian, signOutReason: null });
++      },
++
++      signOut: async (reason = 'manual') => {
++        await secureStorage.clearToken();
++        queryClient.clear();
++        set({
++          status: 'signedOut',
++          guardian: null,
++          selectedStudentId: null,
++          signOutReason: reason,
++        });
++      },
++
++      selectStudent: studentId => set({ selectedStudentId: studentId }),
++    }),
++    {
++      name: SESSION_STORAGE_KEY,
++      version: 1,
++      storage: createJSONStorage(() => mmkvStateStorage),
++      // Só a preferência de aluno vai para o disco. Token fica no keychain.
++      partialize: state => ({ selectedStudentId: state.selectedStudentId }),
++    },
++  ),
++);
+diff --git a/mobile/src/test/fixtures.ts b/mobile/src/test/fixtures.ts
+new file mode 100644
+index 0000000..e03085a
+--- /dev/null
++++ b/mobile/src/test/fixtures.ts
+@@ -0,0 +1,93 @@
++/** Respostas no formato do "Contrato da API" do plano (dados do seed). */
++
++export const API_URL = 'http://localhost:3333/api';
++
++export const loginResponse = {
++  accessToken: 'jwt-gustavo',
++  guardian: { id: 'g1', firstName: 'Gustavo', lastName: 'da Silva' },
++};
++
++export const meResponse = {
++  id: 'g1',
++  firstName: 'Gustavo',
++  lastName: 'da Silva',
++  cpf: '***.294.560-**',
++  students: [
++    {
++      id: 's1',
++      rm: 12567,
++      firstName: 'Rafael',
++      lastName: 'da Silva',
++      className: '7EF',
++      period: 'Matutino',
++    },
++    {
++      id: 's2',
++      rm: 12568,
++      firstName: 'Marina',
++      lastName: 'da Silva',
++      className: '3EF',
++      period: 'Vespertino',
++    },
++  ],
++};
++
++export const meWithoutStudents = {
++  id: 'g9',
++  firstName: 'Carlos',
++  lastName: 'Sem Aluno',
++  cpf: '***.159.265-**',
++  students: [],
++};
++
++const day = (date: string, subjects: string[] = []) => ({
++  date,
++  lessons: subjects.map((subject, index) => ({
++    startTime: `0${7 + index}:15`.slice(-5),
++    endTime: `0${8 + index}:00`.slice(-5),
++    subject,
++  })),
++});
++
++export const agendaResponse = [
++  day('2025-03-16'),
++  day('2025-03-17', ['Matemática I', 'Língua Inglesa']),
++  day('2025-03-18', ['Produção e Interpretação de Textos']),
++  day('2025-03-19', ['Ciências']),
++  day('2025-03-20', ['História']),
++  day('2025-03-21', ['Coding']),
++  day('2025-03-22'),
++];
++
++export const reportCardsResponse = [
++  { year: 2025, className: '7EF' },
++  { year: 2024, className: '6EF' },
++];
++
++export const reportCard2025 = {
++  year: 2025,
++  className: '7EF',
++  terms: [
++    {
++      term: 1,
++      subjects: [
++        { name: 'Língua Portuguesa', grade: 9.5, absences: 0 },
++        { name: 'Matemática', grade: 8, absences: 2 },
++      ],
++    },
++    {
++      term: 2,
++      subjects: [{ name: 'Língua Portuguesa', grade: null, absences: null }],
++    },
++    {
++      term: 3,
++      subjects: [{ name: 'Língua Portuguesa', grade: null, absences: null }],
++    },
++  ],
++};
++
++export const invalidCredentials = {
++  statusCode: 401,
++  message: 'Usuário ou senha inválida.',
++  error: 'Unauthorized',
++};
+diff --git a/mobile/src/test/msw/handlers.ts b/mobile/src/test/msw/handlers.ts
+new file mode 100644
+index 0000000..ad06e1e
+--- /dev/null
++++ b/mobile/src/test/msw/handlers.ts
+@@ -0,0 +1,37 @@
++import { http, HttpResponse } from 'msw';
++
++import {
++  agendaResponse,
++  API_URL,
++  invalidCredentials,
++  loginResponse,
++  meResponse,
++  reportCard2025,
++  reportCardsResponse,
++} from '../fixtures';
++
++/** Caminho feliz da API. Cada teste troca o que precisa com `server.use`. */
++export const handlers = [
++  http.post(`${API_URL}/auth/login`, async ({ request }) => {
++    const body = (await request.json()) as { cpf: string; password: string };
++    if (body.cpf === '96929456004' && body.password === '123456') {
++      return HttpResponse.json(loginResponse);
++    }
++    return HttpResponse.json(invalidCredentials, { status: 401 });
++  }),
++  http.get(`${API_URL}/me`, () => HttpResponse.json(meResponse)),
++  http.get(`${API_URL}/students/:id/agenda`, () =>
++    HttpResponse.json(agendaResponse),
++  ),
++  http.get(`${API_URL}/students/:id/report-cards`, () =>
++    HttpResponse.json(reportCardsResponse),
++  ),
++  http.get(`${API_URL}/students/:id/report-cards/:year`, ({ params }) =>
++    params.year === '2025'
++      ? HttpResponse.json(reportCard2025)
++      : HttpResponse.json(
++          { statusCode: 404, message: 'Not Found', error: 'Not Found' },
++          { status: 404 },
++        ),
++  ),
++];
+diff --git a/mobile/src/test/msw/server.ts b/mobile/src/test/msw/server.ts
+new file mode 100644
+index 0000000..e78b14e
+--- /dev/null
++++ b/mobile/src/test/msw/server.ts
+@@ -0,0 +1,5 @@
++import { setupServer } from 'msw/native';
++
++import { handlers } from './handlers';
++
++export const server = setupServer(...handlers);
+diff --git a/mobile/src/test/queryWrapper.tsx b/mobile/src/test/queryWrapper.tsx
+new file mode 100644
+index 0000000..a48fb6a
+--- /dev/null
++++ b/mobile/src/test/queryWrapper.tsx
+@@ -0,0 +1,11 @@
++import { QueryClientProvider } from '@tanstack/react-query';
++import type { PropsWithChildren } from 'react';
++
++import { queryClient } from '../app/queryClient';
++
++/** Provider com o mesmo QueryClient do app (o signOut limpa este cache). */
++export function QueryWrapper({ children }: PropsWithChildren) {
++  return (
++    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
++  );
++}
+diff --git a/mobile/src/types/react-native-config.d.ts b/mobile/src/types/react-native-config.d.ts
+new file mode 100644
+index 0000000..c5d9ea6
+--- /dev/null
++++ b/mobile/src/types/react-native-config.d.ts
+@@ -0,0 +1,9 @@
++declare module 'react-native-config' {
++  export interface NativeConfig {
++    /** Base da API, ex.: `http://localhost:3333/api`. Ver `.env.example`. */
++    API_URL?: string;
++  }
++
++  export const Config: NativeConfig;
++  export default Config;
++}
+diff --git a/mobile/src/utils/__tests__/cpf.test.ts b/mobile/src/utils/__tests__/cpf.test.ts
+new file mode 100644
+index 0000000..6a97ec9
+--- /dev/null
++++ b/mobile/src/utils/__tests__/cpf.test.ts
+@@ -0,0 +1,54 @@
++import { formatCpf, isValidCpf, onlyDigits } from '../cpf';
++
++describe('onlyDigits', () => {
++  it('remove tudo o que não é dígito', () => {
++    expect(onlyDigits('969.294.560-04')).toBe('96929456004');
++    expect(onlyDigits('a1b2 c3')).toBe('123');
++    expect(onlyDigits('')).toBe('');
++  });
++});
++
++describe('formatCpf', () => {
++  it.each([
++    ['', ''],
++    ['9', '9'],
++    ['969', '969'],
++    ['9692', '969.2'],
++    ['969294', '969.294'],
++    ['9692945', '969.294.5'],
++    ['969294560', '969.294.560'],
++    ['9692945600', '969.294.560-0'],
++    ['96929456004', '969.294.560-04'],
++  ])('mascara progressivamente %p como %p', (input, expected) => {
++    expect(formatCpf(input)).toBe(expected);
++  });
++
++  it('ignora o que não é dígito e corta em 11 dígitos', () => {
++    expect(formatCpf('969.294.560-04999')).toBe('969.294.560-04');
++    expect(formatCpf('96a9.2')).toBe('969.2');
++  });
++});
++
++describe('isValidCpf', () => {
++  it('aceita CPF com dígitos verificadores corretos, com ou sem máscara', () => {
++    expect(isValidCpf('96929456004')).toBe(true);
++    expect(isValidCpf('969.294.560-04')).toBe(true);
++    expect(isValidCpf('314.159.265-90')).toBe(true);
++  });
++
++  it('recusa dígito verificador errado', () => {
++    expect(isValidCpf('96929456005')).toBe(false);
++    expect(isValidCpf('96929456014')).toBe(false);
++  });
++
++  it('recusa tamanho diferente de 11', () => {
++    expect(isValidCpf('9692945600')).toBe(false);
++    expect(isValidCpf('969294560041')).toBe(false);
++    expect(isValidCpf('')).toBe(false);
++  });
++
++  it('recusa sequências de um dígito só', () => {
++    expect(isValidCpf('00000000000')).toBe(false);
++    expect(isValidCpf('111.111.111-11')).toBe(false);
++  });
++});
+diff --git a/mobile/src/utils/__tests__/dates.test.ts b/mobile/src/utils/__tests__/dates.test.ts
+new file mode 100644
+index 0000000..4ea5058
+--- /dev/null
++++ b/mobile/src/utils/__tests__/dates.test.ts
+@@ -0,0 +1,57 @@
++import {
++  formatDayLabel,
++  parseLocalDate,
++  weekdayName,
++  weekdayOf,
++} from '../dates';
++
++describe('parseLocalDate', () => {
++  it('lê "AAAA-MM-DD" como data local (meia-noite local, não UTC)', () => {
++    const date = parseLocalDate('2025-03-17');
++    expect(date.getFullYear()).toBe(2025);
++    expect(date.getMonth()).toBe(2);
++    expect(date.getDate()).toBe(17);
++    expect(date.getHours()).toBe(0);
++  });
++
++  it('recusa formato inválido', () => {
++    expect(() => parseLocalDate('17/03/2025')).toThrow();
++    expect(() => parseLocalDate('2025-13-01')).toThrow();
++    expect(() => parseLocalDate('2025-02-30')).toThrow();
++  });
++});
++
++describe('weekdayOf', () => {
++  it('devolve o dia da semana (0 = domingo) da data local', () => {
++    expect(weekdayOf('2025-03-16')).toBe(0);
++    expect(weekdayOf('2025-03-17')).toBe(1);
++    expect(weekdayOf('2025-03-22')).toBe(6);
++  });
++});
++
++describe('weekdayName', () => {
++  it('nomeia os dias em pt-BR minúsculo', () => {
++    expect([0, 1, 2, 3, 4, 5, 6].map(weekdayName)).toEqual([
++      'domingo',
++      'segunda-feira',
++      'terça-feira',
++      'quarta-feira',
++      'quinta-feira',
++      'sexta-feira',
++      'sábado',
++    ]);
++  });
++});
++
++describe('formatDayLabel', () => {
++  it('formata como "{dia} de {mês}, {dia da semana}"', () => {
++    expect(formatDayLabel('2025-03-17')).toBe('17 de março, segunda-feira');
++    expect(formatDayLabel('2025-03-16')).toBe('16 de março, domingo');
++    expect(formatDayLabel('2025-03-22')).toBe('22 de março, sábado');
++  });
++
++  it('não põe zero à esquerda e cobre todos os meses', () => {
++    expect(formatDayLabel('2025-01-01')).toBe('1 de janeiro, quarta-feira');
++    expect(formatDayLabel('2025-12-31')).toBe('31 de dezembro, quarta-feira');
++  });
++});
+diff --git a/mobile/src/utils/__tests__/grades.test.ts b/mobile/src/utils/__tests__/grades.test.ts
+new file mode 100644
+index 0000000..cc4ab0c
+--- /dev/null
++++ b/mobile/src/utils/__tests__/grades.test.ts
+@@ -0,0 +1,25 @@
++import { formatAbsences, formatGrade } from '../grades';
++
++describe('formatGrade', () => {
++  it('usa vírgula e uma casa decimal', () => {
++    expect(formatGrade(9.5)).toBe('9,5');
++    expect(formatGrade(8)).toBe('8,0');
++    expect(formatGrade(10)).toBe('10,0');
++    expect(formatGrade(0)).toBe('0,0');
++  });
++
++  it('mostra "-" quando a nota não foi lançada', () => {
++    expect(formatGrade(null)).toBe('-');
++  });
++});
++
++describe('formatAbsences', () => {
++  it('mostra o número de faltas, inclusive zero', () => {
++    expect(formatAbsences(0)).toBe('0');
++    expect(formatAbsences(3)).toBe('3');
++  });
++
++  it('mostra "-" quando as faltas não foram lançadas', () => {
++    expect(formatAbsences(null)).toBe('-');
++  });
++});
+diff --git a/mobile/src/utils/__tests__/names.test.ts b/mobile/src/utils/__tests__/names.test.ts
+new file mode 100644
+index 0000000..3f6d33b
+--- /dev/null
++++ b/mobile/src/utils/__tests__/names.test.ts
+@@ -0,0 +1,32 @@
++import { firstName, fullName, upper } from '../names';
++
++describe('firstName', () => {
++  it('pega a primeira palavra, sem espaços sobrando', () => {
++    expect(firstName('Gustavo da Silva')).toBe('Gustavo');
++    expect(firstName('  Rafael  ')).toBe('Rafael');
++    expect(firstName('Ana')).toBe('Ana');
++  });
++
++  it('devolve vazio para nome vazio', () => {
++    expect(firstName('')).toBe('');
++    expect(firstName('   ')).toBe('');
++  });
++});
++
++describe('fullName', () => {
++  it('junta nome e sobrenome com um espaço', () => {
++    expect(fullName('Rafael', 'da Silva')).toBe('Rafael da Silva');
++  });
++
++  it('não deixa espaço quando falta uma parte', () => {
++    expect(fullName('Rafael', '')).toBe('Rafael');
++    expect(fullName('', 'Silva')).toBe('Silva');
++  });
++});
++
++describe('upper', () => {
++  it('põe em maiúsculas, inclusive acentos', () => {
++    expect(upper('Gustavo')).toBe('GUSTAVO');
++    expect(upper('João Lúcia ção')).toBe('JOÃO LÚCIA ÇÃO');
++  });
++});
+diff --git a/mobile/src/utils/cpf.ts b/mobile/src/utils/cpf.ts
+new file mode 100644
+index 0000000..06ffbbb
+--- /dev/null
++++ b/mobile/src/utils/cpf.ts
+@@ -0,0 +1,49 @@
++const CPF_LENGTH = 11;
++const NON_DIGIT = /\D/g;
++const REPEATED_DIGIT = /^(\d)\1{10}$/;
++
++/** Tira tudo o que não é dígito. */
++export function onlyDigits(value: string): string {
++  return value.replace(NON_DIGIT, '');
++}
++
++/**
++ * Máscara progressiva `XXX.XXX.XXX-XX`: aplica o que já foi digitado e corta
++ * em 11 dígitos.
++ */
++export function formatCpf(value: string): string {
++  const digits = onlyDigits(value).slice(0, CPF_LENGTH);
++  const parts = [
++    digits.slice(0, 3),
++    digits.slice(3, 6),
++    digits.slice(6, 9),
++    digits.slice(9, 11),
++  ];
++
++  let masked = parts[0];
++  if (parts[1]) masked += `.${parts[1]}`;
++  if (parts[2]) masked += `.${parts[2]}`;
++  if (parts[3]) masked += `-${parts[3]}`;
++  return masked;
++}
++
++function checkDigit(digits: string, length: number): number {
++  let sum = 0;
++  for (let i = 0; i < length; i += 1) {
++    sum += Number(digits[i]) * (length + 1 - i);
++  }
++  const rest = (sum * 10) % 11;
++  return rest === 10 ? 0 : rest;
++}
++
++/** CPF com 11 dígitos e dígitos verificadores corretos (aceita máscara). */
++export function isValidCpf(value: string): boolean {
++  const digits = onlyDigits(value);
++  if (digits.length !== CPF_LENGTH || REPEATED_DIGIT.test(digits)) {
++    return false;
++  }
++  return (
++    checkDigit(digits, 9) === Number(digits[9]) &&
++    checkDigit(digits, 10) === Number(digits[10])
++  );
++}
+diff --git a/mobile/src/utils/dates.ts b/mobile/src/utils/dates.ts
+new file mode 100644
+index 0000000..73f460b
+--- /dev/null
++++ b/mobile/src/utils/dates.ts
+@@ -0,0 +1,69 @@
++/*
++ * Datas da agenda sem `Intl` (que varia no Hermes) e sempre locais:
++ * `new Date("2025-03-17")` é meia-noite UTC e, no Brasil, vira o dia 16.
++ */
++
++const MONTHS = [
++  'janeiro',
++  'fevereiro',
++  'março',
++  'abril',
++  'maio',
++  'junho',
++  'julho',
++  'agosto',
++  'setembro',
++  'outubro',
++  'novembro',
++  'dezembro',
++] as const;
++
++const WEEKDAYS = [
++  'domingo',
++  'segunda-feira',
++  'terça-feira',
++  'quarta-feira',
++  'quinta-feira',
++  'sexta-feira',
++  'sábado',
++] as const;
++
++const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
++
++/** Lê `AAAA-MM-DD` como meia-noite local. Lança erro se a data não existe. */
++export function parseLocalDate(isoDate: string): Date {
++  const match = ISO_DATE.exec(isoDate);
++  if (!match) {
++    throw new Error(`Data inválida: ${isoDate}`);
++  }
++  const year = Number(match[1]);
++  const month = Number(match[2]) - 1;
++  const day = Number(match[3]);
++  const date = new Date(year, month, day);
++  if (
++    date.getFullYear() !== year ||
++    date.getMonth() !== month ||
++    date.getDate() !== day
++  ) {
++    throw new Error(`Data inválida: ${isoDate}`);
++  }
++  return date;
++}
++
++/** Dia da semana da data local (0 = domingo … 6 = sábado). */
++export function weekdayOf(isoDate: string): number {
++  return parseLocalDate(isoDate).getDay();
++}
++
++/** Nome do dia da semana em pt-BR, minúsculo. */
++export function weekdayName(weekday: number): string {
++  return WEEKDAYS[weekday] ?? '';
++}
++
++/** `"2025-03-17"` → `"17 de março, segunda-feira"`. */
++export function formatDayLabel(isoDate: string): string {
++  const date = parseLocalDate(isoDate);
++  return `${date.getDate()} de ${MONTHS[date.getMonth()]}, ${weekdayName(
++    date.getDay(),
++  )}`;
++}
+diff --git a/mobile/src/utils/grades.ts b/mobile/src/utils/grades.ts
+new file mode 100644
+index 0000000..111a559
+--- /dev/null
++++ b/mobile/src/utils/grades.ts
+@@ -0,0 +1,11 @@
++const NOT_EVALUATED = '-';
++
++/** `9.5` → `"9,5"`, `8` → `"8,0"`, `null` → `"-"`. */
++export function formatGrade(grade: number | null): string {
++  return grade === null ? NOT_EVALUATED : grade.toFixed(1).replace('.', ',');
++}
++
++/** `0` → `"0"`, `null` → `"-"`. */
++export function formatAbsences(absences: number | null): string {
++  return absences === null ? NOT_EVALUATED : String(absences);
++}
+diff --git a/mobile/src/utils/names.ts b/mobile/src/utils/names.ts
+new file mode 100644
+index 0000000..f04f2f1
+--- /dev/null
++++ b/mobile/src/utils/names.ts
+@@ -0,0 +1,16 @@
++const WHITESPACE = /\s+/;
++
++/** Primeira palavra do nome, sem espaços nas pontas. */
++export function firstName(name: string): string {
++  return name.trim().split(WHITESPACE)[0] ?? '';
++}
++
++/** Nome e sobrenome com um espaço entre eles, sem sobras. */
++export function fullName(first: string, last: string): string {
++  return [first.trim(), last.trim()].filter(Boolean).join(' ');
++}
++
++/** Maiúsculas em pt-BR (acentos e cedilha incluídos). */
++export function upper(value: string): string {
++  return value.toLocaleUpperCase('pt-BR');
++}

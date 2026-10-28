@@ -1,0 +1,1831 @@
+b451016 feat(mobile): tela de Login com react-hook-form, erros e animações
+7f69878 feat(mobile): componentes Screen, UnderlineInput, CpfInput e PrimaryButton
+ mobile/package.json                                |   2 +
+ mobile/src/app/__tests__/App.test.tsx              |  21 ++
+ mobile/src/components/CpfInput.tsx                 |  28 ++
+ mobile/src/components/PrimaryButton.tsx            | 105 ++++++
+ mobile/src/components/Screen.tsx                   |  98 ++++++
+ mobile/src/components/UnderlineInput.tsx           | 115 +++++++
+ mobile/src/components/__tests__/CpfInput.test.tsx  | 101 ++++++
+ .../components/__tests__/PrimaryButton.test.tsx    |  75 +++++
+ mobile/src/constants/strings.ts                    |  26 ++
+ mobile/src/features/auth/LoginScreen.tsx           | 177 +++++++---
+ .../features/auth/__tests__/LoginScreen.test.tsx   | 148 ++++++++-
+ .../auth/__tests__/useLoginViewModel.test.tsx      | 359 +++++++++++++++++++++
+ .../features/auth/components/LoginErrorMessage.tsx |  49 +++
+ mobile/src/features/auth/useLoginViewModel.ts      | 126 ++++++++
+ mobile/src/hooks/useShakeStyle.ts                  |  35 ++
+ mobile/src/test/renderWithTheme.tsx                |   9 +
+ mobile/src/theme/components.ts                     |   9 +
+ mobile/src/theme/index.ts                          |   9 +-
+ mobile/src/theme/motion.ts                         |   9 +
+ mobile/src/theme/sizes.ts                          |   4 +
+ mobile/yarn.lock                                   | 106 ++++++
+ 21 files changed, 1558 insertions(+), 53 deletions(-)
+diff --git a/mobile/package.json b/mobile/package.json
+index 7bdfe78..a2cbbf7 100644
+--- a/mobile/package.json
++++ b/mobile/package.json
+@@ -7,28 +7,30 @@
+     "ios": "react-native run-ios",
+     "start": "react-native start",
+     "lint": "eslint .",
+     "format": "prettier --write .",
+     "format:check": "prettier --check .",
+     "tsc": "tsc --noEmit",
+     "test": "jest",
+     "link:assets": "react-native-asset"
+   },
+   "dependencies": {
++    "@hookform/resolvers": "5.9.1",
+     "@react-navigation/bottom-tabs": "^7.21.0",
+     "@react-navigation/native": "^7.5.1",
+     "@react-navigation/native-stack": "^7.21.0",
+     "@shopify/restyle": "^2.4.5",
+     "@tanstack/react-query": "5.104.5",
+     "axios": "1.20.0",
+     "expo": "~58.0.0",
+     "react": "19.3.0",
++    "react-hook-form": "7.90.0",
+     "react-native": "0.88.0",
+     "react-native-bootsplash": "^7.3.4",
+     "react-native-config": "1.7.2",
+     "react-native-gesture-handler": "~3.3.0",
+     "react-native-keychain": "10.0.0",
+     "react-native-mmkv": "4.3.2",
+     "react-native-nitro-modules": "0.37.1",
+     "react-native-reanimated": "4.7.1",
+     "react-native-safe-area-context": "~5.10.1",
+     "react-native-screens": "~4.30.0",
+diff --git a/mobile/src/app/__tests__/App.test.tsx b/mobile/src/app/__tests__/App.test.tsx
+index 819eaa3..173a566 100644
+--- a/mobile/src/app/__tests__/App.test.tsx
++++ b/mobile/src/app/__tests__/App.test.tsx
+@@ -33,20 +33,41 @@ describe('App', () => {
+     await fireEvent(splash, 'layout', layout);
+     expect(BootSplash.hide).toHaveBeenCalledWith({ fade: false });
+ 
+     expect(
+       await screen.findByTestId('login-screen', {}, AFTER_SPLASH),
+     ).toBeOnTheScreen();
+     expect(screen.queryByTestId('splash-screen')).toBeNull();
+     expect(useSessionStore.getState().status).toBe('signedOut');
+   });
+ 
++  it('login com CPF e senha certos entra nas abas e guarda o token', async () => {
++    await render(<App />);
++    await fireEvent(
++      await screen.findByTestId('splash-screen'),
++      'layout',
++      layout,
++    );
++    const cpf = await screen.findByTestId('login-cpf-input', {}, AFTER_SPLASH);
++
++    await fireEvent.changeText(cpf, '96929456004');
++    await fireEvent.changeText(
++      screen.getByTestId('login-password-input'),
++      '123456',
++    );
++    await act(() => fireEvent.press(screen.getByTestId('login-submit-button')));
++
++    expect(await screen.findByTestId('agenda-screen')).toBeOnTheScreen();
++    expect(screen.queryByTestId('login-screen')).toBeNull();
++    expect(await createSecureStorage().getToken()).toBe('jwt-gustavo');
++  });
++
+   it('com token e /me com aluno abre nas abas e a seleção de aluno abre em modal', async () => {
+     await createSecureStorage().setToken('jwt-salvo');
+ 
+     await render(<App />);
+ 
+     expect(
+       await screen.findByTestId('agenda-screen', {}, AFTER_SPLASH),
+     ).toBeOnTheScreen();
+     expect(screen.queryByTestId('login-screen')).toBeNull();
+ 
+diff --git a/mobile/src/components/CpfInput.tsx b/mobile/src/components/CpfInput.tsx
+new file mode 100644
+index 0000000..a38189a
+--- /dev/null
++++ b/mobile/src/components/CpfInput.tsx
+@@ -0,0 +1,28 @@
++import { formatCpf } from '../utils/cpf';
++import { UnderlineInput, type UnderlineInputProps } from './UnderlineInput';
++
++/** Dígitos do CPF com a máscara `XXX.XXX.XXX-XX`. */
++const CPF_MASKED_LENGTH = 14;
++
++type CpfInputProps = Omit<
++  UnderlineInputProps,
++  'keyboardType' | 'maxLength' | 'textContentType' | 'autoComplete'
++>;
++
++/**
++ * `UnderlineInput` do CPF (01-design.md, 2.6): teclado numérico e máscara
++ * progressiva aplicada a cada mudança, inclusive ao colar só os dígitos.
++ */
++export function CpfInput({ onChangeText, ...props }: CpfInputProps) {
++  return (
++    <UnderlineInput
++      accessibilityHint="Somente números"
++      {...props}
++      onChangeText={text => onChangeText(formatCpf(text))}
++      keyboardType="number-pad"
++      maxLength={CPF_MASKED_LENGTH}
++      textContentType="username"
++      autoComplete="username"
++    />
++  );
++}
+diff --git a/mobile/src/components/PrimaryButton.tsx b/mobile/src/components/PrimaryButton.tsx
+new file mode 100644
+index 0000000..8eb0b7a
+--- /dev/null
++++ b/mobile/src/components/PrimaryButton.tsx
+@@ -0,0 +1,105 @@
++import { ActivityIndicator, Pressable } from 'react-native';
++import Animated, {
++  FadeIn,
++  FadeOut,
++  ReduceMotion,
++  useAnimatedStyle,
++  useSharedValue,
++  withSpring,
++  withTiming,
++} from 'react-native-reanimated';
++
++import { ButtonContainer, Text, useTheme } from '../theme';
++
++const AnimatedText = Animated.createAnimatedComponent(Text);
++
++type PrimaryButtonProps = {
++  label: string;
++  onPress: () => void;
++  disabled?: boolean;
++  loading?: boolean;
++  testID: string;
++  /** testID do spinner (ex.: `login-submit-loading`). */
++  loadingTestID?: string;
++  accessibilityLabel: string;
++  /** Rótulo lido enquanto carrega (ex.: "Entrando"). */
++  loadingAccessibilityLabel?: string;
++  /** `insets.bottom`: a área segura de baixo fica na cor do botão. */
++  bottomInset?: number;
++};
++
++/**
++ * Botão principal, largura total e colado na base (01-design.md, 2.7).
++ * Desabilitado mantém o fundo `primary` e só o texto fica cinza; carregando
++ * troca o texto por um spinner e ignora toques.
++ */
++export function PrimaryButton({
++  label,
++  onPress,
++  disabled = false,
++  loading = false,
++  testID,
++  loadingTestID,
++  accessibilityLabel,
++  loadingAccessibilityLabel,
++  bottomInset = 0,
++}: PrimaryButtonProps) {
++  const { colors, motion, sizes } = useTheme();
++  const scale = useSharedValue(1);
++  const inactive = disabled || loading;
++  const textColor = disabled ? colors.textDisabled : colors.textOnPrimary;
++
++  const contentStyle = useAnimatedStyle(() => ({
++    transform: [{ scale: scale.get() }],
++  }));
++  const textStyle = useAnimatedStyle(() => ({
++    color: withTiming(textColor, { duration: motion.fast }),
++  }));
++
++  return (
++    <Pressable
++      testID={testID}
++      accessibilityRole="button"
++      accessibilityLabel={
++        loading && loadingAccessibilityLabel
++          ? loadingAccessibilityLabel
++          : accessibilityLabel
++      }
++      accessibilityState={{ disabled: inactive, busy: loading }}
++      disabled={inactive}
++      onPress={onPress}
++      onPressIn={() => scale.set(withSpring(motion.pressScale, motion.press))}
++      onPressOut={() => scale.set(withSpring(1, motion.press))}
++      style={{ backgroundColor: colors.primary, paddingBottom: bottomInset }}
++    >
++      <ButtonContainer variant="primary">
++        <Animated.View style={contentStyle}>
++          {loading ? (
++            <Animated.View
++              entering={FadeIn.duration(motion.fast).reduceMotion(
++                ReduceMotion.System,
++              )}
++            >
++              <ActivityIndicator
++                testID={loadingTestID}
++                size="small"
++                color={colors.textOnPrimary}
++              />
++            </Animated.View>
++          ) : (
++            <AnimatedText
++              variant="button"
++              maxFontSizeMultiplier={sizes.fixedHeightFontScale}
++              style={textStyle}
++              exiting={FadeOut.duration(motion.instant).reduceMotion(
++                ReduceMotion.System,
++              )}
++            >
++              {label}
++            </AnimatedText>
++          )}
++        </Animated.View>
++      </ButtonContainer>
++    </Pressable>
++  );
++}
+diff --git a/mobile/src/components/Screen.tsx b/mobile/src/components/Screen.tsx
+new file mode 100644
+index 0000000..a7bd235
+--- /dev/null
++++ b/mobile/src/components/Screen.tsx
+@@ -0,0 +1,98 @@
++import type { ReactNode } from 'react';
++import {
++  KeyboardAvoidingView,
++  Platform,
++  ScrollView,
++  StyleSheet,
++} from 'react-native';
++import { useSafeAreaInsets } from 'react-native-safe-area-context';
++
++import { Box, useTheme } from '../theme';
++
++type Edge = 'top' | 'bottom';
++
++type ScreenProps = {
++  children: ReactNode;
++  testID: string;
++  /** Lados em que a tela aplica a área segura (padrão: só em cima). */
++  edges?: Edge[];
++  scroll?: boolean;
++  keyboard?: boolean;
++  /**
++   * Fica fora da rolagem, colado na base (ex.: o botão do login). Quando não
++   * há `bottom` em `edges`, é ele quem cuida do inset de baixo.
++   */
++  footer?: ReactNode;
++};
++
++/**
++ * Base de toda tela (01-design.md, 2.1): fundo `background` na janela
++ * inteira, área segura por `edges`, rolagem e teclado opcionais. No tablet o
++ * conteúdo fica numa coluna centralizada.
++ */
++export function Screen({
++  children,
++  testID,
++  edges = ['top'],
++  scroll = false,
++  keyboard = false,
++  footer,
++}: ScreenProps) {
++  const insets = useSafeAreaInsets();
++  const { sizes } = useTheme();
++  const insetStyle = {
++    paddingTop: edges.includes('top') ? insets.top : 0,
++    paddingBottom: edges.includes('bottom') ? insets.bottom : 0,
++  };
++  const column = { width: '100%', maxWidth: sizes.contentMaxWidth } as const;
++
++  const content = scroll ? (
++    <ScrollView
++      style={styles.fill}
++      contentContainerStyle={[styles.grow, insetStyle]}
++      keyboardShouldPersistTaps="handled"
++      showsVerticalScrollIndicator={false}
++    >
++      <Box flex={1} alignSelf="center" style={column}>
++        {children}
++      </Box>
++    </ScrollView>
++  ) : (
++    <Box flex={1} alignSelf="center" style={[column, insetStyle]}>
++      {children}
++    </Box>
++  );
++
++  const body = (
++    <>
++      {content}
++      {footer}
++    </>
++  );
++
++  return (
++    <Box testID={testID} flex={1} backgroundColor="background">
++      {keyboard ? (
++        <KeyboardAvoidingView
++          style={styles.fill}
++          // Android: windowSoftInputMode=adjustResize faz o trabalho.
++          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
++          // O rodapé pinta o inset de baixo; com o teclado aberto esse
++          // pedaço fica atrás do teclado, não acima dele.
++          keyboardVerticalOffset={
++            footer && !edges.includes('bottom') ? -insets.bottom : 0
++          }
++        >
++          {body}
++        </KeyboardAvoidingView>
++      ) : (
++        body
++      )}
++    </Box>
++  );
++}
++
++const styles = StyleSheet.create({
++  fill: { flex: 1 },
++  grow: { flexGrow: 1 },
++});
+diff --git a/mobile/src/components/UnderlineInput.tsx b/mobile/src/components/UnderlineInput.tsx
+new file mode 100644
+index 0000000..e47e124
+--- /dev/null
++++ b/mobile/src/components/UnderlineInput.tsx
+@@ -0,0 +1,115 @@
++import {
++  createRestyleComponent,
++  createVariant,
++  spacing as spacingRestyle,
++  type SpacingProps,
++  type VariantProps,
++} from '@shopify/restyle';
++import { useState, type Ref } from 'react';
++import {
++  TextInput,
++  type TextInputInstance,
++  type TextInputProps,
++} from 'react-native';
++import Animated, {
++  useAnimatedStyle,
++  withTiming,
++} from 'react-native-reanimated';
++
++import { Box, Text, useTheme, type Theme } from '../theme';
++
++/** TextInput com as `textVariants` e o espaçamento do tema. */
++const ThemedTextInput = createRestyleComponent<
++  VariantProps<Theme, 'textVariants'> &
++    SpacingProps<Theme> &
++    TextInputProps & { ref?: Ref<TextInputInstance> },
++  Theme
++>([createVariant({ themeKey: 'textVariants' }), ...spacingRestyle], TextInput);
++
++export type UnderlineInputProps = Pick<
++  TextInputProps,
++  | 'value'
++  | 'onBlur'
++  | 'onFocus'
++  | 'secureTextEntry'
++  | 'keyboardType'
++  | 'textContentType'
++  | 'autoComplete'
++  | 'returnKeyType'
++  | 'onSubmitEditing'
++  | 'submitBehavior'
++  | 'editable'
++  | 'maxLength'
++  | 'accessibilityHint'
++> & {
++  label: string;
++  onChangeText: (text: string) => void;
++  testID: string;
++  /** Rótulo lido pelo leitor de tela (padrão: o próprio `label`). */
++  accessibilityLabel?: string;
++  inputRef?: Ref<TextInputInstance>;
++};
++
++/**
++ * Campo do login (01-design.md, 2.6): rótulo centralizado, valor grande e uma
++ * linha embaixo. O rótulo fica em negrito com o foco; a linha passa de
++ * `inputLine` para `text` quando há valor.
++ */
++export function UnderlineInput({
++  label,
++  value,
++  onChangeText,
++  onBlur,
++  onFocus,
++  testID,
++  accessibilityLabel,
++  inputRef,
++  ...inputProps
++}: UnderlineInputProps) {
++  const { colors, motion, sizes, spacing } = useTheme();
++  const [focused, setFocused] = useState(false);
++  const lineColor = value ? colors.text : colors.inputLine;
++
++  const lineStyle = useAnimatedStyle(() => ({
++    backgroundColor: withTiming(lineColor, { duration: motion.fast }),
++  }));
++
++  return (
++    <Box width="100%">
++      <Text
++        variant={focused ? 'labelFocused' : 'label'}
++        importantForAccessibility="no"
++        accessibilityElementsHidden
++      >
++        {label}
++      </Text>
++      <ThemedTextInput
++        ref={inputRef}
++        testID={testID}
++        variant="inputValue"
++        marginTop="l"
++        padding="none"
++        value={value}
++        onChangeText={onChangeText}
++        onFocus={event => {
++          setFocused(true);
++          onFocus?.(event);
++        }}
++        onBlur={event => {
++          setFocused(false);
++          onBlur?.(event);
++        }}
++        accessibilityLabel={accessibilityLabel ?? label}
++        selectionColor={colors.primary}
++        cursorColor={colors.primary}
++        autoCorrect={false}
++        autoCapitalize="none"
++        {...inputProps}
++      />
++      <Animated.View
++        testID={`${testID}-line`}
++        style={[{ height: sizes.inputLine, marginTop: spacing.s }, lineStyle]}
++      />
++    </Box>
++  );
++}
+diff --git a/mobile/src/components/__tests__/CpfInput.test.tsx b/mobile/src/components/__tests__/CpfInput.test.tsx
+new file mode 100644
+index 0000000..a90c346
+--- /dev/null
++++ b/mobile/src/components/__tests__/CpfInput.test.tsx
+@@ -0,0 +1,101 @@
++import { fireEvent, screen } from '@testing-library/react-native';
++import { useState } from 'react';
++
++import { renderWithTheme } from '../../test/renderWithTheme';
++import { CpfInput } from '../CpfInput';
++
++/** CPF controlado, como o ViewModel faz. */
++function ControlledCpf({ onChange }: { onChange?: (value: string) => void }) {
++  const [value, setValue] = useState('');
++  return (
++    <CpfInput
++      label="CPF"
++      testID="login-cpf-input"
++      value={value}
++      onChangeText={text => {
++        setValue(text);
++        onChange?.(text);
++      }}
++    />
++  );
++}
++
++const input = () => screen.getByTestId('login-cpf-input');
++// O rótulo visual fica fora do leitor de tela: quem lê "CPF" é o próprio campo.
++const label = () => screen.getByText('CPF', { includeHiddenElements: true });
++
++describe('CpfInput', () => {
++  it('aplica a máscara enquanto digita', async () => {
++    const onChange = jest.fn();
++    await renderWithTheme(<ControlledCpf onChange={onChange} />);
++
++    await fireEvent.changeText(input(), '9692');
++    expect(onChange).toHaveBeenLastCalledWith('969.2');
++    expect(input()).toHaveProp('value', '969.2');
++
++    await fireEvent.changeText(input(), '969.294.5600');
++    expect(input()).toHaveProp('value', '969.294.560-0');
++  });
++
++  it('colar só os dígitos vira o CPF mascarado e corta no 11º dígito', async () => {
++    await renderWithTheme(<ControlledCpf />);
++
++    await fireEvent.changeText(input(), '9692945600499');
++
++    expect(input()).toHaveProp('value', '969.294.560-04');
++  });
++
++  it('teclado numérico, 14 caracteres e preenchimento de usuário', async () => {
++    await renderWithTheme(<ControlledCpf />);
++
++    expect(input()).toHaveProp('keyboardType', 'number-pad');
++    expect(input()).toHaveProp('maxLength', 14);
++    expect(input()).toHaveProp('textContentType', 'username');
++    expect(input()).toHaveProp('autoComplete', 'username');
++    expect(input()).toHaveProp('accessibilityLabel', 'CPF');
++    expect(input()).toHaveProp('accessibilityHint', 'Somente números');
++  });
++
++  it('o rótulo fica em negrito com o foco e volta ao sair', async () => {
++    await renderWithTheme(<ControlledCpf />);
++
++    expect(label()).toHaveStyle({
++      fontFamily: 'Montserrat-Regular',
++    });
++
++    await fireEvent(input(), 'focus');
++    expect(label()).toHaveStyle({
++      fontFamily: 'Montserrat-SemiBold',
++    });
++
++    await fireEvent(input(), 'blur');
++    expect(label()).toHaveStyle({
++      fontFamily: 'Montserrat-Regular',
++    });
++  });
++
++  it('a linha é inputLine vazia e text preenchida', async () => {
++    await renderWithTheme(<ControlledCpf />);
++
++    expect(screen.getByTestId('login-cpf-input-line')).toHaveStyle({
++      backgroundColor: '#5C5C5C',
++    });
++
++    await fireEvent.changeText(input(), '969');
++
++    expect(screen.getByTestId('login-cpf-input-line')).toHaveStyle({
++      backgroundColor: '#FFFFFF',
++    });
++  });
++
++  it('o valor usa a variante inputValue (32, centralizado)', async () => {
++    await renderWithTheme(<ControlledCpf />);
++
++    expect(input()).toHaveStyle({
++      fontFamily: 'Montserrat-Regular',
++      fontSize: 32,
++      textAlign: 'center',
++      color: '#FFFFFF',
++    });
++  });
++});
+diff --git a/mobile/src/components/__tests__/PrimaryButton.test.tsx b/mobile/src/components/__tests__/PrimaryButton.test.tsx
+new file mode 100644
+index 0000000..8e14c3c
+--- /dev/null
++++ b/mobile/src/components/__tests__/PrimaryButton.test.tsx
+@@ -0,0 +1,75 @@
++import { fireEvent, screen } from '@testing-library/react-native';
++
++import { renderWithTheme } from '../../test/renderWithTheme';
++import { PrimaryButton } from '../PrimaryButton';
++
++const baseProps = {
++  label: 'FAZER LOGIN',
++  accessibilityLabel: 'Fazer login',
++  loadingAccessibilityLabel: 'Entrando',
++  testID: 'login-submit-button',
++  loadingTestID: 'login-submit-loading',
++};
++
++describe('PrimaryButton', () => {
++  it('desabilitado: mostra o texto em textDisabled e ignora o toque', async () => {
++    const onPress = jest.fn();
++    await renderWithTheme(
++      <PrimaryButton {...baseProps} disabled onPress={onPress} />,
++    );
++
++    const button = screen.getByTestId('login-submit-button');
++    expect(button.props.accessibilityState).toMatchObject({
++      disabled: true,
++      busy: false,
++    });
++    expect(button).toHaveProp('accessibilityRole', 'button');
++    expect(button).toHaveProp('accessibilityLabel', 'Fazer login');
++    expect(screen.getByText('FAZER LOGIN')).toHaveStyle({ color: '#777777' });
++
++    await fireEvent.press(button);
++    expect(onPress).not.toHaveBeenCalled();
++  });
++
++  it('ativo: texto em textOnPrimary e chama onPress', async () => {
++    const onPress = jest.fn();
++    await renderWithTheme(<PrimaryButton {...baseProps} onPress={onPress} />);
++
++    const button = screen.getByTestId('login-submit-button');
++    expect(button.props.accessibilityState).toMatchObject({ disabled: false });
++    expect(screen.getByText('FAZER LOGIN')).toHaveStyle({ color: '#000000' });
++
++    await fireEvent.press(button);
++    expect(onPress).toHaveBeenCalledTimes(1);
++  });
++
++  it('carregando: troca o texto pelo spinner, fica busy e ignora o toque', async () => {
++    const onPress = jest.fn();
++    await renderWithTheme(
++      <PrimaryButton {...baseProps} loading onPress={onPress} />,
++    );
++
++    const button = screen.getByTestId('login-submit-button');
++    expect(screen.queryByText('FAZER LOGIN')).toBeNull();
++    expect(screen.getByTestId('login-submit-loading')).toBeOnTheScreen();
++    expect(button.props.accessibilityState).toMatchObject({
++      disabled: true,
++      busy: true,
++    });
++    expect(button).toHaveProp('accessibilityLabel', 'Entrando');
++
++    await fireEvent.press(button);
++    expect(onPress).not.toHaveBeenCalled();
++  });
++
++  it('cobre a área segura de baixo com a cor do botão', async () => {
++    await renderWithTheme(
++      <PrimaryButton {...baseProps} onPress={jest.fn()} bottomInset={34} />,
++    );
++
++    expect(screen.getByTestId('login-submit-button')).toHaveStyle({
++      backgroundColor: '#29F4D5',
++      paddingBottom: 34,
++    });
++  });
++});
+diff --git a/mobile/src/constants/strings.ts b/mobile/src/constants/strings.ts
+new file mode 100644
+index 0000000..27fee02
+--- /dev/null
++++ b/mobile/src/constants/strings.ts
+@@ -0,0 +1,26 @@
++/**
++ * Textos da interface, exatamente como na tela (01-design.md, seção 5). As
++ * telas, os testes e o Maestro leem daqui para não duplicar texto.
++ */
++export const strings = {
++  login: {
++    logoLabel: 'FIAP School',
++    cpfLabel: 'CPF',
++    cpfHint: 'Somente números',
++    passwordLabel: 'SENHA',
++    passwordAccessibilityLabel: 'Senha',
++    submit: 'FAZER LOGIN',
++    submitAccessibilityLabel: 'Fazer login',
++    submittingAccessibilityLabel: 'Entrando',
++    error: {
++      invalid: 'Usuário ou senha inválida.\nPode tentar novamente?',
++      cpf: 'Confira o CPF digitado.',
++      network:
++        'Não conseguimos falar com o servidor.\nConfira sua conexão e tente de novo.',
++      tooMany:
++        'Muitas tentativas seguidas.\nAguarde um minuto e tente de novo.',
++      server: 'Algo deu errado do nosso lado.\nTente de novo em instantes.',
++      sessionExpired: 'Sua sessão expirou. Entre de novo.',
++    },
++  },
++} as const;
+diff --git a/mobile/src/features/auth/LoginScreen.tsx b/mobile/src/features/auth/LoginScreen.tsx
+index 9116716..b2f0ec6 100644
+--- a/mobile/src/features/auth/LoginScreen.tsx
++++ b/mobile/src/features/auth/LoginScreen.tsx
+@@ -1,71 +1,166 @@
+-import { Image } from 'react-native';
++import { Image, StyleSheet } from 'react-native';
+ import Animated, {
+   FadeIn,
+   FadeInDown,
+   ReduceMotion,
++  SlideInDown,
+   useReducedMotion,
+ } from 'react-native-reanimated';
+ import { useSafeAreaInsets } from 'react-native-safe-area-context';
+ 
++import { CpfInput } from '../../components/CpfInput';
++import { PrimaryButton } from '../../components/PrimaryButton';
++import { Screen } from '../../components/Screen';
++import { UnderlineInput } from '../../components/UnderlineInput';
++import { strings } from '../../constants/strings';
++import { useShakeStyle } from '../../hooks/useShakeStyle';
+ import type { RootStackScreenProps } from '../../navigation/types';
+-import { Box, Text, useTheme } from '../../theme';
++import { Box, useTheme, type Theme } from '../../theme';
++import { LoginErrorMessage } from './components/LoginErrorMessage';
++import { useLoginViewModel } from './useLoginViewModel';
+ 
+ const logo = require('../../../assets/logo-fiap-school.png');
+ 
++type Motion = Theme['motion'];
++
+ /**
+- * Placeholder. O Login real (M1, M2) é a Tarefa 9, com o `useLoginViewModel`.
+- * O logo já fica onde o design manda (inset de cima + hero, centralizado),
+- * porque a splash desliza o logo dela até aqui (01-design.md, 3.1.5). Vindo
+- * da splash, o logo não anima no primeiro frame; vindo do logout, entra com
+- * fade (4.1).
++ * Entradas do Login (01-design.md, 4.1). Vindo da splash, o logo já está no
++ * lugar e não anima; campos e botão entram. Com reduzir movimento, só fade
++ * (opacidade não é movimento, então o sistema não pode pular). Vindo do
++ * logout, tudo entra com fade.
+  */
++function entrances(motion: Motion, fromSplash: boolean, reduced: boolean) {
++  if (fromSplash && reduced) {
++    const fade = () =>
++      FadeIn.duration(motion.fast).reduceMotion(ReduceMotion.Never);
++    return { logo: fade(), field: () => fade(), button: fade() };
++  }
++  if (fromSplash) {
++    return {
++      logo: undefined,
++      field: (index: number) =>
++        FadeInDown.duration(motion.base)
++          .delay(index * motion.stagger)
++          .easing(motion.easeOut)
++          .withInitialValues({
++            transform: [{ translateY: motion.enterOffset }],
++          })
++          .reduceMotion(ReduceMotion.System),
++      button: SlideInDown.duration(motion.base)
++        .easing(motion.easeOut)
++        .reduceMotion(ReduceMotion.System),
++    };
++  }
++  const fade = () =>
++    FadeIn.duration(motion.base).reduceMotion(ReduceMotion.System);
++  return { logo: fade(), field: () => fade(), button: fade() };
++}
++
++/** Login (01-design.md, 3.2): CPF + senha, botão colado na base. */
+ export function LoginScreen({ route }: RootStackScreenProps<'Login'>) {
+   const fromSplash = route.params?.fromSplash === true;
+   const reducedMotion = useReducedMotion();
+   const insets = useSafeAreaInsets();
+   const { motion, sizes, spacing } = useTheme();
+-
+-  const logoEntering = fromSplash
+-    ? reducedMotion
+-      ? // Opacidade não é movimento: o fade acontece mesmo com reduzir movimento.
+-        FadeIn.duration(motion.fast).reduceMotion(ReduceMotion.Never)
+-      : undefined
+-    : FadeIn.duration(motion.base).reduceMotion(ReduceMotion.System);
++  const vm = useLoginViewModel();
++  const shakeStyle = useShakeStyle(vm.shakeKey);
++  const enter = entrances(motion, fromSplash, reducedMotion);
++  const editable = !vm.isSubmitting;
+ 
+   return (
+-    <Box
++    <Screen
+       testID="login-screen"
+-      flex={1}
+-      backgroundColor="background"
+-      alignItems="center"
+-      style={{ paddingTop: insets.top + spacing.hero }}
++      scroll
++      keyboard
++      footer={
++        <Animated.View entering={enter.button}>
++          <PrimaryButton
++            testID="login-submit-button"
++            loadingTestID="login-submit-loading"
++            label={strings.login.submit}
++            accessibilityLabel={strings.login.submitAccessibilityLabel}
++            loadingAccessibilityLabel={
++              strings.login.submittingAccessibilityLabel
++            }
++            disabled={!vm.canSubmit}
++            loading={vm.isSubmitting}
++            onPress={vm.submit}
++            bottomInset={insets.bottom}
++          />
++        </Animated.View>
++      }
+     >
+-      <Animated.View entering={logoEntering}>
+-        <Image
+-          testID="login-logo"
+-          source={logo}
+-          accessibilityRole="image"
+-          accessibilityLabel="FIAP School"
+-          style={sizes.logoLogin}
+-        />
+-      </Animated.View>
+-      <Animated.View
+-        entering={FadeInDown.duration(motion.base)
+-          .easing(motion.easeOut)
+-          .reduceMotion(ReduceMotion.System)}
++      <Box
++        testID="login-content"
++        alignItems="center"
++        style={{ paddingTop: spacing.hero }}
+       >
++        <Animated.View entering={enter.logo}>
++          <Image
++            testID="login-logo"
++            source={logo}
++            accessibilityRole="image"
++            accessibilityLabel={strings.login.logoLabel}
++            style={sizes.logoLogin}
++          />
++        </Animated.View>
+         <Box
+-          alignItems="center"
++          width="100%"
+           paddingHorizontal="huge"
+-          paddingTop="hero"
+-          gap="l"
++          paddingBottom="xxl"
++          alignItems="center"
++          style={{ marginTop: spacing.hero }}
+         >
+-          <Text variant="sectionTitle">Login</Text>
+-          <Text variant="body" textAlign="center">
+-            O formulário de CPF e senha entra na Tarefa 9.
+-          </Text>
++          <Animated.View
++            style={[styles.form, { maxWidth: sizes.formMaxWidth }, shakeStyle]}
++          >
++            <Animated.View entering={enter.field(0)}>
++              <CpfInput
++                testID="login-cpf-input"
++                label={strings.login.cpfLabel}
++                accessibilityLabel={strings.login.cpfLabel}
++                value={vm.cpf.value}
++                onChangeText={vm.cpf.onChangeText}
++                onBlur={vm.cpf.onBlur}
++                returnKeyType="next"
++                submitBehavior="submit"
++                onSubmitEditing={vm.focusPassword}
++                editable={editable}
++              />
++            </Animated.View>
++            <Animated.View
++              entering={enter.field(1)}
++              style={{ marginTop: spacing.xxxl }}
++            >
++              <UnderlineInput
++                testID="login-password-input"
++                inputRef={vm.passwordRef}
++                label={strings.login.passwordLabel}
++                accessibilityLabel={strings.login.passwordAccessibilityLabel}
++                value={vm.password.value}
++                onChangeText={vm.password.onChangeText}
++                onBlur={vm.password.onBlur}
++                secureTextEntry
++                textContentType="password"
++                autoComplete="password"
++                returnKeyType="go"
++                onSubmitEditing={vm.submit}
++                editable={editable}
++              />
++            </Animated.View>
++            {vm.errorMessage ? (
++              <LoginErrorMessage
++                key={vm.errorMessage}
++                message={vm.errorMessage}
++              />
++            ) : null}
++          </Animated.View>
+         </Box>
+-      </Animated.View>
+-    </Box>
++      </Box>
++    </Screen>
+   );
+ }
++
++const styles = StyleSheet.create({
++  form: { width: '100%' },
++});
+diff --git a/mobile/src/features/auth/__tests__/LoginScreen.test.tsx b/mobile/src/features/auth/__tests__/LoginScreen.test.tsx
+index f103731..e9abdfb 100644
+--- a/mobile/src/features/auth/__tests__/LoginScreen.test.tsx
++++ b/mobile/src/features/auth/__tests__/LoginScreen.test.tsx
+@@ -1,65 +1,193 @@
+ import { ThemeProvider } from '@shopify/restyle';
+-import { render, screen } from '@testing-library/react-native';
++import {
++  act,
++  fireEvent,
++  render,
++  screen,
++  waitFor,
++} from '@testing-library/react-native';
++import { http, HttpResponse } from 'msw';
+ import { StyleSheet } from 'react-native';
+ import {
+   FadeIn,
+   ReduceMotion,
+   useReducedMotion,
++  withSequence,
+ } from 'react-native-reanimated';
+ 
++import { queryClient } from '../../../app/queryClient';
++import { strings } from '../../../constants/strings';
+ import type { RootStackScreenProps } from '../../../navigation/types';
++import { useSessionStore } from '../../../stores/session.store';
++import { API_URL, loginResponse } from '../../../test/fixtures';
++import { server } from '../../../test/msw/server';
++import { QueryWrapper } from '../../../test/queryWrapper';
+ import { theme } from '../../../theme';
+ import { LoginScreen } from '../LoginScreen';
+ 
+ jest.mock('react-native-reanimated', () => {
+   const mock = require('react-native-reanimated/mock');
+   const builder: Record<string, jest.Mock> = {};
+   for (const method of ['duration', 'delay', 'easing', 'reduceMotion']) {
+     builder[method] = jest.fn(() => builder);
+   }
+   return {
+     ...mock,
+     useReducedMotion: jest.fn(() => false),
++    withSequence: jest.fn(() => 0),
+     FadeIn: builder,
+   };
+ });
+ 
+ type Props = RootStackScreenProps<'Login'>;
+ 
+-const renderLogin = (params: Props['route']['params']) =>
++const renderLogin = (params: Props['route']['params'] = undefined) =>
+   render(
+-    <ThemeProvider theme={theme}>
+-      <LoginScreen
+-        navigation={{} as Props['navigation']}
+-        route={{ key: 'Login-1', name: 'Login', params } as Props['route']}
+-      />
+-    </ThemeProvider>,
++    <QueryWrapper>
++      <ThemeProvider theme={theme}>
++        <LoginScreen
++          navigation={{} as Props['navigation']}
++          route={{ key: 'Login-1', name: 'Login', params } as Props['route']}
++        />
++      </ThemeProvider>
++    </QueryWrapper>,
++  );
++
++const cpfInput = () => screen.getByTestId('login-cpf-input');
++const passwordInput = () => screen.getByTestId('login-password-input');
++const submitButton = () => screen.getByTestId('login-submit-button');
++
++const fillAndSubmit = async (password: string) => {
++  await fireEvent.changeText(cpfInput(), '96929456004');
++  await fireEvent.changeText(passwordInput(), password);
++  await waitFor(() =>
++    expect(submitButton().props.accessibilityState.disabled).toBe(false),
+   );
++  await act(() => fireEvent.press(submitButton()));
++};
++
++describe('LoginScreen', () => {
++  beforeEach(async () => {
++    await useSessionStore.getState().signOut();
++    useSessionStore.setState({ signOutReason: null });
++    queryClient.clear();
++    jest.mocked(useReducedMotion).mockReturnValue(false);
++    jest.mocked(withSequence).mockClear();
++  });
+ 
+-describe('LoginScreen (placeholder)', () => {
+   it('desenha o logo 306×49 no topo + hero, onde a splash o deixa', async () => {
+     await renderLogin({ fromSplash: true });
+ 
+     const logo = screen.getByTestId('login-logo');
+     expect(logo).toHaveProp('accessibilityLabel', 'FIAP School');
+     expect(StyleSheet.flatten(logo.props.style)).toMatchObject({
+       width: 306,
+       height: 49,
+     });
+     // Insets do mock = 0: o topo do logo fica em spacing.hero (80).
+     expect(
+-      StyleSheet.flatten(screen.getByTestId('login-screen').props.style),
++      StyleSheet.flatten(screen.getByTestId('login-content').props.style),
+     ).toMatchObject({ paddingTop: 80, alignItems: 'center' });
+   });
+ 
+   it('vindo da splash com reduzir movimento, o logo faz fade que o sistema não pula', async () => {
+     jest.mocked(useReducedMotion).mockReturnValue(true);
+     const fadeIn = FadeIn as unknown as Record<string, jest.Mock>;
+     fadeIn.reduceMotion.mockClear();
+ 
+     await renderLogin({ fromSplash: true });
+ 
+     expect(fadeIn.duration).toHaveBeenCalledWith(theme.motion.fast);
+     expect(fadeIn.reduceMotion).toHaveBeenCalledWith(ReduceMotion.Never);
+   });
++
++  it('mostra os campos e o botão FAZER LOGIN desabilitado', async () => {
++    await renderLogin();
++
++    expect(screen.getByTestId('login-screen')).toBeOnTheScreen();
++    expect(cpfInput()).toHaveProp('returnKeyType', 'next');
++    expect(passwordInput()).toHaveProp('secureTextEntry', true);
++    expect(passwordInput()).toHaveProp('returnKeyType', 'go');
++    expect(passwordInput()).toHaveProp('textContentType', 'password');
++    expect(passwordInput()).toHaveProp('accessibilityLabel', 'Senha');
++    expect(screen.getByText(strings.login.submit)).toBeOnTheScreen();
++    expect(submitButton().props.accessibilityState.disabled).toBe(true);
++    expect(screen.queryByTestId('login-error-message')).toBeNull();
++  });
++
++  it('CPF mascarado e senha preenchida habilitam o botão', async () => {
++    await renderLogin();
++
++    await fireEvent.changeText(cpfInput(), '96929456004');
++    await fireEvent.changeText(passwordInput(), '123456');
++
++    expect(cpfInput()).toHaveProp('value', '969.294.560-04');
++    await waitFor(() =>
++      expect(submitButton().props.accessibilityState.disabled).toBe(false),
++    );
++  });
++
++  it('senha errada mostra a mensagem do Figma e faz o shake', async () => {
++    await renderLogin();
++
++    await fillAndSubmit('errada');
++
++    const message = await screen.findByTestId('login-error-message');
++    expect(message).toHaveTextContent(strings.login.error.invalid);
++    expect(message).toHaveProp(
++      'accessibilityLabel',
++      'Usuário ou senha inválida. Pode tentar novamente?',
++    );
++    expect(message).toHaveProp('accessibilityLiveRegion', 'polite');
++    expect(withSequence).toHaveBeenCalled();
++  });
++
++  it('com reduzir movimento o erro aparece sem shake', async () => {
++    jest.mocked(useReducedMotion).mockReturnValue(true);
++    await renderLogin();
++
++    await fillAndSubmit('errada');
++
++    expect(await screen.findByTestId('login-error-message')).toBeOnTheScreen();
++    expect(withSequence).not.toHaveBeenCalled();
++  });
++
++  it('enquanto envia mostra o spinner e trava os campos', async () => {
++    let release: () => void = () => {};
++    server.use(
++      http.post(`${API_URL}/auth/login`, async () => {
++        await new Promise<void>(resolve => {
++          release = resolve;
++        });
++        return HttpResponse.json(loginResponse);
++      }),
++    );
++    await renderLogin();
++
++    await fillAndSubmit('123456');
++
++    expect(await screen.findByTestId('login-submit-loading')).toBeOnTheScreen();
++    expect(cpfInput()).toHaveProp('editable', false);
++    expect(passwordInput()).toHaveProp('editable', false);
++    expect(submitButton().props.accessibilityState.busy).toBe(true);
++
++    await act(async () => release());
++    await waitFor(() =>
++      expect(useSessionStore.getState().status).toBe('signedIn'),
++    );
++    // A mutation avisa o fim num tick seguinte: espera o spinner sair.
++    await waitFor(() =>
++      expect(screen.queryByTestId('login-submit-loading')).toBeNull(),
++    );
++  });
++
++  it('sessão expirada abre com o aviso', async () => {
++    useSessionStore.setState({ signOutReason: 'expired' });
++
++    await renderLogin({ fromSplash: true });
++
++    expect(screen.getByTestId('login-error-message')).toHaveTextContent(
++      strings.login.error.sessionExpired,
++    );
++  });
+ });
+diff --git a/mobile/src/features/auth/__tests__/useLoginViewModel.test.tsx b/mobile/src/features/auth/__tests__/useLoginViewModel.test.tsx
+new file mode 100644
+index 0000000..88f3f7d
+--- /dev/null
++++ b/mobile/src/features/auth/__tests__/useLoginViewModel.test.tsx
+@@ -0,0 +1,359 @@
++import { act, renderHook, waitFor } from '@testing-library/react-native';
++import { http, HttpResponse } from 'msw';
++import * as Keychain from 'react-native-keychain';
++
++import { queryClient } from '../../../app/queryClient';
++import { strings } from '../../../constants/strings';
++import { ApiError } from '../../../services/http/errors';
++import { createSecureStorage } from '../../../services/storage/secureStorage';
++import { useSessionStore } from '../../../stores/session.store';
++import { API_URL, loginResponse } from '../../../test/fixtures';
++import { server } from '../../../test/msw/server';
++import { QueryWrapper } from '../../../test/queryWrapper';
++import * as authService from '../services/auth.service';
++import { useLoginViewModel } from '../useLoginViewModel';
++
++const VALID_CPF = '96929456004';
++const INVALID_DV_CPF = '96929456005';
++
++const setup = () =>
++  renderHook(() => useLoginViewModel(), { wrapper: QueryWrapper });
++
++type Result = Awaited<ReturnType<typeof setup>>['result'];
++
++const fill = async (result: Result, cpf: string, password: string) => {
++  await act(() => result.current.cpf.onChangeText(cpf));
++  await act(() => result.current.password.onChangeText(password));
++};
++
++const submit = (result: Result) =>
++  act(async () => {
++    result.current.submit();
++  });
++
++const loginReplies = (response: Response | (() => Response)) =>
++  server.use(
++    http.post(`${API_URL}/auth/login`, () =>
++      typeof response === 'function' ? response() : response,
++    ),
++  );
++
++describe('useLoginViewModel', () => {
++  beforeEach(async () => {
++    await useSessionStore.getState().signOut();
++    useSessionStore.setState({ signOutReason: null });
++    queryClient.clear();
++  });
++
++  afterEach(() => {
++    jest.restoreAllMocks();
++  });
++
++  describe('máscara e botão', () => {
++    it('aplica a máscara do CPF no valor do formulário', async () => {
++      const { result } = await setup();
++
++      await act(() => result.current.cpf.onChangeText('9692945'));
++      expect(result.current.cpf.value).toBe('969.294.5');
++
++      await act(() => result.current.cpf.onChangeText(`${VALID_CPF}99`));
++      expect(result.current.cpf.value).toBe('969.294.560-04');
++    });
++
++    it('começa com o botão desabilitado e sem mensagem', async () => {
++      const { result } = await setup();
++
++      expect(result.current.canSubmit).toBe(false);
++      expect(result.current.isSubmitting).toBe(false);
++      expect(result.current.errorMessage).toBeNull();
++    });
++
++    it('habilita só com CPF válido e senha preenchida', async () => {
++      const { result } = await setup();
++
++      await act(() => result.current.cpf.onChangeText(VALID_CPF));
++      await waitFor(() => expect(result.current.canSubmit).toBe(false));
++
++      await act(() => result.current.password.onChangeText('1'));
++      await waitFor(() => expect(result.current.canSubmit).toBe(true));
++
++      await act(() => result.current.password.onChangeText(''));
++      await waitFor(() => expect(result.current.canSubmit).toBe(false));
++    });
++
++    it('CPF com 11 dígitos e dígito verificador errado não habilita', async () => {
++      const { result } = await setup();
++
++      await fill(result, INVALID_DV_CPF, '123456');
++
++      await waitFor(() => expect(result.current.canSubmit).toBe(false));
++    });
++
++    it('enviar com o formulário inválido (tecla "go") não chama a API', async () => {
++      const onLogin = jest.fn();
++      server.use(
++        http.post(`${API_URL}/auth/login`, () => {
++          onLogin();
++          return HttpResponse.json(loginResponse);
++        }),
++      );
++      const { result } = await setup();
++      await fill(result, INVALID_DV_CPF, '123456');
++
++      await submit(result);
++
++      expect(onLogin).not.toHaveBeenCalled();
++      expect(useSessionStore.getState().status).toBe('signedOut');
++    });
++  });
++
++  describe('CPF com dígito errado', () => {
++    it('ao sair do campo mostra "Confira o CPF digitado." e some quando o CPF muda', async () => {
++      const { result } = await setup();
++      await act(() => result.current.cpf.onChangeText(INVALID_DV_CPF));
++
++      await act(() => result.current.cpf.onBlur());
++      await waitFor(() =>
++        expect(result.current.errorMessage).toBe(strings.login.error.cpf),
++      );
++
++      await act(() => result.current.cpf.onChangeText('9692945600'));
++      expect(result.current.errorMessage).toBeNull();
++    });
++
++    it('CPF incompleto não mostra erro ao sair do campo', async () => {
++      const { result } = await setup();
++      await act(() => result.current.cpf.onChangeText('969294'));
++
++      await act(() => result.current.cpf.onBlur());
++
++      expect(result.current.errorMessage).toBeNull();
++    });
++  });
++
++  describe('envio', () => {
++    it('credencial certa abre a sessão (o stack troca para as abas)', async () => {
++      const { result } = await setup();
++      await fill(result, VALID_CPF, '123456');
++      await waitFor(() => expect(result.current.canSubmit).toBe(true));
++
++      await submit(result);
++
++      await waitFor(() =>
++        expect(useSessionStore.getState().status).toBe('signedIn'),
++      );
++      expect(await createSecureStorage().getToken()).toBe('jwt-gustavo');
++      expect(result.current.errorMessage).toBeNull();
++    });
++
++    it('fica carregando enquanto a API responde e não envia duas vezes', async () => {
++      let release: () => void = () => {};
++      const onLogin = jest.fn();
++      server.use(
++        http.post(`${API_URL}/auth/login`, async () => {
++          onLogin();
++          await new Promise<void>(resolve => {
++            release = resolve;
++          });
++          return HttpResponse.json(loginResponse);
++        }),
++      );
++      const { result } = await setup();
++      await fill(result, VALID_CPF, '123456');
++      await waitFor(() => expect(result.current.canSubmit).toBe(true));
++
++      await submit(result);
++      await waitFor(() => expect(result.current.isSubmitting).toBe(true));
++      expect(result.current.canSubmit).toBe(false);
++      await submit(result);
++
++      await act(async () => release());
++      await waitFor(() => expect(result.current.isSubmitting).toBe(false));
++      expect(onLogin).toHaveBeenCalledTimes(1);
++    });
++
++    it('401 mostra o texto do Figma, mantém os valores e dispara o shake', async () => {
++      const { result } = await setup();
++      await fill(result, VALID_CPF, 'errada');
++      await waitFor(() => expect(result.current.canSubmit).toBe(true));
++      const shakeBefore = result.current.shakeKey;
++
++      await submit(result);
++
++      await waitFor(() =>
++        expect(result.current.errorMessage).toBe(strings.login.error.invalid),
++      );
++      expect(result.current.shakeKey).not.toBe(0);
++      expect(result.current.shakeKey).not.toBe(shakeBefore);
++      expect(result.current.cpf.value).toBe('969.294.560-04');
++      expect(result.current.password.value).toBe('errada');
++      expect(result.current.canSubmit).toBe(true);
++      expect(useSessionStore.getState().status).toBe('signedOut');
++    });
++
++    it('errar de novo sem editar dispara outro shake', async () => {
++      let now = 1_000;
++      jest.spyOn(Date, 'now').mockImplementation(() => (now += 1_000));
++      const { result } = await setup();
++      await fill(result, VALID_CPF, 'errada');
++      await waitFor(() => expect(result.current.canSubmit).toBe(true));
++      await submit(result);
++      await waitFor(() => expect(result.current.shakeKey).not.toBe(0));
++      const firstShake = result.current.shakeKey;
++
++      await submit(result);
++
++      await waitFor(() => expect(result.current.shakeKey).not.toBe(firstShake));
++      expect(result.current.errorMessage).toBe(strings.login.error.invalid);
++    });
++
++    it('a mensagem de erro some quando edita qualquer campo', async () => {
++      const { result } = await setup();
++      await fill(result, VALID_CPF, 'errada');
++      await waitFor(() => expect(result.current.canSubmit).toBe(true));
++      await submit(result);
++      await waitFor(() =>
++        expect(result.current.errorMessage).toBe(strings.login.error.invalid),
++      );
++
++      await act(() => result.current.password.onChangeText('errada1'));
++
++      expect(result.current.errorMessage).toBeNull();
++    });
++
++    it('429 mostra a mensagem de muitas tentativas', async () => {
++      loginReplies(
++        HttpResponse.json(
++          { statusCode: 429, message: 'ThrottlerException' },
++          { status: 429 },
++        ),
++      );
++      const { result } = await setup();
++      await fill(result, VALID_CPF, '123456');
++      await waitFor(() => expect(result.current.canSubmit).toBe(true));
++
++      await submit(result);
++
++      await waitFor(() =>
++        expect(result.current.errorMessage).toBe(strings.login.error.tooMany),
++      );
++      expect(result.current.shakeKey).not.toBe(0);
++    });
++
++    it('sem rede mostra a mensagem de conexão', async () => {
++      jest.spyOn(console, 'warn').mockImplementation(() => {});
++      loginReplies(() => HttpResponse.error());
++      const { result } = await setup();
++      await fill(result, VALID_CPF, '123456');
++      await waitFor(() => expect(result.current.canSubmit).toBe(true));
++
++      await submit(result);
++
++      await waitFor(() =>
++        expect(result.current.errorMessage).toBe(strings.login.error.network),
++      );
++      expect(result.current.shakeKey).not.toBe(0);
++    });
++
++    it('5xx mostra a mensagem de erro do servidor', async () => {
++      jest.spyOn(console, 'warn').mockImplementation(() => {});
++      loginReplies(
++        HttpResponse.json(
++          { statusCode: 500, message: 'Internal server error' },
++          { status: 500 },
++        ),
++      );
++      const { result } = await setup();
++      await fill(result, VALID_CPF, '123456');
++      await waitFor(() => expect(result.current.canSubmit).toBe(true));
++
++      await submit(result);
++
++      await waitFor(() =>
++        expect(result.current.errorMessage).toBe(strings.login.error.server),
++      );
++    });
++
++    it('falha do keychain mostra a mensagem pronta do erro storage', async () => {
++      jest.spyOn(console, 'error').mockImplementation(() => {});
++      (Keychain.setGenericPassword as jest.Mock).mockRejectedValueOnce(
++        new Error('Keystore bloqueado'),
++      );
++      const { result } = await setup();
++      await fill(result, VALID_CPF, '123456');
++      await waitFor(() => expect(result.current.canSubmit).toBe(true));
++
++      await submit(result);
++
++      await waitFor(() =>
++        expect(result.current.errorMessage).toBe(
++          'Não foi possível salvar o acesso neste aparelho. Tente de novo.',
++        ),
++      );
++      expect(useSessionStore.getState().status).toBe('signedOut');
++    });
++
++    it('request cancelado não é erro de tela: sem mensagem e sem shake', async () => {
++      let cancel: (error: ApiError) => void = () => {};
++      jest.spyOn(authService, 'login').mockImplementationOnce(
++        () =>
++          new Promise((_resolve, reject) => {
++            cancel = reject;
++          }),
++      );
++      const { result } = await setup();
++      await fill(result, VALID_CPF, '123456');
++      await waitFor(() => expect(result.current.canSubmit).toBe(true));
++      await submit(result);
++      await waitFor(() => expect(result.current.isSubmitting).toBe(true));
++
++      await act(async () => cancel(new ApiError('canceled')));
++
++      await waitFor(() => expect(result.current.isSubmitting).toBe(false));
++      expect(result.current.errorMessage).toBeNull();
++      expect(result.current.shakeKey).toBe(0);
++    });
++  });
++
++  describe('sessão expirada', () => {
++    it('abre com o aviso de sessão expirada, sem shake', async () => {
++      useSessionStore.setState({ signOutReason: 'expired' });
++
++      const { result } = await setup();
++
++      expect(result.current.errorMessage).toBe(
++        strings.login.error.sessionExpired,
++      );
++      expect(result.current.shakeKey).toBe(0);
++    });
++
++    it('o aviso some quando começa a digitar', async () => {
++      useSessionStore.setState({ signOutReason: 'expired' });
++      const { result } = await setup();
++
++      await act(() => result.current.cpf.onChangeText('9'));
++
++      expect(result.current.errorMessage).toBeNull();
++    });
++
++    it('logout manual não mostra aviso', async () => {
++      useSessionStore.setState({ signOutReason: 'manual' });
++
++      const { result } = await setup();
++
++      expect(result.current.errorMessage).toBeNull();
++    });
++  });
++
++  describe('teclado', () => {
++    it('"next" do CPF foca a senha', async () => {
++      const { result } = await setup();
++      const focus = jest.fn();
++      Object.assign(result.current.passwordRef, { current: { focus } });
++
++      await act(() => result.current.focusPassword());
++
++      expect(focus).toHaveBeenCalledTimes(1);
++    });
++  });
++});
+diff --git a/mobile/src/features/auth/components/LoginErrorMessage.tsx b/mobile/src/features/auth/components/LoginErrorMessage.tsx
+new file mode 100644
+index 0000000..7d60b14
+--- /dev/null
++++ b/mobile/src/features/auth/components/LoginErrorMessage.tsx
+@@ -0,0 +1,49 @@
++import { useEffect } from 'react';
++import { AccessibilityInfo, Platform } from 'react-native';
++import Animated, {
++  FadeInDown,
++  FadeOut,
++  ReduceMotion,
++} from 'react-native-reanimated';
++
++import { Text, useTheme } from '../../../theme';
++
++type LoginErrorMessageProps = { message: string };
++
++/**
++ * Mensagem de erro do login (01-design.md, 3.2 e 4.2), em `primary`, abaixo
++ * da senha. Entra com fade + deslocamento curto e é anunciada uma vez: no
++ * Android pela live region, no iOS pelo `announceForAccessibility`.
++ */
++export function LoginErrorMessage({ message }: LoginErrorMessageProps) {
++  const { motion } = useTheme();
++  const spoken = message.replace(/\n/g, ' ');
++
++  useEffect(() => {
++    if (Platform.OS === 'ios') {
++      AccessibilityInfo.announceForAccessibility(spoken);
++    }
++  }, [spoken]);
++
++  return (
++    <Animated.View
++      entering={FadeInDown.duration(motion.base)
++        .easing(motion.easeOut)
++        .withInitialValues({
++          transform: [{ translateY: motion.enterOffsetSmall }],
++        })
++        .reduceMotion(ReduceMotion.System)}
++      exiting={FadeOut.duration(motion.fast).reduceMotion(ReduceMotion.System)}
++    >
++      <Text
++        testID="login-error-message"
++        variant="error"
++        marginTop="xxl"
++        accessibilityLabel={spoken}
++        accessibilityLiveRegion="polite"
++      >
++        {message}
++      </Text>
++    </Animated.View>
++  );
++}
+diff --git a/mobile/src/features/auth/useLoginViewModel.ts b/mobile/src/features/auth/useLoginViewModel.ts
+new file mode 100644
+index 0000000..9c1412e
+--- /dev/null
++++ b/mobile/src/features/auth/useLoginViewModel.ts
+@@ -0,0 +1,126 @@
++import { zodResolver } from '@hookform/resolvers/zod';
++import { useRef, useState } from 'react';
++import { useController, useForm } from 'react-hook-form';
++import type { TextInputInstance } from 'react-native';
++
++import { strings } from '../../constants/strings';
++import type { ApiError } from '../../services/http/errors';
++import { useSessionStore } from '../../stores/session.store';
++import { formatCpf, onlyDigits } from '../../utils/cpf';
++import { useLoginMutation } from './api/useLoginMutation';
++import { loginFormSchema, type LoginForm } from './schemas';
++
++const CPF_DIGITS = 11;
++
++/** Texto da tela para cada erro do login (01-design.md, 3.2 e 5). */
++function messageFor(error: ApiError): string | null {
++  switch (error.kind) {
++    case 'canceled':
++      return null;
++    case 'unauthorized':
++      return strings.login.error.invalid;
++    case 'rateLimited':
++      return strings.login.error.tooMany;
++    case 'network':
++      return strings.login.error.network;
++    case 'storage':
++      // Mensagem do próprio app, montada no useLoginMutation.
++      return error.message;
++    default:
++      return strings.login.error.server;
++  }
++}
++
++/**
++ * ViewModel do Login (M1, M2). O formulário é react-hook-form com o
++ * `loginFormSchema` (zod); o envio é o `useLoginMutation`, que grava o token
++ * e abre a sessão. Com a sessão aberta o RootStack troca o Login pelas abas,
++ * então o sucesso não navega daqui.
++ */
++export function useLoginViewModel() {
++  const expiredOnOpen = useSessionStore(
++    state => state.signOutReason === 'expired',
++  );
++  const mutation = useLoginMutation();
++  const { control, handleSubmit, formState } = useForm<LoginForm>({
++    resolver: zodResolver(loginFormSchema),
++    mode: 'onChange',
++    defaultValues: { cpf: '', password: '' },
++  });
++  const { field: cpfField } = useController({ control, name: 'cpf' });
++  const { field: passwordField } = useController({
++    control,
++    name: 'password',
++  });
++
++  const passwordRef = useRef<TextInputInstance>(null);
++  const [showExpired, setShowExpired] = useState(expiredOnOpen);
++  const [showCpfError, setShowCpfError] = useState(false);
++
++  const isSubmitting = mutation.isPending;
++  const canSubmit = formState.isValid && !isSubmitting;
++
++  /** Editar qualquer campo apaga a mensagem que estiver na tela (3.2). */
++  const clearMessages = () => {
++    setShowExpired(false);
++    setShowCpfError(false);
++    if (mutation.isError) mutation.reset();
++  };
++
++  const submitError = mutation.error ? messageFor(mutation.error) : null;
++  /**
++   * Muda a cada envio que falha (o `submittedAt` é de cada `mutate`) e volta
++   * a 0 quando o erro sai da tela. Derivado no render, sem estado extra.
++   */
++  const shakeKey =
++    mutation.error && mutation.error.kind !== 'canceled'
++      ? mutation.submittedAt
++      : 0;
++  const errorMessage =
++    submitError ??
++    (showCpfError ? strings.login.error.cpf : null) ??
++    (showExpired ? strings.login.error.sessionExpired : null);
++
++  const submit = handleSubmit(values => {
++    if (mutation.isPending) return;
++    mutation.mutate(values);
++  });
++
++  return {
++    cpf: {
++      value: cpfField.value,
++      onChangeText: (text: string) => {
++        clearMessages();
++        cpfField.onChange(formatCpf(text));
++      },
++      onBlur: () => {
++        cpfField.onBlur();
++        const { value } = cpfField;
++        const complete = onlyDigits(value).length === CPF_DIGITS;
++        if (complete && !loginFormSchema.shape.cpf.safeParse(value).success) {
++          setShowCpfError(true);
++        }
++      },
++    },
++    password: {
++      value: passwordField.value,
++      onChangeText: (text: string) => {
++        clearMessages();
++        passwordField.onChange(text);
++      },
++      onBlur: passwordField.onBlur,
++    },
++    passwordRef,
++    /** "next" do teclado do CPF. */
++    focusPassword: () => passwordRef.current?.focus(),
++    /** Botão e "go" do teclado da senha. Ignora se o formulário não vale. */
++    submit: () => {
++      submit();
++    },
++    canSubmit,
++    isSubmitting,
++    errorMessage,
++    /** Muda a cada erro de envio: a View faz o shake do formulário. */
++    shakeKey,
++  };
++}
+diff --git a/mobile/src/hooks/useShakeStyle.ts b/mobile/src/hooks/useShakeStyle.ts
+new file mode 100644
+index 0000000..3671451
+--- /dev/null
++++ b/mobile/src/hooks/useShakeStyle.ts
+@@ -0,0 +1,35 @@
++import { useEffect } from 'react';
++import {
++  useAnimatedStyle,
++  useReducedMotion,
++  useSharedValue,
++  withSequence,
++  withTiming,
++} from 'react-native-reanimated';
++
++import { useTheme } from '../theme';
++
++/**
++ * Shake horizontal (01-design.md, 4.2). Dispara cada vez que `trigger` muda
++ * para um valor maior que zero. Com reduzir movimento não treme: quem avisa
++ * do erro é a mensagem.
++ */
++export function useShakeStyle(trigger: number) {
++  const { motion } = useTheme();
++  const reducedMotion = useReducedMotion();
++  const offsetX = useSharedValue(0);
++
++  useEffect(() => {
++    if (trigger === 0 || reducedMotion) return;
++    const { offsets, step } = motion.shake;
++    offsetX.set(
++      withSequence(
++        ...offsets.map(offset => withTiming(offset, { duration: step })),
++      ),
++    );
++  }, [trigger, reducedMotion, motion.shake, offsetX]);
++
++  return useAnimatedStyle(() => ({
++    transform: [{ translateX: offsetX.get() }],
++  }));
++}
+diff --git a/mobile/src/test/renderWithTheme.tsx b/mobile/src/test/renderWithTheme.tsx
+new file mode 100644
+index 0000000..7eb977e
+--- /dev/null
++++ b/mobile/src/test/renderWithTheme.tsx
+@@ -0,0 +1,9 @@
++import { ThemeProvider } from '@shopify/restyle';
++import { render } from '@testing-library/react-native';
++import type { ReactElement } from 'react';
++
++import { theme } from '../theme';
++
++/** `render` com o tema do app, para componentes que usam Restyle. */
++export const renderWithTheme = (ui: ReactElement) =>
++  render(<ThemeProvider theme={theme}>{ui}</ThemeProvider>);
+diff --git a/mobile/src/theme/components.ts b/mobile/src/theme/components.ts
+index a5d5a9a..55ff25c 100644
+--- a/mobile/src/theme/components.ts
++++ b/mobile/src/theme/components.ts
+@@ -10,15 +10,24 @@ import type { ComponentProps } from 'react';
+ import type { Theme } from './theme';
+ 
+ export const Box = createBox<Theme>();
+ export const Text = createText<Theme>();
+ 
+ export type BoxProps = ComponentProps<typeof Box>;
+ export type TextProps = ComponentProps<typeof Text>;
+ 
+ export type CardProps = VariantProps<Theme, 'cardVariants'> & BoxProps;
+ 
++export type ButtonContainerProps = VariantProps<Theme, 'buttonVariants'> &
++  BoxProps;
++
++/** Box com as `buttonVariants` do tema (primary, secondary). */
++export const ButtonContainer = createRestyleComponent<
++  ButtonContainerProps,
++  Theme
++>([createVariant({ themeKey: 'buttonVariants' })], Box);
++
+ /** Box com as `cardVariants` do tema (dropdown, options, term, student...). */
+ export const Card = createRestyleComponent<CardProps, Theme>(
+   [createVariant({ themeKey: 'cardVariants' })],
+   Box,
+ );
+diff --git a/mobile/src/theme/index.ts b/mobile/src/theme/index.ts
+index 5c22613..da73076 100644
+--- a/mobile/src/theme/index.ts
++++ b/mobile/src/theme/index.ts
+@@ -1,8 +1,13 @@
+-export { Box, Card, Text } from './components';
+-export type { BoxProps, CardProps, TextProps } from './components';
++export { Box, ButtonContainer, Card, Text } from './components';
++export type {
++  BoxProps,
++  ButtonContainerProps,
++  CardProps,
++  TextProps,
++} from './components';
+ export { fonts } from './fonts';
+ export { motion } from './motion';
+ export { sizes } from './sizes';
+ export { theme } from './theme';
+ export type { Theme } from './theme';
+ export { useTheme } from './useTheme';
+diff --git a/mobile/src/theme/motion.ts b/mobile/src/theme/motion.ts
+index dc803b9..3be99cf 100644
+--- a/mobile/src/theme/motion.ts
++++ b/mobile/src/theme/motion.ts
+@@ -1,21 +1,30 @@
+ import { Easing } from 'react-native-reanimated';
+ 
+ /** Durações e curvas das animações (01-design.md, 1.8). */
+ export const motion = {
++  /** Saída do texto do botão quando vira spinner (01-design.md, 4.2). */
++  instant: 100,
+   fast: 150,
+   base: 220,
+   slow: 320,
+   stagger: 40,
+   easeOut: Easing.out(Easing.cubic),
+   easeIn: Easing.in(Easing.cubic),
+   press: { damping: 18, stiffness: 260, mass: 1 },
++  /** Escala do botão pressionado. */
++  pressScale: 0.98,
++  /** Deslocamento das entradas `FadeInDown` (campos do login e erro). */
++  enterOffset: 12,
++  enterOffsetSmall: 8,
++  /** Shake do formulário em erro (01-design.md, 4.2): 6 passos de 50 ms. */
++  shake: { offsets: [-10, 10, -8, 8, -4, 0], step: 50 },
+   /** Splash animada (01-design.md, 3.1.3 a 3.1.6). */
+   splash: {
+     minDuration: 1200,
+     minDurationReduced: 600,
+     loopStartAt: 1500,
+     hardTimeout: 10_000,
+     meTimeout: 8000,
+     wipe: { delay: 80, duration: 600 },
+     wipeEasing: Easing.bezier(0.65, 0, 0.35, 1),
+     scanFadeIn: 80,
+diff --git a/mobile/src/theme/sizes.ts b/mobile/src/theme/sizes.ts
+index deebc28..8af90fc 100644
+--- a/mobile/src/theme/sizes.ts
++++ b/mobile/src/theme/sizes.ts
+@@ -16,15 +16,19 @@ export const sizes = {
+   bulletSlot: 16,
+   logoHeader: { width: 100, height: 16 },
+   logoLogin: { width: 306, height: 49 },
+   illustration: { width: 328, height: 208 },
+   /** Selo SCHOOL dentro do PNG do logo, em proporção (vale em qualquer tamanho). */
+   logoBadge: { x: 0.672, y: 0.35, width: 0.328, height: 0.4 },
+   /** Sobra da capa do selo na splash (esconde o antialias da borda). */
+   logoBadgeBleed: 1,
+   /** Linha teal da splash: largura e quanto passa do logo em cima e embaixo. */
+   scanLine: { width: 2, overhang: 8 },
++  /** Espessura da linha do input do login. */
++  inputLine: 1,
+   /** Espessura do trilho de espera da splash. */
+   splashTrack: 1,
++  /** Teto da fonte grande do sistema em elementos de altura fixa (1.6). */
++  fixedHeightFontScale: 1.3,
+   contentMaxWidth: 600,
+   formMaxWidth: 318,
+ } as const;

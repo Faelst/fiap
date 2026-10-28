@@ -1,0 +1,3010 @@
+e1cf9b7 feat(api): scaffold nest com prisma, sqlite e seed do json
+ api/.env.example                                   |    8 +
+ api/.gitignore                                     |   23 +
+ api/.prettierrc                                    |    4 +
+ api/eslint.config.mjs                              |   40 +
+ api/nest-cli.json                                  |    8 +
+ api/package.json                                   |  110 +
+ api/prisma.config.ts                               |   13 +
+ .../migrations/20261027224531_init/migration.sql   |   95 +
+ api/prisma/migrations/migration_lock.toml          |    3 +
+ api/prisma/schema.prisma                           |  104 +
+ api/prisma/seed-data/responsaveis.json             | 1313 ++++
+ api/prisma/seed-mapper.spec.ts                     |  293 +
+ api/prisma/seed-mapper.ts                          |  195 +
+ api/prisma/seed.ts                                 |  104 +
+ api/src/app.module.ts                              |   18 +
+ api/src/app.setup.ts                               |   26 +
+ api/src/config/env.validation.spec.ts              |   54 +
+ api/src/config/env.validation.ts                   |   70 +
+ api/src/infra/prisma/prisma.module.ts              |    9 +
+ api/src/infra/prisma/prisma.service.ts             |   27 +
+ api/src/main.ts                                    |   15 +
+ .../health/controllers/health.controller.ts        |    9 +
+ api/src/modules/health/health.module.ts            |    7 +
+ api/test/health.e2e-spec.ts                        |   35 +
+ api/test/jest-e2e.json                             |   29 +
+ api/test/seed.e2e-spec.ts                          |   89 +
+ api/test/setup/create-test-app.ts                  |   16 +
+ api/test/setup/global-setup.ts                     |   24 +
+ api/test/setup/test-env.ts                         |    6 +
+ api/tsconfig.build.json                            |    5 +
+ api/tsconfig.jest.json                             |    8 +
+ api/tsconfig.json                                  |   23 +
+ api/yarn.lock                                      | 6263 ++++++++++++++++++++
+ 33 files changed, 9046 insertions(+)
+diff --git a/api/.env.example b/api/.env.example
+new file mode 100644
+index 0000000..1a01802
+--- /dev/null
++++ b/api/.env.example
+@@ -0,0 +1,8 @@
++# Caminho do SQLite, relativo à pasta api/ (onde os comandos rodam)
++DATABASE_URL="file:./dev.db"
++PORT=3333
++# Troque por um segredo longo e aleatório fora do ambiente local
++JWT_SECRET="troque-este-segredo-local"
++JWT_EXPIRES_IN=7d
++# Lista separada por vírgula, ou * para liberar todas (só em dev)
++CORS_ORIGINS=*
+diff --git a/api/.gitignore b/api/.gitignore
+new file mode 100644
+index 0000000..b040c2c
+--- /dev/null
++++ b/api/.gitignore
+@@ -0,0 +1,23 @@
++# dependências e build
++/node_modules
++/dist
++/coverage
++*.tsbuildinfo
++
++# Prisma Client gerado (yarn install roda prisma generate)
++/src/generated
++
++# banco SQLite local e de teste
++*.db
++*.db-journal
++*.db-wal
++*.db-shm
++
++# env
++.env
++.env.*
++!.env.example
++
++# logs e SO
++*.log
++.DS_Store
+diff --git a/api/.prettierrc b/api/.prettierrc
+new file mode 100644
+index 0000000..a20502b
+--- /dev/null
++++ b/api/.prettierrc
+@@ -0,0 +1,4 @@
++{
++  "singleQuote": true,
++  "trailingComma": "all"
++}
+diff --git a/api/eslint.config.mjs b/api/eslint.config.mjs
+new file mode 100644
+index 0000000..756827f
+--- /dev/null
++++ b/api/eslint.config.mjs
+@@ -0,0 +1,40 @@
++// @ts-check
++import eslint from '@eslint/js';
++import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
++import globals from 'globals';
++import tseslint from 'typescript-eslint';
++
++export default tseslint.config(
++  {
++    ignores: [
++      'eslint.config.mjs',
++      'dist/**',
++      'coverage/**',
++      'src/generated/**',
++    ],
++  },
++  eslint.configs.recommended,
++  ...tseslint.configs.recommendedTypeChecked,
++  eslintPluginPrettierRecommended,
++  {
++    languageOptions: {
++      globals: {
++        ...globals.node,
++        ...globals.jest,
++      },
++      sourceType: 'commonjs',
++      parserOptions: {
++        projectService: true,
++        tsconfigRootDir: import.meta.dirname,
++      },
++    },
++  },
++  {
++    rules: {
++      '@typescript-eslint/no-explicit-any': 'off',
++      '@typescript-eslint/no-floating-promises': 'warn',
++      '@typescript-eslint/no-unsafe-argument': 'warn',
++      'prettier/prettier': ['error', { endOfLine: 'auto' }],
++    },
++  },
++);
+diff --git a/api/nest-cli.json b/api/nest-cli.json
+new file mode 100644
+index 0000000..f9aa683
+--- /dev/null
++++ b/api/nest-cli.json
+@@ -0,0 +1,8 @@
++{
++  "$schema": "https://json.schemastore.org/nest-cli",
++  "collection": "@nestjs/schematics",
++  "sourceRoot": "src",
++  "compilerOptions": {
++    "deleteOutDir": true
++  }
++}
+diff --git a/api/package.json b/api/package.json
+new file mode 100644
+index 0000000..cab0096
+--- /dev/null
++++ b/api/package.json
+@@ -0,0 +1,110 @@
++{
++  "name": "fiap-school-api",
++  "version": "0.0.1",
++  "description": "API da FIAP School (NestJS + Prisma + SQLite)",
++  "author": "",
++  "private": true,
++  "license": "UNLICENSED",
++  "scripts": {
++    "build": "nest build",
++    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" \"prisma/**/*.ts\"",
++    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\" \"prisma/**/*.ts\"",
++    "start": "nest start",
++    "start:dev": "nest start --watch",
++    "start:debug": "nest start --debug --watch",
++    "start:prod": "node dist/main",
++    "lint": "eslint \"{src,test,prisma}/**/*.ts\"",
++    "lint:fix": "eslint \"{src,test,prisma}/**/*.ts\" --fix",
++    "tsc": "tsc --noEmit",
++    "test": "jest",
++    "test:watch": "jest --watch",
++    "test:cov": "jest --coverage",
++    "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
++    "prisma:generate": "prisma generate",
++    "prisma:migrate": "prisma migrate dev",
++    "prisma:deploy": "prisma migrate deploy",
++    "prisma:seed": "prisma db seed",
++    "prisma:reset": "prisma migrate reset --force && prisma db seed",
++    "prisma:validate": "prisma validate",
++    "postinstall": "prisma generate",
++    "prisma:setup": "prisma migrate deploy && prisma db seed"
++  },
++  "dependencies": {
++    "@nestjs/common": "^11.0.1",
++    "@nestjs/config": "^4.0.4",
++    "@nestjs/core": "^11.0.1",
++    "@nestjs/platform-express": "^11.0.1",
++    "@prisma/adapter-better-sqlite3": "7.10.1",
++    "@prisma/client": "7.10.1",
++    "bcryptjs": "^3.0.3",
++    "class-transformer": "^0.5.1",
++    "class-validator": "^0.15.1",
++    "reflect-metadata": "^0.2.2",
++    "rxjs": "^7.8.1"
++  },
++  "devDependencies": {
++    "@eslint/eslintrc": "^3.2.0",
++    "@eslint/js": "^9.18.0",
++    "@nestjs/cli": "^11.0.0",
++    "@nestjs/schematics": "^11.0.0",
++    "@nestjs/testing": "^11.0.1",
++    "@types/express": "^5.0.0",
++    "@types/jest": "^30.0.0",
++    "@types/node": "^24.0.0",
++    "@types/supertest": "^7.0.0",
++    "dotenv": "^18.0.9",
++    "eslint": "^9.18.0",
++    "eslint-config-prettier": "^10.0.1",
++    "eslint-plugin-prettier": "^5.2.2",
++    "globals": "^17.0.0",
++    "jest": "^30.0.0",
++    "prettier": "^3.4.2",
++    "prisma": "7.10.1",
++    "source-map-support": "^0.5.21",
++    "supertest": "^7.0.0",
++    "ts-jest": "^29.2.5",
++    "ts-loader": "^9.5.2",
++    "ts-node": "^10.9.2",
++    "tsconfig-paths": "^4.2.0",
++    "tsx": "^4.23.15",
++    "typescript": "^5.7.3",
++    "typescript-eslint": "^8.20.0"
++  },
++  "jest": {
++    "moduleFileExtensions": [
++      "js",
++      "json",
++      "ts"
++    ],
++    "rootDir": ".",
++    "roots": [
++      "<rootDir>/src",
++      "<rootDir>/prisma"
++    ],
++    "testRegex": ".*\\.spec\\.ts$",
++    "transform": {
++      "^.+\\.(t|j)s$": [
++        "ts-jest",
++        {
++          "tsconfig": "<rootDir>/tsconfig.jest.json"
++        }
++      ]
++    },
++    "collectCoverageFrom": [
++      "src/**/*.ts",
++      "prisma/seed-mapper.ts",
++      "!src/generated/**",
++      "!src/main.ts"
++    ],
++    "coverageDirectory": "coverage",
++    "testEnvironment": "node",
++    "watchman": false,
++    "moduleNameMapper": {
++      "^(\\.{1,2}/.*)\\.js$": "$1"
++    }
++  },
++  "packageManager": "yarn@1.22.22",
++  "engines": {
++    "node": ">=24"
++  }
++}
+diff --git a/api/prisma.config.ts b/api/prisma.config.ts
+new file mode 100644
+index 0000000..60357ad
+--- /dev/null
++++ b/api/prisma.config.ts
+@@ -0,0 +1,13 @@
++import 'dotenv/config';
++import { defineConfig, env } from 'prisma/config';
++
++export default defineConfig({
++  schema: 'prisma/schema.prisma',
++  migrations: {
++    path: 'prisma/migrations',
++    seed: 'tsx prisma/seed.ts',
++  },
++  datasource: {
++    url: env('DATABASE_URL'),
++  },
++});
+diff --git a/api/prisma/migrations/20261027224531_init/migration.sql b/api/prisma/migrations/20261027224531_init/migration.sql
+new file mode 100644
+index 0000000..8f18cfa
+--- /dev/null
++++ b/api/prisma/migrations/20261027224531_init/migration.sql
+@@ -0,0 +1,95 @@
++-- CreateTable
++CREATE TABLE "Guardian" (
++    "id" TEXT NOT NULL PRIMARY KEY,
++    "firstName" TEXT NOT NULL,
++    "lastName" TEXT NOT NULL,
++    "cpf" TEXT NOT NULL,
++    "email" TEXT NOT NULL,
++    "passwordHash" TEXT NOT NULL,
++    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
++    "updatedAt" DATETIME NOT NULL
++);
++
++-- CreateTable
++CREATE TABLE "Student" (
++    "id" TEXT NOT NULL PRIMARY KEY,
++    "rm" INTEGER NOT NULL,
++    "firstName" TEXT NOT NULL,
++    "lastName" TEXT NOT NULL,
++    "className" TEXT NOT NULL,
++    "period" TEXT NOT NULL
++);
++
++-- CreateTable
++CREATE TABLE "GuardianStudent" (
++    "guardianId" TEXT NOT NULL,
++    "studentId" TEXT NOT NULL,
++
++    PRIMARY KEY ("guardianId", "studentId"),
++    CONSTRAINT "GuardianStudent_guardianId_fkey" FOREIGN KEY ("guardianId") REFERENCES "Guardian" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
++    CONSTRAINT "GuardianStudent_studentId_fkey" FOREIGN KEY ("studentId") REFERENCES "Student" ("id") ON DELETE CASCADE ON UPDATE CASCADE
++);
++
++-- CreateTable
++CREATE TABLE "AgendaDay" (
++    "id" TEXT NOT NULL PRIMARY KEY,
++    "studentId" TEXT NOT NULL,
++    "date" TEXT NOT NULL,
++    CONSTRAINT "AgendaDay_studentId_fkey" FOREIGN KEY ("studentId") REFERENCES "Student" ("id") ON DELETE CASCADE ON UPDATE CASCADE
++);
++
++-- CreateTable
++CREATE TABLE "Lesson" (
++    "id" TEXT NOT NULL PRIMARY KEY,
++    "agendaDayId" TEXT NOT NULL,
++    "startTime" TEXT NOT NULL,
++    "endTime" TEXT NOT NULL,
++    "subject" TEXT NOT NULL,
++    "order" INTEGER NOT NULL,
++    CONSTRAINT "Lesson_agendaDayId_fkey" FOREIGN KEY ("agendaDayId") REFERENCES "AgendaDay" ("id") ON DELETE CASCADE ON UPDATE CASCADE
++);
++
++-- CreateTable
++CREATE TABLE "ReportCard" (
++    "id" TEXT NOT NULL PRIMARY KEY,
++    "studentId" TEXT NOT NULL,
++    "year" INTEGER NOT NULL,
++    "className" TEXT NOT NULL,
++    CONSTRAINT "ReportCard_studentId_fkey" FOREIGN KEY ("studentId") REFERENCES "Student" ("id") ON DELETE CASCADE ON UPDATE CASCADE
++);
++
++-- CreateTable
++CREATE TABLE "TermResult" (
++    "id" TEXT NOT NULL PRIMARY KEY,
++    "reportCardId" TEXT NOT NULL,
++    "term" INTEGER NOT NULL,
++    "subject" TEXT NOT NULL,
++    "grade" REAL,
++    "absences" INTEGER,
++    "order" INTEGER NOT NULL,
++    CONSTRAINT "TermResult_reportCardId_fkey" FOREIGN KEY ("reportCardId") REFERENCES "ReportCard" ("id") ON DELETE CASCADE ON UPDATE CASCADE
++);
++
++-- CreateIndex
++CREATE UNIQUE INDEX "Guardian_cpf_key" ON "Guardian"("cpf");
++
++-- CreateIndex
++CREATE UNIQUE INDEX "Guardian_email_key" ON "Guardian"("email");
++
++-- CreateIndex
++CREATE UNIQUE INDEX "Student_rm_key" ON "Student"("rm");
++
++-- CreateIndex
++CREATE INDEX "GuardianStudent_studentId_idx" ON "GuardianStudent"("studentId");
++
++-- CreateIndex
++CREATE UNIQUE INDEX "AgendaDay_studentId_date_key" ON "AgendaDay"("studentId", "date");
++
++-- CreateIndex
++CREATE UNIQUE INDEX "Lesson_agendaDayId_order_key" ON "Lesson"("agendaDayId", "order");
++
++-- CreateIndex
++CREATE UNIQUE INDEX "ReportCard_studentId_year_key" ON "ReportCard"("studentId", "year");
++
++-- CreateIndex
++CREATE UNIQUE INDEX "TermResult_reportCardId_term_order_key" ON "TermResult"("reportCardId", "term", "order");
+diff --git a/api/prisma/migrations/migration_lock.toml b/api/prisma/migrations/migration_lock.toml
+new file mode 100644
+index 0000000..2a5a444
+--- /dev/null
++++ b/api/prisma/migrations/migration_lock.toml
+@@ -0,0 +1,3 @@
++# Please do not edit this file manually
++# It should be added in your version-control system (e.g., Git)
++provider = "sqlite"
+diff --git a/api/prisma/schema.prisma b/api/prisma/schema.prisma
+new file mode 100644
+index 0000000..cd36243
+--- /dev/null
++++ b/api/prisma/schema.prisma
+@@ -0,0 +1,104 @@
++// Modelo derivado do JSON oficial do teste (prisma/seed-data/responsaveis.json).
++// A URL do banco fica no prisma.config.ts (DATABASE_URL).
++
++generator client {
++  provider     = "prisma-client"
++  output       = "../src/generated/prisma"
++  moduleFormat = "cjs"
++}
++
++datasource db {
++  provider = "sqlite"
++}
++
++model Guardian {
++  id           String            @id @default(cuid())
++  firstName    String
++  lastName     String
++  /// Só dígitos (11).
++  cpf          String            @unique
++  email        String            @unique
++  passwordHash String
++  createdAt    DateTime          @default(now())
++  updatedAt    DateTime          @updatedAt
++  students     GuardianStudent[]
++}
++
++model Student {
++  id          String            @id @default(cuid())
++  rm          Int               @unique
++  firstName   String
++  lastName    String
++  /// Turma atual, ex.: "7EF".
++  className   String
++  /// "Matutino" ou "Tarde".
++  period      String
++  guardians   GuardianStudent[]
++  agendaDays  AgendaDay[]
++  reportCards ReportCard[]
++}
++
++model GuardianStudent {
++  guardianId String
++  studentId  String
++  guardian   Guardian @relation(fields: [guardianId], references: [id], onDelete: Cascade)
++  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
++
++  @@id([guardianId, studentId])
++  @@index([studentId])
++}
++
++/// Um dia da agenda do aluno. Existe mesmo sem aula (sábado e domingo do JSON).
++model AgendaDay {
++  id        String   @id @default(cuid())
++  studentId String
++  /// "YYYY-MM-DD".
++  date      String
++  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
++  lessons   Lesson[]
++
++  @@unique([studentId, date])
++}
++
++model Lesson {
++  id          String    @id @default(cuid())
++  agendaDayId String
++  /// "HH:MM".
++  startTime   String
++  /// "HH:MM".
++  endTime     String
++  subject     String
++  /// Posição da aula no dia, na ordem do JSON.
++  order       Int
++  agendaDay   AgendaDay @relation(fields: [agendaDayId], references: [id], onDelete: Cascade)
++
++  @@unique([agendaDayId, order])
++}
++
++model ReportCard {
++  id          String       @id @default(cuid())
++  studentId   String
++  year        Int
++  /// Turma naquele ano, ex.: "6EF" em 2024.
++  className   String
++  student     Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
++  termResults TermResult[]
++
++  @@unique([studentId, year])
++}
++
++/// Nota e faltas de uma disciplina em um trimestre. null = ainda não avaliado.
++model TermResult {
++  id           String     @id @default(cuid())
++  reportCardId String
++  /// Trimestre: 1, 2 ou 3.
++  term         Int
++  subject      String
++  grade        Float?
++  absences     Int?
++  /// Posição da disciplina no trimestre, na ordem do JSON.
++  order        Int
++  reportCard   ReportCard @relation(fields: [reportCardId], references: [id], onDelete: Cascade)
++
++  @@unique([reportCardId, term, order])
++}
+diff --git a/api/prisma/seed-data/responsaveis.json b/api/prisma/seed-data/responsaveis.json
+new file mode 100644
+index 0000000..429351a
+--- /dev/null
++++ b/api/prisma/seed-data/responsaveis.json
+@@ -0,0 +1,1313 @@
++[
++  {
++    "id": 1,
++    "cpf": "96929456004",
++    "email": "gustavo-da-silva@example.com",
++    "senha": "123456",
++    "primeiroNome": "Gustavo",
++    "sobrenome": "da Silva",
++    "alunos": [
++      {
++        "rm": 12567,
++        "turma": "7EF",
++        "periodo": "Matutino",
++        "primeiroNome": "Rafael",
++        "sobrenome": "da Silva",
++        "agenda": [
++          {
++            "dia": "2025-03-16",
++            "aulas": []
++          },
++          {
++            "dia": "2025-03-17",
++            "aulas": [
++              {
++                "horario": "07:15 - 08:00",
++                "disciplina": "Matemática I"
++              },
++              {
++                "horario": "08:00 - 08:45",
++                "disciplina": "Língua Inglesa"
++              },
++              {
++                "horario": "09:15 - 10:00",
++                "disciplina": "Língua Inglesa"
++              },
++              {
++                "horario": "10:00 - 10:45",
++                "disciplina": "Ciências"
++              },
++              {
++                "horario": "10:45 - 11:30",
++                "disciplina": "Ciências"
++              },
++              {
++                "horario": "11:30 - 12:15",
++                "disciplina": "Coding"
++              }
++            ]
++          },
++          {
++            "dia": "2025-03-18",
++            "aulas": [
++              {
++                "horario": "07:15 - 08:00",
++                "disciplina": "Produção e Interpretação de Textos"
++              },
++              {
++                "horario": "08:00 - 08:45",
++                "disciplina": "Matemática II"
++              },
++              {
++                "horario": "09:15 - 10:00",
++                "disciplina": "Produção e Interpretação de Textos"
++              },
++              {
++                "horario": "10:00 - 10:45",
++                "disciplina": "Língua Portuguesa"
++              },
++              {
++                "horario": "10:45 - 11:30",
++                "disciplina": "Língua Portuguesa"
++              },
++              {
++                "horario": "11:30 - 12:15",
++                "disciplina": "Língua Inglesa"
++              }
++            ]
++          },
++          {
++            "dia": "2025-03-19",
++            "aulas": [
++              {
++                "horario": "07:15 - 08:00",
++                "disciplina": "Ciências"
++              },
++              {
++                "horario": "08:00 - 08:45",
++                "disciplina": "Ciências"
++              },
++              {
++                "horario": "09:15 - 10:00",
++                "disciplina": "Arte"
++              },
++              {
++                "horario": "10:00 - 10:45",
++                "disciplina": "Arte"
++              },
++              {
++                "horario": "10:45 - 11:30",
++                "disciplina": "Matemática II"
++              },
++              {
++                "horario": "11:30 - 12:15",
++                "disciplina": "Produção e Interpretação de Textos"
++              }
++            ]
++          },
++          {
++            "dia": "2025-03-20",
++            "aulas": [
++              {
++                "horario": "07:15 - 08:00",
++                "disciplina": "Projeto"
++              },
++              {
++                "horario": "08:00 - 08:45",
++                "disciplina": "Projeto"
++              },
++              {
++                "horario": "09:15 - 10:00",
++                "disciplina": "Projeto"
++              },
++              {
++                "horario": "10:00 - 10:45",
++                "disciplina": "Língua Inglesa"
++              },
++              {
++                "horario": "10:45 - 11:30",
++                "disciplina": "Educação Física"
++              },
++              {
++                "horario": "11:30 - 12:15",
++                "disciplina": "Educação Física"
++              }
++            ]
++          },
++          {
++            "dia": "2025-03-21",
++            "aulas": [
++              {
++                "horario": "07:15 - 08:00",
++                "disciplina": "Matemática II"
++              },
++              {
++                "horario": "08:00 - 08:45",
++                "disciplina": "História"
++              },
++              {
++                "horario": "09:15 - 10:00",
++                "disciplina": "Geografia"
++              },
++              {
++                "horario": "10:00 - 10:45",
++                "disciplina": "Matemática I"
++              },
++              {
++                "horario": "10:45 - 11:30",
++                "disciplina": "Matemática I"
++              },
++              {
++                "horario": "11:30 - 12:15",
++                "disciplina": "Matemática I"
++              }
++            ]
++          },
++          {
++            "dia": "2025-03-22",
++            "aulas": []
++          }
++        ],
++        "boletim": [
++          {
++            "ano": "2025",
++            "turma": "7EF",
++            "trimestres": [
++              {
++                "trimestre": 1,
++                "disciplinas": [
++                  {
++                    "nome": "Língua Portuguesa",
++                    "nota": 9.5,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Produção e Interpretação de Textos",
++                    "nota": 8,
++                    "faltas": 1
++                  },
++                  {
++                    "nome": "Matemática I",
++                    "nota": 7.5,
++                    "faltas": 2
++                  },
++                  {
++                    "nome": "Matemática II",
++                    "nota": 8.5,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Geografia",
++                    "nota": 7,
++                    "faltas": 1
++                  },
++                  {
++                    "nome": "História",
++                    "nota": 10,
++                    "faltas": 1
++                  },
++                  {
++                    "nome": "Ciências",
++                    "nota": 8,
++                    "faltas": 4
++                  },
++                  {
++                    "nome": "Língua Inglesa",
++                    "nota": 9,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Arte",
++                    "nota": 6.5,
++                    "faltas": 2
++                  },
++                  {
++                    "nome": "Projeto",
++                    "nota": 7,
++                    "faltas": 2
++                  },
++                  {
++                    "nome": "Coding",
++                    "nota": 10,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Educação Física",
++                    "nota": 7,
++                    "faltas": 1
++                  }
++                ]
++              },
++              {
++                "trimestre": 2,
++                "disciplinas": [
++                  {
++                    "nome": "Língua Portuguesa",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Produção e Interpretação de Textos",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Matemática I",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Matemática II",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Geografia",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "História",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Ciências",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Língua Inglesa",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Arte",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Projeto",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Coding",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Educação Física",
++                    "nota": null,
++                    "faltas": null
++                  }
++                ]
++              },
++              {
++                "trimestre": 3,
++                "disciplinas": [
++                  {
++                    "nome": "Língua Portuguesa",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Produção e Interpretação de Textos",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Matemática I",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Matemática II",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Geografia",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "História",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Ciências",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Língua Inglesa",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Arte",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Projeto",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Coding",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Educação Física",
++                    "nota": null,
++                    "faltas": null
++                  }
++                ]
++              }
++            ]
++          },
++          {
++            "ano": "2024",
++            "turma": "6EF",
++            "trimestres": [
++              {
++                "trimestre": 1,
++                "disciplinas": [
++                  {
++                    "nome": "Língua Portuguesa",
++                    "nota": 8,
++                    "faltas": 1
++                  },
++                  {
++                    "nome": "Produção e Interpretação de Textos",
++                    "nota": 7,
++                    "faltas": 2
++                  },
++                  {
++                    "nome": "Matemática I",
++                    "nota": 8,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Matemática II",
++                    "nota": 8,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Geografia",
++                    "nota": 7,
++                    "faltas": 1
++                  },
++                  {
++                    "nome": "História",
++                    "nota": 10,
++                    "faltas": 3
++                  },
++                  {
++                    "nome": "Ciências",
++                    "nota": 9,
++                    "faltas": 1
++                  },
++                  {
++                    "nome": "Língua Inglesa",
++                    "nota": 6,
++                    "faltas": 1
++                  },
++                  {
++                    "nome": "Arte",
++                    "nota": 7,
++                    "faltas": 2
++                  },
++                  {
++                    "nome": "Projeto",
++                    "nota": 8,
++                    "faltas": 2
++                  },
++                  {
++                    "nome": "Coding",
++                    "nota": 9,
++                    "faltas": 1
++                  },
++                  {
++                    "nome": "Educação Física",
++                    "nota": 10,
++                    "faltas": 0
++                  }
++                ]
++              },
++              {
++                "trimestre": 2,
++                "disciplinas": [
++                  {
++                    "nome": "Língua Portuguesa",
++                    "nota": 7,
++                    "faltas": 1
++                  },
++                  {
++                    "nome": "Produção e Interpretação de Textos",
++                    "nota": 7.5,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Matemática I",
++                    "nota": 8,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Matemática II",
++                    "nota": 7,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Geografia",
++                    "nota": 9,
++                    "faltas": 1
++                  },
++                  {
++                    "nome": "História",
++                    "nota": 9.5,
++                    "faltas": 1
++                  },
++                  {
++                    "nome": "Ciências",
++                    "nota": 8,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Língua Inglesa",
++                    "nota": 9,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Arte",
++                    "nota": 7.5,
++                    "faltas": 1
++                  },
++                  {
++                    "nome": "Projeto",
++                    "nota": 10,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Coding",
++                    "nota": 9,
++                    "faltas": 2
++                  },
++                  {
++                    "nome": "Educação Física",
++                    "nota": 8,
++                    "faltas": 0
++                  }
++                ]
++              },
++              {
++                "trimestre": 3,
++                "disciplinas": [
++                  {
++                    "nome": "Língua Portuguesa",
++                    "nota": 8,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Produção e Interpretação de Textos",
++                    "nota": 8,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Matemática I",
++                    "nota": 9,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Matemática II",
++                    "nota": 9.5,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Geografia",
++                    "nota": 7,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "História",
++                    "nota": 7,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Ciências",
++                    "nota": 8,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Língua Inglesa",
++                    "nota": 10,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Arte",
++                    "nota": 9,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Projeto",
++                    "nota": 6,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Coding",
++                    "nota": 7.5,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Educação Física",
++                    "nota": 8.5,
++                    "faltas": 0
++                  }
++                ]
++              }
++            ]
++          }
++        ]
++      },
++      {
++        "rm": 12568,
++        "turma": "2EM",
++        "periodo": "Matutino",
++        "primeiroNome": "Joana",
++        "sobrenome": "da Silva",
++        "agenda": [
++          {
++            "dia": "2025-03-16",
++            "aulas": []
++          },
++          {
++            "dia": "2025-03-17",
++            "aulas": [
++              {
++                "horario": "07:15 - 08:00",
++                "disciplina": "Geografia"
++              },
++              {
++                "horario": "08:00 - 08:45",
++                "disciplina": "História"
++              },
++              {
++                "horario": "09:15 - 10:00",
++                "disciplina": "Arte"
++              },
++              {
++                "horario": "10:00 - 10:45",
++                "disciplina": "Arte"
++              },
++              {
++                "horario": "10:45 - 11:30",
++                "disciplina": "Matemática I"
++              },
++              {
++                "horario": "11:30 - 12:15",
++                "disciplina": "Matemática I"
++              }
++            ]
++          },
++          {
++            "dia": "2025-03-18",
++            "aulas": [
++              {
++                "horario": "07:15 - 08:00",
++                "disciplina": "Educação Física"
++              },
++              {
++                "horario": "08:00 - 08:45",
++                "disciplina": "Educação Física"
++              },
++              {
++                "horario": "09:15 - 10:00",
++                "disciplina": "Coding"
++              },
++              {
++                "horario": "10:00 - 10:45",
++                "disciplina": "Projeto"
++              },
++              {
++                "horario": "10:45 - 11:30",
++                "disciplina": "Projeto"
++              },
++              {
++                "horario": "11:30 - 12:15",
++                "disciplina": "Projeto"
++              }
++            ]
++          },
++          {
++            "dia": "2025-03-19",
++            "aulas": [
++              {
++                "horario": "07:15 - 08:00",
++                "disciplina": "Produção e Interpretação de Textos"
++              },
++              {
++                "horario": "08:00 - 08:45",
++                "disciplina": "Produção e Interpretação de Textos"
++              },
++              {
++                "horario": "09:15 - 10:00",
++                "disciplina": "Ciências"
++              },
++              {
++                "horario": "10:00 - 10:45",
++                "disciplina": "Ciências"
++              },
++              {
++                "horario": "10:45 - 11:30",
++                "disciplina": "Matemática I"
++              },
++              {
++                "horario": "11:30 - 12:15",
++                "disciplina": "Matemática II"
++              }
++            ]
++          },
++          {
++            "dia": "2025-03-20",
++            "aulas": [
++              {
++                "horario": "07:15 - 08:00",
++                "disciplina": "Matemática II"
++              },
++              {
++                "horario": "08:00 - 08:45",
++                "disciplina": "Matemática II"
++              },
++              {
++                "horario": "09:15 - 10:00",
++                "disciplina": "Língua Inglesa"
++              },
++              {
++                "horario": "10:00 - 10:45",
++                "disciplina": "Língua Inglesa"
++              },
++              {
++                "horario": "10:45 - 11:30",
++                "disciplina": "Língua Portuguesa"
++              },
++              {
++                "horario": "11:30 - 12:15",
++                "disciplina": "Ciências"
++              }
++            ]
++          },
++          {
++            "dia": "2025-03-21",
++            "aulas": [
++              {
++                "horario": "07:15 - 08:00",
++                "disciplina": "Língua Portuguesa"
++              },
++              {
++                "horario": "08:00 - 08:45",
++                "disciplina": "Língua Inglesa"
++              },
++              {
++                "horario": "09:15 - 10:00",
++                "disciplina": "Língua Inglesa"
++              },
++              {
++                "horario": "10:00 - 10:45",
++                "disciplina": "Produção e Interpretação de Textos"
++              },
++              {
++                "horario": "10:45 - 11:30",
++                "disciplina": "Ciências"
++              },
++              {
++                "horario": "11:30 - 12:15",
++                "disciplina": "Matemática I"
++              }
++            ]
++          },
++          {
++            "dia": "2025-03-22",
++            "aulas": []
++          }
++        ],
++        "boletim": [
++          {
++            "ano": "2025",
++            "turma": "2EM",
++            "trimestres": [
++              {
++                "trimestre": 1,
++                "disciplinas": [
++                  {
++                    "nome": "Língua Portuguesa",
++                    "nota": 8,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Produção e Interpretação de Textos",
++                    "nota": 8.5,
++                    "faltas": 1
++                  },
++                  {
++                    "nome": "Matemática I",
++                    "nota": 9,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Matemática II",
++                    "nota": 9.5,
++                    "faltas": 2
++                  },
++                  {
++                    "nome": "Geografia",
++                    "nota": 10,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "História",
++                    "nota": 7.5,
++                    "faltas": 2
++                  },
++                  {
++                    "nome": "Ciências",
++                    "nota": 7,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Língua Inglesa",
++                    "nota": 8.5,
++                    "faltas": 1
++                  },
++                  {
++                    "nome": "Arte",
++                    "nota": 8.5,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Projeto",
++                    "nota": 8.5,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Coding",
++                    "nota": 9,
++                    "faltas": 1
++                  },
++                  {
++                    "nome": "Educação Física",
++                    "nota": 8,
++                    "faltas": 2
++                  }
++                ]
++              },
++              {
++                "trimestre": 2,
++                "disciplinas": [
++                  {
++                    "nome": "Língua Portuguesa",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Produção e Interpretação de Textos",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Matemática I",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Matemática II",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Geografia",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "História",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Ciências",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Língua Inglesa",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Arte",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Projeto",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Coding",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Educação Física",
++                    "nota": null,
++                    "faltas": null
++                  }
++                ]
++              },
++              {
++                "trimestre": 3,
++                "disciplinas": [
++                  {
++                    "nome": "Língua Portuguesa",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Produção e Interpretação de Textos",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Matemática I",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Matemática II",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Geografia",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "História",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Ciências",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Língua Inglesa",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Arte",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Projeto",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Coding",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Educação Física",
++                    "nota": null,
++                    "faltas": null
++                  }
++                ]
++              }
++            ]
++          }
++        ]
++      }
++    ]
++  },
++  {
++    "id": 2,
++    "cpf": "50879567007",
++    "email": "adelaide-silveira@example.com",
++    "senha": "987654",
++    "primeiroNome": "Adelaide",
++    "sobrenome": "Silveira da Costa",
++    "alunos": [
++      {
++        "rm": 13752,
++        "turma": "1EF",
++        "periodo": "Tarde",
++        "primeiroNome": "Bianca",
++        "sobrenome": "Silveira da Costa",
++        "agenda": [
++          {
++            "dia": "2025-03-16",
++            "aulas": []
++          },
++          {
++            "dia": "2025-03-17",
++            "aulas": [
++              {
++                "horario": "13:15 - 14:00",
++                "disciplina": "Língua Portuguesa"
++              },
++              {
++                "horario": "14:00 - 14:45",
++                "disciplina": "Língua Portuguesa"
++              },
++              {
++                "horario": "15:15 - 16:00",
++                "disciplina": "Matemática I"
++              },
++              {
++                "horario": "16:00 - 16:45",
++                "disciplina": "Matemática I"
++              },
++              {
++                "horario": "16:45 - 17:30",
++                "disciplina": "Educação Física"
++              },
++              {
++                "horario": "17:30 - 18:15",
++                "disciplina": "Educação Física"
++              }
++            ]
++          },
++          {
++            "dia": "2025-03-18",
++            "aulas": [
++              {
++                "horario": "13:15 - 14:00",
++                "disciplina": "Projeto"
++              },
++              {
++                "horario": "14:00 - 14:45",
++                "disciplina": "Projeto"
++              },
++              {
++                "horario": "15:15 - 16:00",
++                "disciplina": "Projeto"
++              },
++              {
++                "horario": "16:00 - 16:45",
++                "disciplina": "História"
++              },
++              {
++                "horario": "16:45 - 17:30",
++                "disciplina": "Geografia"
++              },
++              {
++                "horario": "17:30 - 18:15",
++                "disciplina": "Coding"
++              }
++            ]
++          },
++          {
++            "dia": "2025-03-19",
++            "aulas": [
++              {
++                "horario": "13:15 - 14:00",
++                "disciplina": "Ciências"
++              },
++              {
++                "horario": "14:00 - 14:45",
++                "disciplina": "Ciências"
++              },
++              {
++                "horario": "15:15 - 16:00",
++                "disciplina": "Produção e Interpretação de Textos"
++              },
++              {
++                "horario": "16:00 - 16:45",
++                "disciplina": "Produção e Interpretação de Textos"
++              },
++              {
++                "horario": "16:45 - 17:30",
++                "disciplina": "Matemática II"
++              },
++              {
++                "horario": "17:30 - 18:15",
++                "disciplina": "Matemática II"
++              }
++            ]
++          },
++          {
++            "dia": "2025-03-20",
++            "aulas": [
++              {
++                "horario": "13:15 - 14:00",
++                "disciplina": "Língua Inglesa"
++              },
++              {
++                "horario": "14:00 - 14:45",
++                "disciplina": "Língua Inglesa"
++              },
++              {
++                "horario": "15:15 - 16:00",
++                "disciplina": "Ciências"
++              },
++              {
++                "horario": "16:00 - 16:45",
++                "disciplina": "Ciências"
++              },
++              {
++                "horario": "16:45 - 17:30",
++                "disciplina": "Geografia"
++              },
++              {
++                "horario": "17:30 - 18:15",
++                "disciplina": "História"
++              }
++            ]
++          },
++          {
++            "dia": "2025-03-21",
++            "aulas": [
++              {
++                "horario": "13:15 - 14:00",
++                "disciplina": "Matemática I"
++              },
++              {
++                "horario": "14:00 - 14:45",
++                "disciplina": "Matemática I"
++              },
++              {
++                "horario": "15:15 - 16:00",
++                "disciplina": "Língua Inglesa"
++              },
++              {
++                "horario": "16:00 - 16:45",
++                "disciplina": "Língua Inglesa"
++              },
++              {
++                "horario": "16:45 - 17:30",
++                "disciplina": "Produção e Interpretação de Textos"
++              },
++              {
++                "horario": "17:30 - 18:15",
++                "disciplina": "Matemática II"
++              }
++            ]
++          },
++          {
++            "dia": "2025-03-22",
++            "aulas": []
++          }
++        ],
++        "boletim": [
++          {
++            "ano": "2025",
++            "turma": "1EF",
++            "trimestres": [
++              {
++                "trimestre": 1,
++                "disciplinas": [
++                  {
++                    "nome": "Língua Portuguesa",
++                    "nota": 9,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Produção e Interpretação de Textos",
++                    "nota": 8.5,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Matemática I",
++                    "nota": 10,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Matemática II",
++                    "nota": 9,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Geografia",
++                    "nota": 7,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "História",
++                    "nota": 7,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Ciências",
++                    "nota": 10,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Língua Inglesa",
++                    "nota": 7.5,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Projeto",
++                    "nota": 9,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Coding",
++                    "nota": 8.5,
++                    "faltas": 0
++                  },
++                  {
++                    "nome": "Educação Física",
++                    "nota": 8,
++                    "faltas": 0
++                  }
++                ]
++              },
++              {
++                "trimestre": 2,
++                "disciplinas": [
++                  {
++                    "nome": "Língua Portuguesa",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Produção e Interpretação de Textos",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Matemática I",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Matemática II",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Geografia",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "História",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Ciências",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Língua Inglesa",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Arte",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Projeto",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Coding",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Educação Física",
++                    "nota": null,
++                    "faltas": null
++                  }
++                ]
++              },
++              {
++                "trimestre": 3,
++                "disciplinas": [
++                  {
++                    "nome": "Língua Portuguesa",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Produção e Interpretação de Textos",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Matemática I",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Matemática II",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Geografia",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "História",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Ciências",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Língua Inglesa",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Arte",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Projeto",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Coding",
++                    "nota": null,
++                    "faltas": null
++                  },
++                  {
++                    "nome": "Educação Física",
++                    "nota": null,
++                    "faltas": null
++                  }
++                ]
++              }
++            ]
++          }
++        ]
++      }
++    ]
++  }
++]
+diff --git a/api/prisma/seed-mapper.spec.ts b/api/prisma/seed-mapper.spec.ts
+new file mode 100644
+index 0000000..bea1ebb
+--- /dev/null
++++ b/api/prisma/seed-mapper.spec.ts
+@@ -0,0 +1,293 @@
++import { readFileSync } from 'node:fs';
++import { join } from 'node:path';
++import {
++  GUARDIAN_WITHOUT_STUDENTS,
++  mapSeed,
++  RawGuardian,
++  splitTimeRange,
++} from './seed-mapper';
++
++function cpfCheckDigit(digits: number[]): number {
++  const weightStart = digits.length + 1;
++  const sum = digits.reduce((acc, d, i) => acc + d * (weightStart - i), 0);
++  const rest = sum % 11;
++  return rest < 2 ? 0 : 11 - rest;
++}
++
++function hasValidCpfDigits(cpf: string): boolean {
++  const digits = cpf.split('').map(Number);
++  const first = cpfCheckDigit(digits.slice(0, 9));
++  const second = cpfCheckDigit([...digits.slice(0, 9), first]);
++  return digits[9] === first && digits[10] === second;
++}
++
++function rawGuardian(overrides: Partial<RawGuardian> = {}): RawGuardian {
++  return {
++    id: 1,
++    cpf: '96929456004',
++    email: 'gustavo@example.com',
++    senha: '123456',
++    primeiroNome: 'Gustavo',
++    sobrenome: 'da Silva',
++    alunos: [
++      {
++        rm: 12567,
++        turma: '7EF',
++        periodo: 'Matutino',
++        primeiroNome: 'Rafael',
++        sobrenome: 'da Silva',
++        agenda: [
++          { dia: '2025-03-16', aulas: [] },
++          {
++            dia: '2025-03-17',
++            aulas: [
++              { horario: '10:00 - 10:45', disciplina: 'Ciências' },
++              { horario: '07:15 - 08:00', disciplina: 'Matemática I' },
++            ],
++          },
++        ],
++        boletim: [
++          {
++            ano: '2025',
++            turma: '7EF',
++            trimestres: [
++              {
++                trimestre: 1,
++                disciplinas: [
++                  { nome: 'Língua Portuguesa', nota: 9.5, faltas: 0 },
++                  { nome: 'Arte', nota: 7, faltas: 2 },
++                ],
++              },
++              {
++                trimestre: 2,
++                disciplinas: [
++                  { nome: 'Língua Portuguesa', nota: null, faltas: null },
++                ],
++              },
++            ],
++          },
++        ],
++      },
++    ],
++    ...overrides,
++  };
++}
++
++describe('splitTimeRange', () => {
++  it('separa "07:15 - 08:00" em início e fim', () => {
++    expect(splitTimeRange('07:15 - 08:00')).toEqual({
++      startTime: '07:15',
++      endTime: '08:00',
++    });
++  });
++
++  it('aceita o horário sem espaços em volta do hífen', () => {
++    expect(splitTimeRange('13:15-14:00')).toEqual({
++      startTime: '13:15',
++      endTime: '14:00',
++    });
++  });
++
++  it.each(['', '07:15', '7:15 - 08:00', '07:15 - 08:00 - 09:00', 'aula'])(
++    'recusa o horário malformado "%s"',
++    (value) => {
++      expect(() => splitTimeRange(value)).toThrow(/horário inválido/i);
++    },
++  );
++});
++
++describe('mapSeed', () => {
++  it('mapeia os dados do responsável e mantém a senha em texto para o seed gerar o hash', () => {
++    const { guardians } = mapSeed([rawGuardian()]);
++
++    expect(guardians).toEqual([
++      {
++        cpf: '96929456004',
++        email: 'gustavo@example.com',
++        password: '123456',
++        firstName: 'Gustavo',
++        lastName: 'da Silva',
++        studentRms: [12567],
++      },
++    ]);
++  });
++
++  it('guarda o CPF só com dígitos', () => {
++    const { guardians } = mapSeed([rawGuardian({ cpf: '969.294.560-04' })]);
++
++    expect(guardians[0].cpf).toBe('96929456004');
++  });
++
++  it('mapeia o aluno', () => {
++    const { students } = mapSeed([rawGuardian()]);
++
++    expect(students[0]).toMatchObject({
++      rm: 12567,
++      firstName: 'Rafael',
++      lastName: 'da Silva',
++      className: '7EF',
++      period: 'Matutino',
++    });
++  });
++
++  it('divide o horário das aulas e preserva a ordem do JSON', () => {
++    const { students } = mapSeed([rawGuardian()]);
++
++    expect(students[0].agenda[1]).toEqual({
++      date: '2025-03-17',
++      lessons: [
++        { startTime: '10:00', endTime: '10:45', subject: 'Ciências', order: 0 },
++        {
++          startTime: '07:15',
++          endTime: '08:00',
++          subject: 'Matemática I',
++          order: 1,
++        },
++      ],
++    });
++  });
++
++  it('mantém o dia sem aulas com a lista vazia', () => {
++    const { students } = mapSeed([rawGuardian()]);
++
++    expect(students[0].agenda[0]).toEqual({ date: '2025-03-16', lessons: [] });
++  });
++
++  it('converte o ano do boletim de texto para inteiro', () => {
++    const { students } = mapSeed([rawGuardian()]);
++
++    expect(students[0].reportCards[0].year).toBe(2025);
++    expect(students[0].reportCards[0].className).toBe('7EF');
++  });
++
++  it('recusa ano do boletim que não é número', () => {
++    const raw = rawGuardian();
++    raw.alunos[0].boletim[0].ano = 'dois mil';
++
++    expect(() => mapSeed([raw])).toThrow(/ano inválido/i);
++  });
++
++  it('achata os trimestres em resultados com a ordem das disciplinas preservada', () => {
++    const { students } = mapSeed([rawGuardian()]);
++
++    expect(students[0].reportCards[0].termResults).toEqual([
++      {
++        term: 1,
++        subject: 'Língua Portuguesa',
++        grade: 9.5,
++        absences: 0,
++        order: 0,
++      },
++      { term: 1, subject: 'Arte', grade: 7, absences: 2, order: 1 },
++      {
++        term: 2,
++        subject: 'Língua Portuguesa',
++        grade: null,
++        absences: null,
++        order: 0,
++      },
++    ]);
++  });
++
++  it('mantém nota e falta null como null, e zero como zero', () => {
++    const { students } = mapSeed([rawGuardian()]);
++    const [first, , third] = students[0].reportCards[0].termResults;
++
++    expect(first.absences).toBe(0);
++    expect(third.grade).toBeNull();
++    expect(third.absences).toBeNull();
++  });
++
++  it('cria um aluno só quando dois responsáveis têm o mesmo RM', () => {
++    const second = rawGuardian({
++      id: 2,
++      cpf: '50879567007',
++      email: 'outra@example.com',
++    });
++
++    const { guardians, students } = mapSeed([rawGuardian(), second]);
++
++    expect(students).toHaveLength(1);
++    expect(guardians.map((g) => g.studentRms)).toEqual([[12567], [12567]]);
++  });
++});
++
++describe('GUARDIAN_WITHOUT_STUDENTS', () => {
++  it('é o responsável extra sem aluno, com CPF de dígitos verificadores válidos', () => {
++    expect(GUARDIAN_WITHOUT_STUDENTS).toEqual({
++      cpf: '31415926590',
++      email: 'carlos@example.com',
++      password: '111111',
++      firstName: 'Carlos',
++      lastName: 'Sem Aluno',
++      studentRms: [],
++    });
++    expect(hasValidCpfDigits(GUARDIAN_WITHOUT_STUDENTS.cpf)).toBe(true);
++  });
++});
++
++describe('mapSeed com o JSON oficial', () => {
++  const raw = JSON.parse(
++    readFileSync(join(__dirname, 'seed-data', 'responsaveis.json'), 'utf8'),
++  ) as RawGuardian[];
++  const { guardians, students } = mapSeed(raw);
++  const byRm = (rm: number) => students.find((s) => s.rm === rm)!;
++
++  it('tem os 2 responsáveis e os 3 alunos', () => {
++    expect(guardians.map((g) => g.firstName)).toEqual(['Gustavo', 'Adelaide']);
++    expect(guardians.map((g) => g.studentRms)).toEqual([
++      [12567, 12568],
++      [13752],
++    ]);
++    expect(students.map((s) => s.firstName)).toEqual([
++      'Rafael',
++      'Joana',
++      'Bianca',
++    ]);
++  });
++
++  it('tem os 7 dias da agenda, com sábado e domingo vazios', () => {
++    const agenda = byRm(12567).agenda;
++
++    expect(agenda.map((d) => d.date)).toEqual([
++      '2025-03-16',
++      '2025-03-17',
++      '2025-03-18',
++      '2025-03-19',
++      '2025-03-20',
++      '2025-03-21',
++      '2025-03-22',
++    ]);
++    expect(agenda.map((d) => d.lessons.length)).toEqual([0, 6, 6, 6, 6, 6, 0]);
++  });
++
++  it('Rafael tem boletim de 2025 (7EF) e 2024 (6EF)', () => {
++    expect(byRm(12567).reportCards.map((r) => [r.year, r.className])).toEqual([
++      [2025, '7EF'],
++      [2024, '6EF'],
++    ]);
++  });
++
++  it('Rafael em 2025 tem 12 disciplinas avaliadas no T1 e T2/T3 sem nota nem falta', () => {
++    const results = byRm(12567).reportCards[0].termResults;
++    const term = (t: number) => results.filter((r) => r.term === t);
++
++    expect(term(1)).toHaveLength(12);
++    expect(term(1).every((r) => r.grade !== null && r.absences !== null)).toBe(
++      true,
++    );
++    expect(term(2)).toHaveLength(12);
++    expect(term(3)).toHaveLength(12);
++    expect(
++      [...term(2), ...term(3)].every(
++        (r) => r.grade === null && r.absences === null,
++      ),
++    ).toBe(true);
++  });
++
++  it('Bianca tem 11 disciplinas no T1, como no JSON', () => {
++    const results = byRm(13752).reportCards[0].termResults;
++
++    expect(results.filter((r) => r.term === 1)).toHaveLength(11);
++  });
++});
+diff --git a/api/prisma/seed-mapper.ts b/api/prisma/seed-mapper.ts
+new file mode 100644
+index 0000000..59380f7
+--- /dev/null
++++ b/api/prisma/seed-mapper.ts
+@@ -0,0 +1,195 @@
++// Converte o JSON oficial do teste (prisma/seed-data/responsaveis.json) nos
++// registros do banco. Função pura: o seed.ts só gera o hash das senhas e grava.
++
++export interface RawLesson {
++  horario: string;
++  disciplina: string;
++}
++
++export interface RawAgendaDay {
++  dia: string;
++  aulas: RawLesson[];
++}
++
++export interface RawSubjectResult {
++  nome: string;
++  nota: number | null;
++  faltas: number | null;
++}
++
++export interface RawTerm {
++  trimestre: number;
++  disciplinas: RawSubjectResult[];
++}
++
++export interface RawReportCard {
++  ano: string;
++  turma: string;
++  trimestres: RawTerm[];
++}
++
++export interface RawStudent {
++  rm: number;
++  turma: string;
++  periodo: string;
++  primeiroNome: string;
++  sobrenome: string;
++  agenda: RawAgendaDay[];
++  boletim: RawReportCard[];
++}
++
++export interface RawGuardian {
++  id: number;
++  cpf: string;
++  email: string;
++  senha: string;
++  primeiroNome: string;
++  sobrenome: string;
++  alunos: RawStudent[];
++}
++
++export interface SeedLesson {
++  startTime: string;
++  endTime: string;
++  subject: string;
++  order: number;
++}
++
++export interface SeedAgendaDay {
++  date: string;
++  lessons: SeedLesson[];
++}
++
++export interface SeedTermResult {
++  term: number;
++  subject: string;
++  grade: number | null;
++  absences: number | null;
++  order: number;
++}
++
++export interface SeedReportCard {
++  year: number;
++  className: string;
++  termResults: SeedTermResult[];
++}
++
++export interface SeedStudent {
++  rm: number;
++  firstName: string;
++  lastName: string;
++  className: string;
++  period: string;
++  agenda: SeedAgendaDay[];
++  reportCards: SeedReportCard[];
++}
++
++export interface SeedGuardian {
++  cpf: string;
++  email: string;
++  /** Texto puro: o seed gera o hash bcrypt antes de gravar. */
++  password: string;
++  firstName: string;
++  lastName: string;
++  studentRms: number[];
++}
++
++export interface SeedPlan {
++  guardians: SeedGuardian[];
++  students: SeedStudent[];
++}
++
++/**
++ * Responsável extra, sem aluno vinculado, para o cenário de erro do app.
++ * Não existe no JSON oficial; o CPF é fictício e tem dígitos verificadores válidos.
++ */
++export const GUARDIAN_WITHOUT_STUDENTS: SeedGuardian = {
++  cpf: '31415926590',
++  email: 'carlos@example.com',
++  password: '111111',
++  firstName: 'Carlos',
++  lastName: 'Sem Aluno',
++  studentRms: [],
++};
++
++const TIME_RANGE = /^(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})$/;
++const YEAR = /^\d{4}$/;
++
++export function splitTimeRange(value: string): {
++  startTime: string;
++  endTime: string;
++} {
++  const match = TIME_RANGE.exec(value.trim());
++  if (!match) {
++    throw new Error(`Horário inválido no JSON: "${value}"`);
++  }
++  return { startTime: match[1], endTime: match[2] };
++}
++
++function parseYear(value: string): number {
++  if (!YEAR.test(value.trim())) {
++    throw new Error(`Ano inválido no boletim: "${value}"`);
++  }
++  return Number(value);
++}
++
++function mapAgendaDay(day: RawAgendaDay): SeedAgendaDay {
++  return {
++    date: day.dia,
++    lessons: day.aulas.map((lesson, order) => ({
++      ...splitTimeRange(lesson.horario),
++      subject: lesson.disciplina,
++      order,
++    })),
++  };
++}
++
++function mapReportCard(card: RawReportCard): SeedReportCard {
++  return {
++    year: parseYear(card.ano),
++    className: card.turma,
++    termResults: card.trimestres.flatMap((term) =>
++      term.disciplinas.map((subject, order) => ({
++        term: term.trimestre,
++        subject: subject.nome,
++        grade: subject.nota,
++        absences: subject.faltas,
++        order,
++      })),
++    ),
++  };
++}
++
++function mapStudent(student: RawStudent): SeedStudent {
++  return {
++    rm: student.rm,
++    firstName: student.primeiroNome,
++    lastName: student.sobrenome,
++    className: student.turma,
++    period: student.periodo,
++    agenda: student.agenda.map(mapAgendaDay),
++    reportCards: student.boletim.map(mapReportCard),
++  };
++}
++
++export function mapSeed(raw: RawGuardian[]): SeedPlan {
++  const students = new Map<number, SeedStudent>();
++
++  const guardians = raw.map((guardian) => {
++    for (const student of guardian.alunos) {
++      if (!students.has(student.rm)) {
++        students.set(student.rm, mapStudent(student));
++      }
++    }
++    return {
++      cpf: guardian.cpf.replace(/\D/g, ''),
++      email: guardian.email,
++      password: guardian.senha,
++      firstName: guardian.primeiroNome,
++      lastName: guardian.sobrenome,
++      studentRms: guardian.alunos.map((student) => student.rm),
++    };
++  });
++
++  return { guardians, students: [...students.values()] };
++}
+diff --git a/api/prisma/seed.ts b/api/prisma/seed.ts
+new file mode 100644
+index 0000000..832eda0
+--- /dev/null
++++ b/api/prisma/seed.ts
+@@ -0,0 +1,104 @@
++import 'dotenv/config';
++import { readFileSync } from 'node:fs';
++import { join } from 'node:path';
++import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
++import { hash } from 'bcryptjs';
++import { PrismaClient } from '../src/generated/prisma/client';
++import {
++  GUARDIAN_WITHOUT_STUDENTS,
++  mapSeed,
++  RawGuardian,
++  SeedStudent,
++} from './seed-mapper';
++
++const BCRYPT_ROUNDS = 10;
++
++function readOfficialJson(): RawGuardian[] {
++  const file = join(__dirname, 'seed-data', 'responsaveis.json');
++  return JSON.parse(readFileSync(file, 'utf8')) as RawGuardian[];
++}
++
++function studentData(student: SeedStudent) {
++  return {
++    rm: student.rm,
++    firstName: student.firstName,
++    lastName: student.lastName,
++    className: student.className,
++    period: student.period,
++    agendaDays: {
++      create: student.agenda.map((day) => ({
++        date: day.date,
++        lessons: { create: day.lessons },
++      })),
++    },
++    reportCards: {
++      create: student.reportCards.map((card) => ({
++        year: card.year,
++        className: card.className,
++        termResults: { create: card.termResults },
++      })),
++    },
++  };
++}
++
++async function main(): Promise<void> {
++  const url = process.env.DATABASE_URL;
++  if (!url) {
++    throw new Error('DATABASE_URL não definida.');
++  }
++
++  const { guardians, students } = mapSeed(readOfficialJson());
++  const allGuardians = [...guardians, GUARDIAN_WITHOUT_STUDENTS];
++  const passwordHashes = await Promise.all(
++    allGuardians.map((guardian) => hash(guardian.password, BCRYPT_ROUNDS)),
++  );
++
++  const prisma = new PrismaClient({
++    adapter: new PrismaBetterSqlite3({ url }),
++  });
++
++  try {
++    await prisma.$transaction(async (tx) => {
++      // Recria tudo: o seed pode rodar de novo sem duplicar nada.
++      await tx.guardian.deleteMany();
++      await tx.student.deleteMany();
++
++      const studentIds = new Map<number, string>();
++      for (const student of students) {
++        const created = await tx.student.create({
++          data: studentData(student),
++          select: { id: true },
++        });
++        studentIds.set(student.rm, created.id);
++      }
++
++      for (const [index, guardian] of allGuardians.entries()) {
++        await tx.guardian.create({
++          data: {
++            cpf: guardian.cpf,
++            email: guardian.email,
++            firstName: guardian.firstName,
++            lastName: guardian.lastName,
++            passwordHash: passwordHashes[index],
++            students: {
++              create: guardian.studentRms.map((rm) => ({
++                studentId: studentIds.get(rm)!,
++              })),
++            },
++          },
++        });
++      }
++    });
++
++    console.log(
++      `Seed concluído: ${allGuardians.length} responsáveis e ${students.length} alunos.`,
++    );
++  } finally {
++    await prisma.$disconnect();
++  }
++}
++
++main().catch((error: unknown) => {
++  console.error(error);
++  process.exit(1);
++});
+diff --git a/api/src/app.module.ts b/api/src/app.module.ts
+new file mode 100644
+index 0000000..ce34921
+--- /dev/null
++++ b/api/src/app.module.ts
+@@ -0,0 +1,18 @@
++import { Module } from '@nestjs/common';
++import { ConfigModule } from '@nestjs/config';
++import { validateEnv } from './config/env.validation';
++import { PrismaModule } from './infra/prisma/prisma.module';
++import { HealthModule } from './modules/health/health.module';
++
++@Module({
++  imports: [
++    ConfigModule.forRoot({
++      isGlobal: true,
++      cache: true,
++      validate: validateEnv,
++    }),
++    PrismaModule,
++    HealthModule,
++  ],
++})
++export class AppModule {}
+diff --git a/api/src/app.setup.ts b/api/src/app.setup.ts
+new file mode 100644
+index 0000000..e01b6e7
+--- /dev/null
++++ b/api/src/app.setup.ts
+@@ -0,0 +1,26 @@
++import { INestApplication, ValidationPipe } from '@nestjs/common';
++import { ConfigService } from '@nestjs/config';
++import {
++  EnvironmentVariables,
++  parseCorsOrigins,
++} from './config/env.validation';
++
++export const API_PREFIX = 'api';
++
++/** Configuração HTTP comum ao main.ts e aos testes e2e. */
++export function configureApp(app: INestApplication): void {
++  const config = app.get(ConfigService<EnvironmentVariables, true>);
++
++  app.setGlobalPrefix(API_PREFIX);
++  app.useGlobalPipes(
++    new ValidationPipe({
++      whitelist: true,
++      forbidNonWhitelisted: true,
++      transform: true,
++    }),
++  );
++  app.enableCors({
++    origin: parseCorsOrigins(config.get('CORS_ORIGINS', { infer: true })),
++  });
++  app.enableShutdownHooks();
++}
+diff --git a/api/src/config/env.validation.spec.ts b/api/src/config/env.validation.spec.ts
+new file mode 100644
+index 0000000..3149860
+--- /dev/null
++++ b/api/src/config/env.validation.spec.ts
+@@ -0,0 +1,54 @@
++import { parseCorsOrigins, validateEnv } from './env.validation';
++
++const validEnv = {
++  DATABASE_URL: 'file:./dev.db',
++  JWT_SECRET: 'segredo',
++};
++
++describe('validateEnv', () => {
++  it('aplica os padrões de porta, expiração do token e CORS', () => {
++    expect(validateEnv(validEnv)).toMatchObject({
++      DATABASE_URL: 'file:./dev.db',
++      JWT_SECRET: 'segredo',
++      PORT: 3333,
++      JWT_EXPIRES_IN: '7d',
++      CORS_ORIGINS: '*',
++    });
++  });
++
++  it('converte a porta de texto para número', () => {
++    expect(validateEnv({ ...validEnv, PORT: '4000' }).PORT).toBe(4000);
++  });
++
++  it.each(['DATABASE_URL', 'JWT_SECRET'])(
++    'recusa a configuração sem %s',
++    (key) => {
++      const env: Record<string, unknown> = { ...validEnv };
++      delete env[key];
++
++      expect(() => validateEnv(env)).toThrow(key);
++    },
++  );
++
++  it('recusa JWT_SECRET vazio', () => {
++    expect(() => validateEnv({ ...validEnv, JWT_SECRET: '' })).toThrow(
++      'JWT_SECRET',
++    );
++  });
++
++  it.each(['0', '70000', 'abc'])('recusa a porta "%s"', (port) => {
++    expect(() => validateEnv({ ...validEnv, PORT: port })).toThrow('PORT');
++  });
++});
++
++describe('parseCorsOrigins', () => {
++  it('libera todas as origens com *', () => {
++    expect(parseCorsOrigins('*')).toBe('*');
++  });
++
++  it('separa a lista por vírgula e ignora espaços e itens vazios', () => {
++    expect(
++      parseCorsOrigins(' http://localhost:8081, https://app.example.com ,'),
++    ).toEqual(['http://localhost:8081', 'https://app.example.com']);
++  });
++});
+diff --git a/api/src/config/env.validation.ts b/api/src/config/env.validation.ts
+new file mode 100644
+index 0000000..27ac1e4
+--- /dev/null
++++ b/api/src/config/env.validation.ts
+@@ -0,0 +1,70 @@
++import 'reflect-metadata';
++import { plainToInstance } from 'class-transformer';
++import {
++  IsInt,
++  IsNotEmpty,
++  IsOptional,
++  IsString,
++  Max,
++  Min,
++  validateSync,
++} from 'class-validator';
++
++export class EnvironmentVariables {
++  @IsString()
++  @IsNotEmpty()
++  DATABASE_URL!: string;
++
++  @IsInt()
++  @Min(1)
++  @Max(65535)
++  PORT: number = 3333;
++
++  @IsString()
++  @IsNotEmpty()
++  JWT_SECRET!: string;
++
++  @IsString()
++  @IsNotEmpty()
++  JWT_EXPIRES_IN: string = '7d';
++
++  /** "*" ou lista de origens separadas por vírgula. */
++  @IsString()
++  @IsNotEmpty()
++  CORS_ORIGINS: string = '*';
++
++  @IsOptional()
++  @IsString()
++  NODE_ENV?: string;
++}
++
++export function validateEnv(
++  config: Record<string, unknown>,
++): EnvironmentVariables {
++  const env = plainToInstance(EnvironmentVariables, config, {
++    enableImplicitConversion: true,
++    exposeDefaultValues: true,
++  });
++  const errors = validateSync(env, { skipMissingProperties: false });
++
++  if (errors.length > 0) {
++    const details = errors
++      .map(
++        (error) =>
++          `${error.property}: ${Object.values(error.constraints ?? {}).join(', ')}`,
++      )
++      .join('; ');
++    throw new Error(`Configuração de ambiente inválida. ${details}`);
++  }
++  return env;
++}
++
++export function parseCorsOrigins(value: string): '*' | string[] {
++  if (value.trim() === '*') {
++    return '*';
++  }
++  return value
++    .split(',')
++    .map((origin) => origin.trim())
++    .filter(Boolean);
++}
+diff --git a/api/src/infra/prisma/prisma.module.ts b/api/src/infra/prisma/prisma.module.ts
+new file mode 100644
+index 0000000..7207426
+--- /dev/null
++++ b/api/src/infra/prisma/prisma.module.ts
+@@ -0,0 +1,9 @@
++import { Global, Module } from '@nestjs/common';
++import { PrismaService } from './prisma.service';
++
++@Global()
++@Module({
++  providers: [PrismaService],
++  exports: [PrismaService],
++})
++export class PrismaModule {}
+diff --git a/api/src/infra/prisma/prisma.service.ts b/api/src/infra/prisma/prisma.service.ts
+new file mode 100644
+index 0000000..3eb6e4b
+--- /dev/null
++++ b/api/src/infra/prisma/prisma.service.ts
+@@ -0,0 +1,27 @@
++import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
++import { ConfigService } from '@nestjs/config';
++import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
++import { PrismaClient } from '../../generated/prisma/client';
++import { EnvironmentVariables } from '../../config/env.validation';
++
++@Injectable()
++export class PrismaService
++  extends PrismaClient
++  implements OnModuleInit, OnModuleDestroy
++{
++  constructor(config: ConfigService<EnvironmentVariables, true>) {
++    super({
++      adapter: new PrismaBetterSqlite3({
++        url: config.get('DATABASE_URL', { infer: true }),
++      }),
++    });
++  }
++
++  async onModuleInit(): Promise<void> {
++    await this.$connect();
++  }
++
++  async onModuleDestroy(): Promise<void> {
++    await this.$disconnect();
++  }
++}
+diff --git a/api/src/main.ts b/api/src/main.ts
+new file mode 100644
+index 0000000..be6b34a
+--- /dev/null
++++ b/api/src/main.ts
+@@ -0,0 +1,15 @@
++import { NestFactory } from '@nestjs/core';
++import { ConfigService } from '@nestjs/config';
++import { AppModule } from './app.module';
++import { configureApp } from './app.setup';
++import { EnvironmentVariables } from './config/env.validation';
++
++async function bootstrap(): Promise<void> {
++  const app = await NestFactory.create(AppModule);
++  configureApp(app);
++
++  const config = app.get(ConfigService<EnvironmentVariables, true>);
++  await app.listen(config.get('PORT', { infer: true }));
++}
++
++void bootstrap();
+diff --git a/api/src/modules/health/controllers/health.controller.ts b/api/src/modules/health/controllers/health.controller.ts
+new file mode 100644
+index 0000000..859e4a5
+--- /dev/null
++++ b/api/src/modules/health/controllers/health.controller.ts
+@@ -0,0 +1,9 @@
++import { Controller, Get } from '@nestjs/common';
++
++@Controller('health')
++export class HealthController {
++  @Get()
++  check(): { status: 'ok' } {
++    return { status: 'ok' };
++  }
++}
+diff --git a/api/src/modules/health/health.module.ts b/api/src/modules/health/health.module.ts
+new file mode 100644
+index 0000000..e7c39dc
+--- /dev/null
++++ b/api/src/modules/health/health.module.ts
+@@ -0,0 +1,7 @@
++import { Module } from '@nestjs/common';
++import { HealthController } from './controllers/health.controller';
++
++@Module({
++  controllers: [HealthController],
++})
++export class HealthModule {}
+diff --git a/api/test/health.e2e-spec.ts b/api/test/health.e2e-spec.ts
+new file mode 100644
+index 0000000..1b2ee73
+--- /dev/null
++++ b/api/test/health.e2e-spec.ts
+@@ -0,0 +1,35 @@
++import { INestApplication } from '@nestjs/common';
++import request from 'supertest';
++import { App } from 'supertest/types';
++import { createTestApp } from './setup/create-test-app';
++
++describe('Health (e2e)', () => {
++  let app: INestApplication<App>;
++
++  beforeAll(async () => {
++    app = await createTestApp();
++  });
++
++  afterAll(async () => {
++    await app.close();
++  });
++
++  it('GET /api/health responde 200 com status ok', async () => {
++    const response = await request(app.getHttpServer()).get('/api/health');
++
++    expect(response.status).toBe(200);
++    expect(response.body).toEqual({ status: 'ok' });
++  });
++
++  it('as rotas ficam sob o prefixo /api', async () => {
++    await request(app.getHttpServer()).get('/health').expect(404);
++  });
++
++  it('libera o CORS para a origem configurada', async () => {
++    const response = await request(app.getHttpServer())
++      .get('/api/health')
++      .set('Origin', 'http://localhost:8081');
++
++    expect(response.headers['access-control-allow-origin']).toBe('*');
++  });
++});
+diff --git a/api/test/jest-e2e.json b/api/test/jest-e2e.json
+new file mode 100644
+index 0000000..e101ec2
+--- /dev/null
++++ b/api/test/jest-e2e.json
+@@ -0,0 +1,29 @@
++{
++  "moduleFileExtensions": [
++    "js",
++    "json",
++    "ts"
++  ],
++  "rootDir": "..",
++  "testEnvironment": "node",
++  "testRegex": ".e2e-spec.ts$",
++  "transform": {
++    "^.+\\.(t|j)s$": [
++      "ts-jest",
++      {
++        "tsconfig": "<rootDir>/tsconfig.jest.json"
++      }
++    ]
++  },
++  "globalSetup": "<rootDir>/test/setup/global-setup.ts",
++  "setupFiles": [
++    "<rootDir>/test/setup/test-env.ts"
++  ],
++  "watchman": false,
++  "moduleNameMapper": {
++    "^(\\.{1,2}/.*)\\.js$": "$1"
++  },
++  "roots": [
++    "<rootDir>/test"
++  ]
++}
+diff --git a/api/test/seed.e2e-spec.ts b/api/test/seed.e2e-spec.ts
+new file mode 100644
+index 0000000..aaa14d1
+--- /dev/null
++++ b/api/test/seed.e2e-spec.ts
+@@ -0,0 +1,89 @@
++import { PrismaService } from '../src/infra/prisma/prisma.service';
++import { createTestApp } from './setup/create-test-app';
++import { INestApplication } from '@nestjs/common';
++import { compare } from 'bcryptjs';
++
++describe('Seed no banco de teste (e2e)', () => {
++  let app: INestApplication;
++  let prisma: PrismaService;
++
++  beforeAll(async () => {
++    app = await createTestApp();
++    prisma = app.get(PrismaService);
++  });
++
++  afterAll(async () => {
++    await app.close();
++  });
++
++  it('cria os 3 responsáveis, inclusive o sem aluno', async () => {
++    const guardians = await prisma.guardian.findMany({
++      orderBy: { cpf: 'asc' },
++      select: {
++        cpf: true,
++        firstName: true,
++        _count: { select: { students: true } },
++      },
++    });
++
++    expect(guardians).toEqual([
++      { cpf: '31415926590', firstName: 'Carlos', _count: { students: 0 } },
++      { cpf: '50879567007', firstName: 'Adelaide', _count: { students: 1 } },
++      { cpf: '96929456004', firstName: 'Gustavo', _count: { students: 2 } },
++    ]);
++  });
++
++  it('guarda a senha com bcrypt, nunca em texto', async () => {
++    const gustavo = await prisma.guardian.findUniqueOrThrow({
++      where: { cpf: '96929456004' },
++    });
++
++    expect(gustavo.passwordHash).not.toBe('123456');
++    expect(gustavo.passwordHash).toMatch(/^\$2[aby]\$/);
++    await expect(compare('123456', gustavo.passwordHash)).resolves.toBe(true);
++  });
++
++  it('guarda as aulas com início, fim e a ordem do JSON', async () => {
++    const day = await prisma.agendaDay.findFirstOrThrow({
++      where: { date: '2025-03-17', student: { rm: 12567 } },
++      include: { lessons: { orderBy: { order: 'asc' } } },
++    });
++
++    expect(day.lessons[0]).toMatchObject({
++      startTime: '07:15',
++      endTime: '08:00',
++      subject: 'Matemática I',
++      order: 0,
++    });
++    expect(day.lessons).toHaveLength(6);
++  });
++
++  it('guarda os dias sem aula da agenda', async () => {
++    const days = await prisma.agendaDay.findMany({
++      where: { student: { rm: 12567 } },
++      orderBy: { date: 'asc' },
++      include: { _count: { select: { lessons: true } } },
++    });
++
++    expect(days.map((d) => [d.date, d._count.lessons])).toEqual([
++      ['2025-03-16', 0],
++      ['2025-03-17', 6],
++      ['2025-03-18', 6],
++      ['2025-03-19', 6],
++      ['2025-03-20', 6],
++      ['2025-03-21', 6],
++      ['2025-03-22', 0],
++    ]);
++  });
++
++  it('guarda nota e falta null no T2 do Rafael em 2025', async () => {
++    const results = await prisma.termResult.findMany({
++      where: { term: 2, reportCard: { year: 2025, student: { rm: 12567 } } },
++    });
++
++    expect(results).toHaveLength(12);
++    expect(results.every((r) => r.grade === null && r.absences === null)).toBe(
++      true,
++    );
++  });
++});
+diff --git a/api/test/setup/create-test-app.ts b/api/test/setup/create-test-app.ts
+new file mode 100644
+index 0000000..a4f65cf
+--- /dev/null
++++ b/api/test/setup/create-test-app.ts
+@@ -0,0 +1,16 @@
++import { INestApplication } from '@nestjs/common';
++import { Test } from '@nestjs/testing';
++import { App } from 'supertest/types';
++import { AppModule } from '../../src/app.module';
++import { configureApp } from '../../src/app.setup';
++
++export async function createTestApp(): Promise<INestApplication<App>> {
++  const moduleRef = await Test.createTestingModule({
++    imports: [AppModule],
++  }).compile();
++
++  const app = moduleRef.createNestApplication<INestApplication<App>>();
++  configureApp(app);
++  await app.init();
++  return app;
++}
+diff --git a/api/test/setup/global-setup.ts b/api/test/setup/global-setup.ts
+new file mode 100644
+index 0000000..c60d4cb
+--- /dev/null
++++ b/api/test/setup/global-setup.ts
+@@ -0,0 +1,24 @@
++import { execFileSync } from 'node:child_process';
++import { rmSync } from 'node:fs';
++import { join } from 'node:path';
++
++const API_ROOT = join(__dirname, '..', '..');
++const TEST_DB_FILE = join(API_ROOT, 'test.db');
++
++// O banco de teste é um arquivo descartável só da suíte e2e: é apagado e
++// recriado com as migrations e o seed a cada execução.
++export default function globalSetup(): void {
++  for (const suffix of ['', '-journal', '-wal', '-shm']) {
++    rmSync(`${TEST_DB_FILE}${suffix}`, { force: true });
++  }
++
++  const env = { ...process.env, DATABASE_URL: 'file:./test.db' };
++  const prisma = join(API_ROOT, 'node_modules', '.bin', 'prisma');
++
++  execFileSync(prisma, ['migrate', 'deploy'], {
++    cwd: API_ROOT,
++    env,
++    stdio: 'pipe',
++  });
++  execFileSync(prisma, ['db', 'seed'], { cwd: API_ROOT, env, stdio: 'pipe' });
++}
+diff --git a/api/test/setup/test-env.ts b/api/test/setup/test-env.ts
+new file mode 100644
+index 0000000..b11a608
+--- /dev/null
++++ b/api/test/setup/test-env.ts
+@@ -0,0 +1,6 @@
++// Carregado antes de cada arquivo e2e: o ConfigModule não sobrescreve o que já
++// está em process.env, então estes valores vencem o .env local.
++process.env.DATABASE_URL = 'file:./test.db';
++process.env.JWT_SECRET = 'segredo-dos-testes-e2e';
++process.env.JWT_EXPIRES_IN = '7d';
++process.env.CORS_ORIGINS = '*';
+diff --git a/api/tsconfig.build.json b/api/tsconfig.build.json
+new file mode 100644
+index 0000000..078d1c3
+--- /dev/null
++++ b/api/tsconfig.build.json
+@@ -0,0 +1,5 @@
++{
++  "extends": "./tsconfig.json",
++  "include": ["src"],
++  "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
++}
+diff --git a/api/tsconfig.jest.json b/api/tsconfig.jest.json
+new file mode 100644
+index 0000000..48c86d1
+--- /dev/null
++++ b/api/tsconfig.jest.json
+@@ -0,0 +1,8 @@
++{
++  "extends": "./tsconfig.json",
++  "compilerOptions": {
++    "module": "commonjs",
++    "moduleResolution": "node10",
++    "resolvePackageJsonExports": false
++  }
++}
+diff --git a/api/tsconfig.json b/api/tsconfig.json
+new file mode 100644
+index 0000000..cccdcae
+--- /dev/null
++++ b/api/tsconfig.json
+@@ -0,0 +1,23 @@
++{
++  "compilerOptions": {
++    "module": "nodenext",
++    "moduleResolution": "nodenext",
++    "resolvePackageJsonExports": true,
++    "esModuleInterop": true,
++    "isolatedModules": true,
++    "declaration": true,
++    "removeComments": true,
++    "emitDecoratorMetadata": true,
++    "experimentalDecorators": true,
++    "allowSyntheticDefaultImports": true,
++    "target": "ES2023",
++    "sourceMap": true,
++    "outDir": "./dist",
++    "baseUrl": "./",
++    "incremental": true,
++    "skipLibCheck": true,
++    "strict": true,
++    "forceConsistentCasingInFileNames": true,
++    "noFallthroughCasesInSwitch": true
++  }
++}

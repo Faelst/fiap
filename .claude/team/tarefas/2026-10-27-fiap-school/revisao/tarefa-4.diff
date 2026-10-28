@@ -1,0 +1,1452 @@
+a5d38ab feat(api): login com JWT, guard global e rate limit
+ api/.env.example                                   |   4 +
+ api/package.json                                   |   6 +
+ api/src/app.module.ts                              |   2 +
+ api/src/config/env.validation.spec.ts              |  41 ++++
+ api/src/config/env.validation.ts                   |  13 +-
+ api/src/modules/auth/auth.module.ts                |  62 ++++++
+ .../modules/auth/controllers/auth.controller.ts    |  18 ++
+ api/src/modules/auth/dto/login.dto.ts              |  17 ++
+ .../auth/repositories/guardians.repository.ts      |  16 ++
+ .../repositories/prisma-guardians.repository.ts    |  24 +++
+ api/src/modules/auth/services/password-hasher.ts   |  23 +++
+ .../modules/auth/strategies/jwt.strategy.spec.ts   |  24 +++
+ api/src/modules/auth/strategies/jwt.strategy.ts    |  27 +++
+ .../modules/auth/use-cases/login.use-case.spec.ts  | 135 +++++++++++++
+ api/src/modules/auth/use-cases/login.use-case.ts   |  64 ++++++
+ .../health/controllers/health.controller.ts        |   2 +
+ api/src/shared/decorators/current-guardian.ts      |  25 +++
+ api/src/shared/decorators/is-cpf.spec.ts           | 110 ++++++++++
+ api/src/shared/decorators/is-cpf.ts                |  56 ++++++
+ api/src/shared/decorators/public.ts                |   7 +
+ api/src/shared/guards/jwt-auth.guard.spec.ts       |  80 ++++++++
+ api/src/shared/guards/jwt-auth.guard.ts            |  26 +++
+ api/test/auth-throttle.e2e-spec.ts                 |  46 +++++
+ api/test/auth.e2e-spec.ts                          | 223 +++++++++++++++++++++
+ api/test/setup/create-test-app.ts                  |  12 +-
+ api/test/setup/protected-probe.controller.ts       |  23 +++
+ api/test/setup/test-env.ts                         |   4 +
+ api/yarn.lock                                      | 170 +++++++++++++++-
+ 28 files changed, 1255 insertions(+), 5 deletions(-)
+diff --git a/api/.env.example b/api/.env.example
+index 1a01802..d9c5757 100644
+--- a/api/.env.example
++++ b/api/.env.example
+@@ -1,8 +1,12 @@
+ # Caminho do SQLite, relativo à pasta api/ (onde os comandos rodam)
+ DATABASE_URL="file:./dev.db"
+ PORT=3333
+ # Troque por um segredo longo e aleatório fora do ambiente local
+ JWT_SECRET="troque-este-segredo-local"
++# Validade do token: segundos (3600) ou número com unidade (30m, 12h, 7d)
+ JWT_EXPIRES_IN=7d
+ # Lista separada por vírgula, ou * para liberar todas (só em dev)
+ CORS_ORIGINS=*
++# Rate limit do login: tentativas por IP dentro da janela (ms). Padrão 5 por minuto
++LOGIN_THROTTLE_LIMIT=5
++LOGIN_THROTTLE_TTL_MS=60000
+diff --git a/api/package.json b/api/package.json
+index cab0096..969632d 100644
+--- a/api/package.json
++++ b/api/package.json
+@@ -26,38 +26,44 @@
+     "prisma:seed": "prisma db seed",
+     "prisma:reset": "prisma migrate reset --force && prisma db seed",
+     "prisma:validate": "prisma validate",
+     "postinstall": "prisma generate",
+     "prisma:setup": "prisma migrate deploy && prisma db seed"
+   },
+   "dependencies": {
+     "@nestjs/common": "^11.0.1",
+     "@nestjs/config": "^4.0.4",
+     "@nestjs/core": "^11.0.1",
++    "@nestjs/jwt": "^11.0.2",
++    "@nestjs/passport": "^11.0.5",
+     "@nestjs/platform-express": "^11.0.1",
++    "@nestjs/throttler": "^6.7.1",
+     "@prisma/adapter-better-sqlite3": "7.10.1",
+     "@prisma/client": "7.10.1",
+     "bcryptjs": "^3.0.3",
+     "class-transformer": "^0.5.1",
+     "class-validator": "^0.15.1",
++    "passport": "^0.7.0",
++    "passport-jwt": "^4.0.1",
+     "reflect-metadata": "^0.2.2",
+     "rxjs": "^7.8.1"
+   },
+   "devDependencies": {
+     "@eslint/eslintrc": "^3.2.0",
+     "@eslint/js": "^9.18.0",
+     "@nestjs/cli": "^11.0.0",
+     "@nestjs/schematics": "^11.0.0",
+     "@nestjs/testing": "^11.0.1",
+     "@types/express": "^5.0.0",
+     "@types/jest": "^30.0.0",
+     "@types/node": "^24.0.0",
++    "@types/passport-jwt": "^4.0.1",
+     "@types/supertest": "^7.0.0",
+     "dotenv": "^18.0.9",
+     "eslint": "^9.18.0",
+     "eslint-config-prettier": "^10.0.1",
+     "eslint-plugin-prettier": "^5.2.2",
+     "globals": "^17.0.0",
+     "jest": "^30.0.0",
+     "prettier": "^3.4.2",
+     "prisma": "7.10.1",
+     "source-map-support": "^0.5.21",
+diff --git a/api/src/app.module.ts b/api/src/app.module.ts
+index ce34921..d2760bf 100644
+--- a/api/src/app.module.ts
++++ b/api/src/app.module.ts
+@@ -1,18 +1,20 @@
+ import { Module } from '@nestjs/common';
+ import { ConfigModule } from '@nestjs/config';
+ import { validateEnv } from './config/env.validation';
+ import { PrismaModule } from './infra/prisma/prisma.module';
++import { AuthModule } from './modules/auth/auth.module';
+ import { HealthModule } from './modules/health/health.module';
+ 
+ @Module({
+   imports: [
+     ConfigModule.forRoot({
+       isGlobal: true,
+       cache: true,
+       validate: validateEnv,
+     }),
+     PrismaModule,
++    AuthModule,
+     HealthModule,
+   ],
+ })
+ export class AppModule {}
+diff --git a/api/src/config/env.validation.spec.ts b/api/src/config/env.validation.spec.ts
+index 3149860..9b6b6e0 100644
+--- a/api/src/config/env.validation.spec.ts
++++ b/api/src/config/env.validation.spec.ts
+@@ -6,20 +6,22 @@ const validEnv = {
+ };
+ 
+ describe('validateEnv', () => {
+   it('aplica os padrões de porta, expiração do token e CORS', () => {
+     expect(validateEnv(validEnv)).toMatchObject({
+       DATABASE_URL: 'file:./dev.db',
+       JWT_SECRET: 'segredo',
+       PORT: 3333,
+       JWT_EXPIRES_IN: '7d',
+       CORS_ORIGINS: '*',
++      LOGIN_THROTTLE_LIMIT: 5,
++      LOGIN_THROTTLE_TTL_MS: 60000,
+     });
+   });
+ 
+   it('converte a porta de texto para número', () => {
+     expect(validateEnv({ ...validEnv, PORT: '4000' }).PORT).toBe(4000);
+   });
+ 
+   it.each(['DATABASE_URL', 'JWT_SECRET'])(
+     'recusa a configuração sem %s',
+     (key) => {
+@@ -32,20 +34,59 @@ describe('validateEnv', () => {
+ 
+   it('recusa JWT_SECRET vazio', () => {
+     expect(() => validateEnv({ ...validEnv, JWT_SECRET: '' })).toThrow(
+       'JWT_SECRET',
+     );
+   });
+ 
+   it.each(['0', '70000', 'abc'])('recusa a porta "%s"', (port) => {
+     expect(() => validateEnv({ ...validEnv, PORT: port })).toThrow('PORT');
+   });
++
++  it.each(['7d', '12h', '30m', '3600', '900s'])(
++    'aceita JWT_EXPIRES_IN "%s"',
++    (value) => {
++      expect(
++        validateEnv({ ...validEnv, JWT_EXPIRES_IN: value }).JWT_EXPIRES_IN,
++      ).toBe(value);
++    },
++  );
++
++  it.each(['sete dias', '7 dias', '-1d', '7x'])(
++    'recusa JWT_EXPIRES_IN "%s"',
++    (value) => {
++      expect(() => validateEnv({ ...validEnv, JWT_EXPIRES_IN: value })).toThrow(
++        'JWT_EXPIRES_IN',
++      );
++    },
++  );
++
++  it('converte o limite e a janela do rate limit do login para número', () => {
++    expect(
++      validateEnv({
++        ...validEnv,
++        LOGIN_THROTTLE_LIMIT: '1000',
++        LOGIN_THROTTLE_TTL_MS: '1000',
++      }),
++    ).toMatchObject({
++      LOGIN_THROTTLE_LIMIT: 1000,
++      LOGIN_THROTTLE_TTL_MS: 1000,
++    });
++  });
++
++  it.each([
++    ['LOGIN_THROTTLE_LIMIT', '0'],
++    ['LOGIN_THROTTLE_LIMIT', 'abc'],
++    ['LOGIN_THROTTLE_TTL_MS', '0'],
++  ])('recusa %s = "%s"', (key, value) => {
++    expect(() => validateEnv({ ...validEnv, [key]: value })).toThrow(key);
++  });
+ });
+ 
+ describe('parseCorsOrigins', () => {
+   it('libera todas as origens com *', () => {
+     expect(parseCorsOrigins('*')).toBe('*');
+   });
+ 
+   it('separa a lista por vírgula e ignora espaços e itens vazios', () => {
+     expect(
+       parseCorsOrigins(' http://localhost:8081, https://app.example.com ,'),
+diff --git a/api/src/config/env.validation.ts b/api/src/config/env.validation.ts
+index 27ac1e4..a90aed2 100644
+--- a/api/src/config/env.validation.ts
++++ b/api/src/config/env.validation.ts
+@@ -1,45 +1,56 @@
+ import 'reflect-metadata';
+ import { plainToInstance } from 'class-transformer';
+ import {
+   IsInt,
+   IsNotEmpty,
+   IsOptional,
+   IsString,
++  Matches,
+   Max,
+   Min,
+   validateSync,
+ } from 'class-validator';
+ 
+ export class EnvironmentVariables {
+   @IsString()
+   @IsNotEmpty()
+   DATABASE_URL!: string;
+ 
+   @IsInt()
+   @Min(1)
+   @Max(65535)
+   PORT: number = 3333;
+ 
+   @IsString()
+   @IsNotEmpty()
+   JWT_SECRET!: string;
+ 
++  /** Segundos ("3600") ou número com unidade ("900s", "30m", "12h", "7d"). */
+   @IsString()
+-  @IsNotEmpty()
++  @Matches(/^\d+(ms|s|m|h|d|w|y)?$/)
+   JWT_EXPIRES_IN: string = '7d';
+ 
+   /** "*" ou lista de origens separadas por vírgula. */
+   @IsString()
+   @IsNotEmpty()
+   CORS_ORIGINS: string = '*';
+ 
++  /** Tentativas de login por IP dentro da janela LOGIN_THROTTLE_TTL_MS. */
++  @IsInt()
++  @Min(1)
++  LOGIN_THROTTLE_LIMIT: number = 5;
++
++  @IsInt()
++  @Min(1)
++  LOGIN_THROTTLE_TTL_MS: number = 60000;
++
+   @IsOptional()
+   @IsString()
+   NODE_ENV?: string;
+ }
+ 
+ export function validateEnv(
+   config: Record<string, unknown>,
+ ): EnvironmentVariables {
+   const env = plainToInstance(EnvironmentVariables, config, {
+     enableImplicitConversion: true,
+diff --git a/api/src/modules/auth/auth.module.ts b/api/src/modules/auth/auth.module.ts
+new file mode 100644
+index 0000000..d0854dc
+--- /dev/null
++++ b/api/src/modules/auth/auth.module.ts
+@@ -0,0 +1,62 @@
++import { Module } from '@nestjs/common';
++import { ConfigService } from '@nestjs/config';
++import { APP_GUARD } from '@nestjs/core';
++import { JwtModule, JwtSignOptions } from '@nestjs/jwt';
++import { PassportModule } from '@nestjs/passport';
++import { ThrottlerModule } from '@nestjs/throttler';
++import { EnvironmentVariables } from '../../config/env.validation';
++import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
++import { AuthController } from './controllers/auth.controller';
++import { GUARDIANS_REPOSITORY } from './repositories/guardians.repository';
++import { PrismaGuardiansRepository } from './repositories/prisma-guardians.repository';
++import {
++  BcryptPasswordHasher,
++  PASSWORD_HASHER,
++} from './services/password-hasher';
++import { JwtStrategy } from './strategies/jwt.strategy';
++import { LoginUseCase } from './use-cases/login.use-case';
++
++type Config = ConfigService<EnvironmentVariables, true>;
++
++@Module({
++  imports: [
++    PassportModule,
++    JwtModule.registerAsync({
++      inject: [ConfigService],
++      useFactory: (config: Config) => {
++        // Formato garantido pelo env.validation (ex.: "7d", "3600").
++        const expiresIn = config.get('JWT_EXPIRES_IN', { infer: true });
++        return {
++          secret: config.get('JWT_SECRET', { infer: true }),
++          signOptions: {
++            algorithm: 'HS256',
++            expiresIn: expiresIn as JwtSignOptions['expiresIn'],
++          },
++        };
++      },
++    }),
++    // Só o login usa o ThrottlerGuard (no controller), não é guard global.
++    ThrottlerModule.forRootAsync({
++      inject: [ConfigService],
++      useFactory: (config: Config) => ({
++        throttlers: [
++          {
++            ttl: config.get('LOGIN_THROTTLE_TTL_MS', { infer: true }),
++            limit: config.get('LOGIN_THROTTLE_LIMIT', { infer: true }),
++          },
++        ],
++        errorMessage:
++          'Muitas tentativas de login. Aguarde um pouco e tente novamente.',
++      }),
++    }),
++  ],
++  controllers: [AuthController],
++  providers: [
++    LoginUseCase,
++    JwtStrategy,
++    { provide: GUARDIANS_REPOSITORY, useClass: PrismaGuardiansRepository },
++    { provide: PASSWORD_HASHER, useClass: BcryptPasswordHasher },
++    { provide: APP_GUARD, useClass: JwtAuthGuard },
++  ],
++})
++export class AuthModule {}
+diff --git a/api/src/modules/auth/controllers/auth.controller.ts b/api/src/modules/auth/controllers/auth.controller.ts
+new file mode 100644
+index 0000000..6156f55
+--- /dev/null
++++ b/api/src/modules/auth/controllers/auth.controller.ts
+@@ -0,0 +1,18 @@
++import { Body, Controller, HttpCode, Post, UseGuards } from '@nestjs/common';
++import { ThrottlerGuard } from '@nestjs/throttler';
++import { Public } from '../../../shared/decorators/public';
++import { LoginDto } from '../dto/login.dto';
++import { LoginOutput, LoginUseCase } from '../use-cases/login.use-case';
++
++@Controller('auth')
++export class AuthController {
++  constructor(private readonly loginUseCase: LoginUseCase) {}
++
++  @Public()
++  @UseGuards(ThrottlerGuard)
++  @Post('login')
++  @HttpCode(200)
++  login(@Body() body: LoginDto): Promise<LoginOutput> {
++    return this.loginUseCase.execute(body);
++  }
++}
+diff --git a/api/src/modules/auth/dto/login.dto.ts b/api/src/modules/auth/dto/login.dto.ts
+new file mode 100644
+index 0000000..3da10ca
+--- /dev/null
++++ b/api/src/modules/auth/dto/login.dto.ts
+@@ -0,0 +1,17 @@
++import { Transform } from 'class-transformer';
++import { Length } from 'class-validator';
++import { IsCpf, normalizeCpf } from '../../../shared/decorators/is-cpf';
++
++export const PASSWORD_INVALID_MESSAGE = 'Informe a senha (até 128 caracteres).';
++
++export class LoginDto {
++  /** Com ou sem máscara; chega ao use case só com dígitos. */
++  @Transform(({ value }) => normalizeCpf(value))
++  @IsCpf()
++  cpf!: string;
++
++  // Um só validador (o Length já recusa o que não é texto), para a resposta
++  // trazer uma mensagem só. 128 limita o trabalho do bcrypt, que usa 72 bytes.
++  @Length(1, 128, { message: PASSWORD_INVALID_MESSAGE })
++  password!: string;
++}
+diff --git a/api/src/modules/auth/repositories/guardians.repository.ts b/api/src/modules/auth/repositories/guardians.repository.ts
+new file mode 100644
+index 0000000..53274bf
+--- /dev/null
++++ b/api/src/modules/auth/repositories/guardians.repository.ts
+@@ -0,0 +1,16 @@
++export const GUARDIANS_REPOSITORY = Symbol('GUARDIANS_REPOSITORY');
++
++/** O que o login precisa saber de um responsável. */
++export interface GuardianCredentials {
++  id: string;
++  /** Só dígitos (11). */
++  cpf: string;
++  firstName: string;
++  lastName: string;
++  passwordHash: string;
++}
++
++export interface GuardiansRepository {
++  /** `cpf` só com dígitos. */
++  findCredentialsByCpf(cpf: string): Promise<GuardianCredentials | null>;
++}
+diff --git a/api/src/modules/auth/repositories/prisma-guardians.repository.ts b/api/src/modules/auth/repositories/prisma-guardians.repository.ts
+new file mode 100644
+index 0000000..0d78286
+--- /dev/null
++++ b/api/src/modules/auth/repositories/prisma-guardians.repository.ts
+@@ -0,0 +1,24 @@
++import { Injectable } from '@nestjs/common';
++import { PrismaService } from '../../../infra/prisma/prisma.service';
++import {
++  GuardianCredentials,
++  GuardiansRepository,
++} from './guardians.repository';
++
++@Injectable()
++export class PrismaGuardiansRepository implements GuardiansRepository {
++  constructor(private readonly prisma: PrismaService) {}
++
++  findCredentialsByCpf(cpf: string): Promise<GuardianCredentials | null> {
++    return this.prisma.guardian.findUnique({
++      where: { cpf },
++      select: {
++        id: true,
++        cpf: true,
++        firstName: true,
++        lastName: true,
++        passwordHash: true,
++      },
++    });
++  }
++}
+diff --git a/api/src/modules/auth/services/password-hasher.ts b/api/src/modules/auth/services/password-hasher.ts
+new file mode 100644
+index 0000000..911090c
+--- /dev/null
++++ b/api/src/modules/auth/services/password-hasher.ts
+@@ -0,0 +1,23 @@
++import { Injectable } from '@nestjs/common';
++import { compare } from 'bcryptjs';
++
++export const PASSWORD_HASHER = Symbol('PASSWORD_HASHER');
++
++export interface PasswordHasher {
++  compare(plain: string, hash: string): Promise<boolean>;
++}
++
++/**
++ * Hash bcrypt de um texto aleatório descartado, com o mesmo custo (10) do seed.
++ * O login compara contra ele quando o CPF não existe, para a resposta levar o
++ * mesmo tempo de uma senha errada e não revelar quais CPFs estão cadastrados.
++ */
++export const DUMMY_PASSWORD_HASH =
++  '$2b$10$Dcc9nQSION/X4zJhoZEauug9YDHKqxn4Y1c3YyvP4ArNIDY50ivzW';
++
++@Injectable()
++export class BcryptPasswordHasher implements PasswordHasher {
++  compare(plain: string, hash: string): Promise<boolean> {
++    return compare(plain, hash);
++  }
++}
+diff --git a/api/src/modules/auth/strategies/jwt.strategy.spec.ts b/api/src/modules/auth/strategies/jwt.strategy.spec.ts
+new file mode 100644
+index 0000000..86c46d5
+--- /dev/null
++++ b/api/src/modules/auth/strategies/jwt.strategy.spec.ts
+@@ -0,0 +1,24 @@
++import { UnauthorizedException } from '@nestjs/common';
++import { ConfigService } from '@nestjs/config';
++import { JwtStrategy } from './jwt.strategy';
++
++describe('JwtStrategy', () => {
++  const strategy = new JwtStrategy(
++    new ConfigService({ JWT_SECRET: 'segredo-do-spec' }),
++  );
++
++  it('devolve só o id do responsável a partir do sub', () => {
++    expect(strategy.validate({ sub: 'guardian-1' })).toEqual({
++      id: 'guardian-1',
++    });
++  });
++
++  it.each([{}, { sub: '' }, { sub: 42 }])(
++    'recusa payload sem sub válido (%p)',
++    (payload) => {
++      expect(() => strategy.validate(payload as never)).toThrow(
++        UnauthorizedException,
++      );
++    },
++  );
++});
+diff --git a/api/src/modules/auth/strategies/jwt.strategy.ts b/api/src/modules/auth/strategies/jwt.strategy.ts
+new file mode 100644
+index 0000000..f026327
+--- /dev/null
++++ b/api/src/modules/auth/strategies/jwt.strategy.ts
+@@ -0,0 +1,27 @@
++import { Injectable, UnauthorizedException } from '@nestjs/common';
++import { ConfigService } from '@nestjs/config';
++import { PassportStrategy } from '@nestjs/passport';
++import { ExtractJwt, Strategy } from 'passport-jwt';
++import { EnvironmentVariables } from '../../../config/env.validation';
++import type { AuthenticatedGuardian } from '../../../shared/decorators/current-guardian';
++import type { AccessTokenPayload } from '../use-cases/login.use-case';
++
++@Injectable()
++export class JwtStrategy extends PassportStrategy(Strategy) {
++  constructor(config: ConfigService<EnvironmentVariables, true>) {
++    super({
++      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
++      ignoreExpiration: false,
++      secretOrKey: config.get('JWT_SECRET', { infer: true }),
++      algorithms: ['HS256'],
++    });
++  }
++
++  /** O que volta daqui vira `request.user` (lido pelo `@CurrentGuardian()`). */
++  validate(payload: Partial<AccessTokenPayload>): AuthenticatedGuardian {
++    if (typeof payload.sub !== 'string' || payload.sub.length === 0) {
++      throw new UnauthorizedException();
++    }
++    return { id: payload.sub };
++  }
++}
+diff --git a/api/src/modules/auth/use-cases/login.use-case.spec.ts b/api/src/modules/auth/use-cases/login.use-case.spec.ts
+new file mode 100644
+index 0000000..2a57b57
+--- /dev/null
++++ b/api/src/modules/auth/use-cases/login.use-case.spec.ts
+@@ -0,0 +1,135 @@
++import { UnauthorizedException } from '@nestjs/common';
++import { JwtService } from '@nestjs/jwt';
++import { getRounds, hash } from 'bcryptjs';
++import {
++  GuardianCredentials,
++  GuardiansRepository,
++} from '../repositories/guardians.repository';
++import {
++  BcryptPasswordHasher,
++  DUMMY_PASSWORD_HASH,
++} from '../services/password-hasher';
++import { INVALID_CREDENTIALS_MESSAGE, LoginUseCase } from './login.use-case';
++
++class InMemoryGuardiansRepository implements GuardiansRepository {
++  constructor(private readonly guardians: GuardianCredentials[]) {}
++
++  findCredentialsByCpf(cpf: string): Promise<GuardianCredentials | null> {
++    return Promise.resolve(
++      this.guardians.find((guardian) => guardian.cpf === cpf) ?? null,
++    );
++  }
++}
++
++const SECRET = 'segredo-do-spec';
++const PASSWORD = '123456';
++
++describe('LoginUseCase', () => {
++  let gustavo: GuardianCredentials;
++  let hasher: BcryptPasswordHasher;
++  let jwt: JwtService;
++  let useCase: LoginUseCase;
++
++  beforeAll(async () => {
++    gustavo = {
++      id: 'guardian-1',
++      cpf: '96929456004',
++      firstName: 'Gustavo',
++      lastName: 'Silva',
++      // Custo baixo só para o spec ser rápido.
++      passwordHash: await hash(PASSWORD, 4),
++    };
++  });
++
++  beforeEach(() => {
++    hasher = new BcryptPasswordHasher();
++    jwt = new JwtService({ secret: SECRET, signOptions: { expiresIn: '7d' } });
++    useCase = new LoginUseCase(
++      new InMemoryGuardiansRepository([gustavo]),
++      hasher,
++      jwt,
++    );
++  });
++
++  it('devolve o token e o responsável quando CPF e senha conferem', async () => {
++    const result = await useCase.execute({
++      cpf: '96929456004',
++      password: PASSWORD,
++    });
++
++    expect(result.guardian).toEqual({
++      id: 'guardian-1',
++      firstName: 'Gustavo',
++      lastName: 'Silva',
++    });
++    const payload = await jwt.verifyAsync<{ sub: string; exp: number }>(
++      result.accessToken,
++      { secret: SECRET },
++    );
++    expect(payload.sub).toBe('guardian-1');
++    expect(Object.keys(payload).sort()).toEqual(['exp', 'iat', 'sub']);
++  });
++
++  it('não devolve o hash da senha nem o CPF', async () => {
++    const result = await useCase.execute({
++      cpf: '96929456004',
++      password: PASSWORD,
++    });
++
++    expect(JSON.stringify(result)).not.toContain(gustavo.passwordHash);
++    expect(JSON.stringify(result)).not.toContain('96929456004');
++  });
++
++  it('recusa CPF inexistente com 401 e a mensagem padrão', async () => {
++    await expect(
++      useCase.execute({ cpf: '50879567007', password: PASSWORD }),
++    ).rejects.toThrow(new UnauthorizedException(INVALID_CREDENTIALS_MESSAGE));
++  });
++
++  it('recusa senha errada com 401 e a mensagem padrão', async () => {
++    await expect(
++      useCase.execute({ cpf: '96929456004', password: '654321' }),
++    ).rejects.toThrow(new UnauthorizedException(INVALID_CREDENTIALS_MESSAGE));
++  });
++
++  it('usa a mesma resposta para CPF inexistente e senha errada', async () => {
++    const unknownCpf = await useCase
++      .execute({ cpf: '50879567007', password: PASSWORD })
++      .catch((error: unknown) => error);
++    const wrongPassword = await useCase
++      .execute({ cpf: '96929456004', password: '654321' })
++      .catch((error: unknown) => error);
++
++    expect(unknownCpf).toBeInstanceOf(UnauthorizedException);
++    expect(wrongPassword).toBeInstanceOf(UnauthorizedException);
++    expect((unknownCpf as UnauthorizedException).getResponse()).toEqual(
++      (wrongPassword as UnauthorizedException).getResponse(),
++    );
++    expect(INVALID_CREDENTIALS_MESSAGE).toBe('Usuário ou senha inválida.');
++  });
++
++  it('compara a senha contra um hash falso quando o CPF não existe (mesmo custo de tempo)', async () => {
++    const compare = jest.spyOn(hasher, 'compare');
++
++    await expect(
++      useCase.execute({ cpf: '50879567007', password: PASSWORD }),
++    ).rejects.toThrow(UnauthorizedException);
++
++    expect(compare).toHaveBeenCalledTimes(1);
++    expect(compare).toHaveBeenCalledWith(PASSWORD, DUMMY_PASSWORD_HASH);
++  });
++
++  it('o hash falso tem o mesmo custo bcrypt do seed (10)', () => {
++    expect(getRounds(DUMMY_PASSWORD_HASH)).toBe(10);
++  });
++
++  it('não assina token quando a senha está errada', async () => {
++    const sign = jest.spyOn(jwt, 'signAsync');
++
++    await expect(
++      useCase.execute({ cpf: '96929456004', password: '654321' }),
++    ).rejects.toThrow(UnauthorizedException);
++
++    expect(sign).not.toHaveBeenCalled();
++  });
++});
+diff --git a/api/src/modules/auth/use-cases/login.use-case.ts b/api/src/modules/auth/use-cases/login.use-case.ts
+new file mode 100644
+index 0000000..1ab9b8c
+--- /dev/null
++++ b/api/src/modules/auth/use-cases/login.use-case.ts
+@@ -0,0 +1,64 @@
++import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
++import { JwtService } from '@nestjs/jwt';
++import {
++  GUARDIANS_REPOSITORY,
++  type GuardiansRepository,
++} from '../repositories/guardians.repository';
++import {
++  DUMMY_PASSWORD_HASH,
++  PASSWORD_HASHER,
++  type PasswordHasher,
++} from '../services/password-hasher';
++
++export const INVALID_CREDENTIALS_MESSAGE = 'Usuário ou senha inválida.';
++
++export interface LoginInput {
++  /** Só dígitos (11). */
++  cpf: string;
++  password: string;
++}
++
++export interface LoginOutput {
++  accessToken: string;
++  guardian: { id: string; firstName: string; lastName: string };
++}
++
++/** Payload do access token. */
++export interface AccessTokenPayload {
++  sub: string;
++}
++
++@Injectable()
++export class LoginUseCase {
++  constructor(
++    @Inject(GUARDIANS_REPOSITORY)
++    private readonly guardians: GuardiansRepository,
++    @Inject(PASSWORD_HASHER)
++    private readonly hasher: PasswordHasher,
++    private readonly jwt: JwtService,
++  ) {}
++
++  async execute({ cpf, password }: LoginInput): Promise<LoginOutput> {
++    const guardian = await this.guardians.findCredentialsByCpf(cpf);
++
++    // Compara sempre, inclusive quando o CPF não existe, para as duas falhas
++    // levarem o mesmo tempo e devolverem a mesma mensagem.
++    const passwordMatches = await this.hasher.compare(
++      password,
++      guardian?.passwordHash ?? DUMMY_PASSWORD_HASH,
++    );
++    if (!guardian || !passwordMatches) {
++      throw new UnauthorizedException(INVALID_CREDENTIALS_MESSAGE);
++    }
++
++    const payload: AccessTokenPayload = { sub: guardian.id };
++    return {
++      accessToken: await this.jwt.signAsync(payload),
++      guardian: {
++        id: guardian.id,
++        firstName: guardian.firstName,
++        lastName: guardian.lastName,
++      },
++    };
++  }
++}
+diff --git a/api/src/modules/health/controllers/health.controller.ts b/api/src/modules/health/controllers/health.controller.ts
+index 859e4a5..33ce903 100644
+--- a/api/src/modules/health/controllers/health.controller.ts
++++ b/api/src/modules/health/controllers/health.controller.ts
+@@ -1,9 +1,11 @@
+ import { Controller, Get } from '@nestjs/common';
++import { Public } from '../../../shared/decorators/public';
+ 
++@Public()
+ @Controller('health')
+ export class HealthController {
+   @Get()
+   check(): { status: 'ok' } {
+     return { status: 'ok' };
+   }
+ }
+diff --git a/api/src/shared/decorators/current-guardian.ts b/api/src/shared/decorators/current-guardian.ts
+new file mode 100644
+index 0000000..5bcbb44
+--- /dev/null
++++ b/api/src/shared/decorators/current-guardian.ts
+@@ -0,0 +1,25 @@
++import {
++  ExecutionContext,
++  UnauthorizedException,
++  createParamDecorator,
++} from '@nestjs/common';
++import type { Request } from 'express';
++
++/** Responsável dono do token. Os demais dados vêm do banco, no use case. */
++export interface AuthenticatedGuardian {
++  id: string;
++}
++
++/** Responsável autenticado pelo JwtAuthGuard (`request.user`). */
++export const CurrentGuardian = createParamDecorator(
++  (_data: unknown, context: ExecutionContext): AuthenticatedGuardian => {
++    const request = context
++      .switchToHttp()
++      .getRequest<Request & { user?: AuthenticatedGuardian }>();
++    if (!request.user) {
++      // Só acontece numa rota @Public() que usa o decorator por engano.
++      throw new UnauthorizedException();
++    }
++    return request.user;
++  },
++);
+diff --git a/api/src/shared/decorators/is-cpf.spec.ts b/api/src/shared/decorators/is-cpf.spec.ts
+new file mode 100644
+index 0000000..76da3f6
+--- /dev/null
++++ b/api/src/shared/decorators/is-cpf.spec.ts
+@@ -0,0 +1,110 @@
++import 'reflect-metadata';
++import { plainToInstance, Transform } from 'class-transformer';
++import { validateSync } from 'class-validator';
++import { IsCpf, isCpf, normalizeCpf } from './is-cpf';
++
++// CPFs do seed (dígitos verificadores válidos).
++const GUSTAVO = '96929456004';
++const ADELAIDE = '50879567007';
++
++describe('isCpf', () => {
++  it.each([GUSTAVO, ADELAIDE, '31415926590'])(
++    'aceita o CPF %s só com dígitos',
++    (cpf) => {
++      expect(isCpf(cpf)).toBe(true);
++    },
++  );
++
++  it.each(['969.294.560-04', '508.795.670-07'])(
++    'aceita o CPF %s com máscara',
++    (cpf) => {
++      expect(isCpf(cpf)).toBe(true);
++    },
++  );
++
++  it.each(['96929456005', '96929456014', '969.294.560-05'])(
++    'recusa o CPF %s com dígito verificador errado',
++    (cpf) => {
++      expect(isCpf(cpf)).toBe(false);
++    },
++  );
++
++  it.each(['00000000000', '11111111111', '999.999.999-99'])(
++    'recusa a sequência repetida %s',
++    (cpf) => {
++      expect(isCpf(cpf)).toBe(false);
++    },
++  );
++
++  it.each(['9692945600', '969294560044', '', '969.294.560-0'])(
++    'recusa o tamanho errado "%s"',
++    (cpf) => {
++      expect(isCpf(cpf)).toBe(false);
++    },
++  );
++
++  it.each([
++    'abc96929456004',
++    '969 294 560 04',
++    '969.294.560.04',
++    '969-294-560-04',
++    '969.294.56004x',
++  ])('recusa o formato "%s"', (cpf) => {
++    expect(isCpf(cpf)).toBe(false);
++  });
++
++  it.each([96929456004, null, undefined, {}, ['96929456004']])(
++    'recusa valor que não é texto (%p)',
++    (value) => {
++      expect(isCpf(value)).toBe(false);
++    },
++  );
++});
++
++describe('normalizeCpf', () => {
++  it('tira a máscara de um CPF no formato aceito', () => {
++    expect(normalizeCpf('969.294.560-04')).toBe(GUSTAVO);
++  });
++
++  it('mantém o CPF que já está só com dígitos', () => {
++    expect(normalizeCpf(GUSTAVO)).toBe(GUSTAVO);
++  });
++
++  it('não mexe em valor fora do formato, para o validador recusar', () => {
++    expect(normalizeCpf('abc96929456004')).toBe('abc96929456004');
++    expect(normalizeCpf(96929456004)).toBe(96929456004);
++  });
++});
++
++describe('@IsCpf()', () => {
++  class Payload {
++    @Transform(({ value }) => normalizeCpf(value))
++    @IsCpf()
++    cpf!: unknown;
++  }
++
++  function validate(cpf: unknown) {
++    const payload = plainToInstance(Payload, { cpf });
++    return { payload, errors: validateSync(payload) };
++  }
++
++  it('passa com CPF válido mascarado e deixa só os dígitos', () => {
++    const { payload, errors } = validate('969.294.560-04');
++
++    expect(errors).toHaveLength(0);
++    expect(payload.cpf).toBe(GUSTAVO);
++  });
++
++  it('falha com a mensagem "CPF inválido."', () => {
++    const { errors } = validate('96929456005');
++
++    expect(errors).toHaveLength(1);
++    expect(errors[0].constraints).toEqual({ isCpf: 'CPF inválido.' });
++  });
++
++  it('falha quando o CPF não vem', () => {
++    const { errors } = validate(undefined);
++
++    expect(errors[0].constraints).toEqual({ isCpf: 'CPF inválido.' });
++  });
++});
+diff --git a/api/src/shared/decorators/is-cpf.ts b/api/src/shared/decorators/is-cpf.ts
+new file mode 100644
+index 0000000..102867a
+--- /dev/null
++++ b/api/src/shared/decorators/is-cpf.ts
+@@ -0,0 +1,56 @@
++import { ValidationOptions, registerDecorator } from 'class-validator';
++
++/** Só dígitos (11) ou a máscara completa 000.000.000-00. */
++const CPF_FORMAT = /^(\d{11}|\d{3}\.\d{3}\.\d{3}-\d{2})$/;
++
++export const CPF_INVALID_MESSAGE = 'CPF inválido.';
++
++function checkDigit(digits: number[]): number {
++  const sum = digits.reduce(
++    (total, digit, index) => total + digit * (digits.length + 1 - index),
++    0,
++  );
++  const rest = (sum * 10) % 11;
++  return rest === 10 ? 0 : rest;
++}
++
++/** CPF com ou sem máscara, com dígitos verificadores válidos e sem sequência repetida. */
++export function isCpf(value: unknown): boolean {
++  if (typeof value !== 'string' || !CPF_FORMAT.test(value)) {
++    return false;
++  }
++
++  const digits = value.replace(/\D/g, '').split('').map(Number);
++  if (digits.every((digit) => digit === digits[0])) {
++    return false;
++  }
++
++  const first = checkDigit(digits.slice(0, 9));
++  const second = checkDigit(digits.slice(0, 10));
++  return digits[9] === first && digits[10] === second;
++}
++
++/**
++ * Tira a máscara de um CPF no formato aceito. Qualquer outro valor volta como
++ * veio, para o `@IsCpf()` recusar em vez de aceitar um texto "limpo" à força.
++ */
++export function normalizeCpf(value: unknown): unknown {
++  if (typeof value !== 'string' || !CPF_FORMAT.test(value)) {
++    return value;
++  }
++  return value.replace(/\D/g, '');
++}
++
++export function IsCpf(options?: ValidationOptions): PropertyDecorator {
++  return (target: object, propertyName: string | symbol) => {
++    registerDecorator({
++      name: 'isCpf',
++      target: target.constructor,
++      propertyName: propertyName as string,
++      options: { message: CPF_INVALID_MESSAGE, ...options },
++      validator: {
++        validate: (value: unknown) => isCpf(value),
++      },
++    });
++  };
++}
+diff --git a/api/src/shared/decorators/public.ts b/api/src/shared/decorators/public.ts
+new file mode 100644
+index 0000000..ee62e81
+--- /dev/null
++++ b/api/src/shared/decorators/public.ts
+@@ -0,0 +1,7 @@
++import { SetMetadata } from '@nestjs/common';
++
++export const IS_PUBLIC_KEY = 'isPublic';
++
++/** Libera a rota (ou o controller inteiro) do JwtAuthGuard global. */
++export const Public = (): MethodDecorator & ClassDecorator =>
++  SetMetadata(IS_PUBLIC_KEY, true);
+diff --git a/api/src/shared/guards/jwt-auth.guard.spec.ts b/api/src/shared/guards/jwt-auth.guard.spec.ts
+new file mode 100644
+index 0000000..4e8f694
+--- /dev/null
++++ b/api/src/shared/guards/jwt-auth.guard.spec.ts
+@@ -0,0 +1,80 @@
++import { Controller, Get } from '@nestjs/common';
++import { Reflector } from '@nestjs/core';
++import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
++import { AuthGuard } from '@nestjs/passport';
++import { Public } from '../decorators/public';
++import { JwtAuthGuard } from './jwt-auth.guard';
++
++@Controller()
++class MixedController {
++  @Public()
++  @Get()
++  open(this: void): void {}
++
++  @Get()
++  closed(this: void): void {}
++}
++
++@Public()
++@Controller()
++class PublicController {
++  @Get()
++  any(this: void): void {}
++}
++
++function contextFor(
++  controller: new () => object,
++  handler: (...args: unknown[]) => unknown,
++): ExecutionContextHost {
++  const context = new ExecutionContextHost([{}, {}, () => undefined]);
++  context.setType('http');
++  jest.spyOn(context, 'getClass').mockReturnValue(controller);
++  jest.spyOn(context, 'getHandler').mockReturnValue(handler);
++  return context;
++}
++
++describe('JwtAuthGuard', () => {
++  const passportCanActivate = jest.fn().mockReturnValue('passport');
++  let guard: JwtAuthGuard;
++
++  beforeAll(() => {
++    jest
++      .spyOn(
++        AuthGuard('jwt').prototype as { canActivate: () => unknown },
++        'canActivate',
++      )
++      .mockImplementation(passportCanActivate);
++  });
++
++  beforeEach(() => {
++    passportCanActivate.mockClear();
++    guard = new JwtAuthGuard(new Reflector());
++  });
++
++  it('libera a rota marcada com @Public() sem validar token', () => {
++    const result = guard.canActivate(
++      contextFor(MixedController, MixedController.prototype.open),
++    );
++
++    expect(result).toBe(true);
++    expect(passportCanActivate).not.toHaveBeenCalled();
++  });
++
++  it('libera todas as rotas de um controller marcado com @Public()', () => {
++    const result = guard.canActivate(
++      contextFor(PublicController, PublicController.prototype.any),
++    );
++
++    expect(result).toBe(true);
++    expect(passportCanActivate).not.toHaveBeenCalled();
++  });
++
++  it('exige o token (passport-jwt) nas outras rotas', () => {
++    const result = guard.canActivate(
++      contextFor(MixedController, MixedController.prototype.closed),
++    );
++
++    expect(result).toBe('passport');
++    expect(passportCanActivate).toHaveBeenCalledTimes(1);
++  });
++});
+diff --git a/api/src/shared/guards/jwt-auth.guard.ts b/api/src/shared/guards/jwt-auth.guard.ts
+new file mode 100644
+index 0000000..11a8eb6
+--- /dev/null
++++ b/api/src/shared/guards/jwt-auth.guard.ts
+@@ -0,0 +1,26 @@
++import { ExecutionContext, Injectable } from '@nestjs/common';
++import { Reflector } from '@nestjs/core';
++import { AuthGuard } from '@nestjs/passport';
++import { IS_PUBLIC_KEY } from '../decorators/public';
++
++/**
++ * Guard global (APP_GUARD): toda rota exige `Authorization: Bearer <token>`,
++ * menos as marcadas com `@Public()`.
++ */
++@Injectable()
++export class JwtAuthGuard extends AuthGuard('jwt') {
++  constructor(private readonly reflector: Reflector) {
++    super();
++  }
++
++  canActivate(context: ExecutionContext) {
++    const isPublic = this.reflector.getAllAndOverride<boolean | undefined>(
++      IS_PUBLIC_KEY,
++      [context.getHandler(), context.getClass()],
++    );
++    if (isPublic) {
++      return true;
++    }
++    return super.canActivate(context);
++  }
++}
+diff --git a/api/test/auth-throttle.e2e-spec.ts b/api/test/auth-throttle.e2e-spec.ts
+new file mode 100644
+index 0000000..30d5611
+--- /dev/null
++++ b/api/test/auth-throttle.e2e-spec.ts
+@@ -0,0 +1,46 @@
++import { INestApplication } from '@nestjs/common';
++import request from 'supertest';
++import { App } from 'supertest/types';
++
++// O test-env.ts sobe o limite para 1000. Aqui ele volta a ser pequeno; o
++// AppModule é importado só depois (import dinâmico), quando a env já mudou.
++process.env.LOGIN_THROTTLE_LIMIT = '3';
++process.env.LOGIN_THROTTLE_TTL_MS = '60000';
++
++describe('Rate limit do login (e2e)', () => {
++  let app: INestApplication<App>;
++
++  beforeAll(async () => {
++    const { createTestApp } = await import('./setup/create-test-app.js');
++    app = await createTestApp();
++  });
++
++  afterAll(async () => {
++    await app.close();
++  });
++
++  it('responde 429 depois do limite de tentativas por IP', async () => {
++    const attempt = () =>
++      request(app.getHttpServer())
++        .post('/api/auth/login')
++        .send({ cpf: '969.294.560-04', password: 'errada' });
++
++    for (let i = 0; i < 3; i++) {
++      expect((await attempt()).status).toBe(401);
++    }
++
++    const blocked = await attempt();
++    expect(blocked.status).toBe(429);
++    expect(blocked.body).toMatchObject({
++      statusCode: 429,
++      message:
++        'Muitas tentativas de login. Aguarde um pouco e tente novamente.',
++    });
++  });
++
++  it('o limite vale só para o login', async () => {
++    for (let i = 0; i < 5; i++) {
++      await request(app.getHttpServer()).get('/api/health').expect(200);
++    }
++  });
++});
+diff --git a/api/test/auth.e2e-spec.ts b/api/test/auth.e2e-spec.ts
+new file mode 100644
+index 0000000..09a1533
+--- /dev/null
++++ b/api/test/auth.e2e-spec.ts
+@@ -0,0 +1,223 @@
++import { INestApplication } from '@nestjs/common';
++import { JwtService } from '@nestjs/jwt';
++import request from 'supertest';
++import { App } from 'supertest/types';
++import { createTestApp } from './setup/create-test-app';
++import { ProtectedProbeController } from './setup/protected-probe.controller';
++
++const LOGIN = '/api/auth/login';
++const PROTECTED = '/api/e2e-protected';
++const PROTECTED_PING = '/api/e2e-protected/ping';
++const PASSWORD_INVALID = 'Informe a senha (até 128 caracteres).';
++const INVALID_CREDENTIALS = {
++  statusCode: 401,
++  message: 'Usuário ou senha inválida.',
++  error: 'Unauthorized',
++};
++
++describe('Auth (e2e)', () => {
++  let app: INestApplication<App>;
++
++  beforeAll(async () => {
++    app = await createTestApp({ controllers: [ProtectedProbeController] });
++  });
++
++  afterAll(async () => {
++    await app.close();
++  });
++
++  const login = (body: object) =>
++    request(app.getHttpServer()).post(LOGIN).send(body);
++
++  describe('POST /api/auth/login', () => {
++    it('200 com CPF mascarado: devolve o token e o responsável', async () => {
++      const response = await login({
++        cpf: '969.294.560-04',
++        password: '123456',
++      });
++
++      expect(response.status).toBe(200);
++      expect(Object.keys(response.body as object).sort()).toEqual([
++        'accessToken',
++        'guardian',
++      ]);
++      expect(response.body).toEqual({
++        accessToken: expect.any(String) as string,
++        guardian: {
++          id: expect.any(String) as string,
++          firstName: 'Gustavo',
++          lastName: 'da Silva',
++        },
++      });
++    });
++
++    it('200 com CPF só com dígitos', async () => {
++      const response = await login({ cpf: '50879567007', password: '987654' });
++
++      expect(response.status).toBe(200);
++      expect(response.body).toMatchObject({
++        guardian: { firstName: 'Adelaide' },
++      });
++    });
++
++    it('200 para o responsável sem aluno', async () => {
++      const response = await login({
++        cpf: '314.159.265-90',
++        password: '111111',
++      });
++
++      expect(response.status).toBe(200);
++    });
++
++    it('401 com senha errada', async () => {
++      const response = await login({
++        cpf: '969.294.560-04',
++        password: '654321',
++      });
++
++      expect(response.status).toBe(401);
++      expect(response.body).toEqual(INVALID_CREDENTIALS);
++    });
++
++    it('401 com CPF válido que não está cadastrado, com a mesma resposta', async () => {
++      const response = await login({
++        cpf: '529.982.247-25',
++        password: '123456',
++      });
++
++      expect(response.status).toBe(401);
++      expect(response.body).toEqual(INVALID_CREDENTIALS);
++    });
++
++    it.each(['969.294.560-05', '11111111111', '969294560', 'abc'])(
++      '400 com CPF malformado "%s"',
++      async (cpf) => {
++        const response = await login({ cpf, password: '123456' });
++
++        expect(response.status).toBe(400);
++        expect(response.body).toMatchObject({
++          statusCode: 400,
++          error: 'Bad Request',
++          message: ['CPF inválido.'],
++        });
++      },
++    );
++
++    it('400 com campo extra no corpo (forbidNonWhitelisted)', async () => {
++      const response = await login({
++        cpf: '969.294.560-04',
++        password: '123456',
++        role: 'admin',
++      });
++
++      expect(response.status).toBe(400);
++      expect(response.body).toMatchObject({
++        message: ['property role should not exist'],
++      });
++    });
++
++    it('400 com senha vazia', async () => {
++      const response = await login({ cpf: '969.294.560-04', password: '' });
++
++      expect(response.status).toBe(400);
++      expect(response.body).toMatchObject({ message: [PASSWORD_INVALID] });
++    });
++
++    it('400 sem senha', async () => {
++      const response = await login({ cpf: '969.294.560-04' });
++
++      expect(response.status).toBe(400);
++      expect(response.body).toMatchObject({ message: [PASSWORD_INVALID] });
++    });
++
++    it('400 com senha que não é texto', async () => {
++      const response = await login({ cpf: '969.294.560-04', password: 123456 });
++
++      expect(response.status).toBe(400);
++      expect(response.body).toMatchObject({ message: [PASSWORD_INVALID] });
++    });
++
++    it('400 com senha maior que 128 caracteres', async () => {
++      const response = await login({
++        cpf: '969.294.560-04',
++        password: 'a'.repeat(129),
++      });
++
++      expect(response.status).toBe(400);
++      expect(response.body).toMatchObject({ message: [PASSWORD_INVALID] });
++    });
++  });
++
++  describe('rota protegida', () => {
++    it('200 com o token do login, e o @CurrentGuardian() traz só o id', async () => {
++      const {
++        body: { accessToken, guardian },
++      } = (await login({ cpf: '969.294.560-04', password: '123456' })) as {
++        body: { accessToken: string; guardian: { id: string } };
++      };
++
++      const response = await request(app.getHttpServer())
++        .get(PROTECTED)
++        .set('Authorization', `Bearer ${accessToken}`);
++
++      expect(response.status).toBe(200);
++      expect(response.body).toEqual({ id: guardian.id });
++    });
++
++    it('401 sem token', async () => {
++      const response = await request(app.getHttpServer()).get(PROTECTED_PING);
++
++      expect(response.status).toBe(401);
++    });
++
++    it('401 com token que não é JWT', async () => {
++      const response = await request(app.getHttpServer())
++        .get(PROTECTED_PING)
++        .set('Authorization', 'Bearer abc.def.ghi');
++
++      expect(response.status).toBe(401);
++    });
++
++    it('401 com token assinado por outro segredo', async () => {
++      const forged = new JwtService({ secret: 'outro-segredo' }).sign({
++        sub: 'qualquer',
++      });
++
++      const response = await request(app.getHttpServer())
++        .get(PROTECTED_PING)
++        .set('Authorization', `Bearer ${forged}`);
++
++      expect(response.status).toBe(401);
++    });
++
++    it('401 com token expirado', async () => {
++      const expired = new JwtService({
++        secret: process.env.JWT_SECRET,
++      }).sign({ sub: 'qualquer', exp: Math.floor(Date.now() / 1000) - 60 });
++
++      const response = await request(app.getHttpServer())
++        .get(PROTECTED_PING)
++        .set('Authorization', `Bearer ${expired}`);
++
++      expect(response.status).toBe(401);
++    });
++
++    it('401 com token sem "Bearer"', async () => {
++      const {
++        body: { accessToken },
++      } = (await login({ cpf: '969.294.560-04', password: '123456' })) as {
++        body: { accessToken: string };
++      };
++
++      const response = await request(app.getHttpServer())
++        .get(PROTECTED_PING)
++        .set('Authorization', accessToken);
++
++      expect(response.status).toBe(401);
++    });
++
++    it('/api/health continua público', async () => {
++      await request(app.getHttpServer()).get('/api/health').expect(200);
++    });
++  });
++});
+diff --git a/api/test/setup/create-test-app.ts b/api/test/setup/create-test-app.ts
+index a4f65cf..601d0e6 100644
+--- a/api/test/setup/create-test-app.ts
++++ b/api/test/setup/create-test-app.ts
+@@ -1,16 +1,24 @@
+-import { INestApplication } from '@nestjs/common';
++import { INestApplication, Type } from '@nestjs/common';
+ import { Test } from '@nestjs/testing';
+ import { App } from 'supertest/types';
+ import { AppModule } from '../../src/app.module';
+ import { configureApp } from '../../src/app.setup';
+ 
+-export async function createTestApp(): Promise<INestApplication<App>> {
++interface TestAppOptions {
++  /** Controllers só de teste, montados junto com o AppModule. */
++  controllers?: Type[];
++}
++
++export async function createTestApp(
++  options: TestAppOptions = {},
++): Promise<INestApplication<App>> {
+   const moduleRef = await Test.createTestingModule({
+     imports: [AppModule],
++    controllers: options.controllers ?? [],
+   }).compile();
+ 
+   const app = moduleRef.createNestApplication<INestApplication<App>>();
+   configureApp(app);
+   await app.init();
+   return app;
+ }
+diff --git a/api/test/setup/protected-probe.controller.ts b/api/test/setup/protected-probe.controller.ts
+new file mode 100644
+index 0000000..e0914a2
+--- /dev/null
++++ b/api/test/setup/protected-probe.controller.ts
+@@ -0,0 +1,23 @@
++import { Controller, Get } from '@nestjs/common';
++import {
++  type AuthenticatedGuardian,
++  CurrentGuardian,
++} from '../../src/shared/decorators/current-guardian';
++
++/**
++ * Rota protegida mínima, só dos e2e: prova o guard global e o
++ * `@CurrentGuardian()` antes de existir o `/api/me` (Tarefa 5).
++ */
++@Controller('e2e-protected')
++export class ProtectedProbeController {
++  @Get()
++  whoAmI(@CurrentGuardian() guardian: AuthenticatedGuardian) {
++    return guardian;
++  }
++
++  /** Sem `@CurrentGuardian()`: o 401 aqui só pode vir do guard global. */
++  @Get('ping')
++  ping(): { ok: true } {
++    return { ok: true };
++  }
++}
+diff --git a/api/test/setup/test-env.ts b/api/test/setup/test-env.ts
+index b11a608..6a83518 100644
+--- a/api/test/setup/test-env.ts
++++ b/api/test/setup/test-env.ts
+@@ -1,6 +1,10 @@
+ // Carregado antes de cada arquivo e2e: o ConfigModule não sobrescreve o que já
+ // está em process.env, então estes valores vencem o .env local.
+ process.env.DATABASE_URL = 'file:./test.db';
+ process.env.JWT_SECRET = 'segredo-dos-testes-e2e';
+ process.env.JWT_EXPIRES_IN = '7d';
+ process.env.CORS_ORIGINS = '*';
++// Os e2e fazem dezenas de logins do mesmo IP. O limite real (5/min) é testado
++// em auth-throttle.e2e-spec.ts, que baixa este valor antes de subir o app.
++process.env.LOGIN_THROTTLE_LIMIT = '1000';
++process.env.LOGIN_THROTTLE_TTL_MS = '60000';
