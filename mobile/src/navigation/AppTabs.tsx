@@ -3,6 +3,7 @@ import {
   type BottomTabBarProps,
 } from '@react-navigation/bottom-tabs';
 
+import { HeaderEntranceProvider } from '../components/CompactHeader';
 import { FloatingTabBar } from '../components/FloatingTabBar';
 import { AgendaIcon } from '../components/icons/AgendaIcon';
 import { BoletimIcon } from '../components/icons/BoletimIcon';
@@ -34,45 +35,47 @@ const profileIcon = ({ color, size }: TabIconProps) => (
 /**
  * Abas Agenda, Boletim e Perfil com a tab bar flutuante (01-design.md da
  * v2, 2.4 e 3.0). O voltar do Android numa aba que não é a Agenda volta para
- * ela (`firstRoute`).
+ * ela (`firstRoute`). A entrada do header roda uma vez por montagem (4.3).
  */
 export function AppTabs() {
   return (
-    <Tab.Navigator
-      tabBar={renderTabBar}
-      backBehavior="firstRoute"
-      screenOptions={{ headerShown: false, animation: 'fade' }}
-    >
-      <Tab.Screen
-        name="Agenda"
-        component={LessonsScreen}
-        options={{
-          title: strings.tabs.agenda,
-          tabBarAccessibilityLabel: strings.tabs.agendaAccessibilityLabel,
-          tabBarButtonTestID: 'tab-agenda',
-          tabBarIcon: agendaIcon,
-        }}
-      />
-      <Tab.Screen
-        name="Boletim"
-        component={ReportCardScreen}
-        options={{
-          title: strings.tabs.boletim,
-          tabBarAccessibilityLabel: strings.tabs.boletimAccessibilityLabel,
-          tabBarButtonTestID: 'tab-boletim',
-          tabBarIcon: boletimIcon,
-        }}
-      />
-      <Tab.Screen
-        name="Perfil"
-        component={ProfileScreen}
-        options={{
-          title: strings.tabs.perfil,
-          tabBarAccessibilityLabel: strings.tabs.perfilAccessibilityLabel,
-          tabBarButtonTestID: 'tab-perfil',
-          tabBarIcon: profileIcon,
-        }}
-      />
-    </Tab.Navigator>
+    <HeaderEntranceProvider>
+      <Tab.Navigator
+        tabBar={renderTabBar}
+        backBehavior="firstRoute"
+        screenOptions={{ headerShown: false, animation: 'fade' }}
+      >
+        <Tab.Screen
+          name="Agenda"
+          component={LessonsScreen}
+          options={{
+            title: strings.tabs.agenda,
+            tabBarAccessibilityLabel: strings.tabs.agendaAccessibilityLabel,
+            tabBarButtonTestID: 'tab-agenda',
+            tabBarIcon: agendaIcon,
+          }}
+        />
+        <Tab.Screen
+          name="Boletim"
+          component={ReportCardScreen}
+          options={{
+            title: strings.tabs.boletim,
+            tabBarAccessibilityLabel: strings.tabs.boletimAccessibilityLabel,
+            tabBarButtonTestID: 'tab-boletim',
+            tabBarIcon: boletimIcon,
+          }}
+        />
+        <Tab.Screen
+          name="Perfil"
+          component={ProfileScreen}
+          options={{
+            title: strings.tabs.perfil,
+            tabBarAccessibilityLabel: strings.tabs.perfilAccessibilityLabel,
+            tabBarButtonTestID: 'tab-perfil',
+            tabBarIcon: profileIcon,
+          }}
+        />
+      </Tab.Navigator>
+    </HeaderEntranceProvider>
   );
 }

@@ -1,3 +1,11 @@
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { Image, StyleSheet } from 'react-native';
 import Animated, {
   FadeIn,
@@ -28,6 +36,24 @@ type CompactHeaderProps = {
 };
 
 type Motion = Theme['motion'];
+
+/** Se o header já fez a entrada nesta montagem das abas (4.3). */
+const HeaderEntranceContext = createContext<{ current: boolean } | null>(null);
+
+/**
+ * Envolve as abas (`AppTabs`): a entrada do header roda uma vez por
+ * montagem delas (login ou splash). A 1ª visita a Boletim e Perfil monta o
+ * header deles já parado. Fora do provider (BootError, NoStudent), entra
+ * sempre.
+ */
+export function HeaderEntranceProvider({ children }: { children: ReactNode }) {
+  const played = useRef(false);
+  return (
+    <HeaderEntranceContext.Provider value={played}>
+      {children}
+    </HeaderEntranceContext.Provider>
+  );
+}
 
 /**
  * Entrada do header (4.3): a linha do logo em fade e, um `stagger` depois,
@@ -62,7 +88,15 @@ export function CompactHeader({
   showChip = true,
 }: CompactHeaderProps) {
   const { colors, motion, sizes, spacing } = useTheme();
-  const enter = entrances(motion, useReducedMotion());
+  const reducedMotion = useReducedMotion();
+  const played = useContext(HeaderEntranceContext);
+  const [animate] = useState(() => !played?.current);
+  useEffect(() => {
+    if (played) played.current = true;
+  }, [played]);
+  const enter = animate
+    ? entrances(motion, reducedMotion)
+    : { bar: undefined, titles: undefined };
   const fadeDistance = spacing.m;
 
   const dividerStyle = useAnimatedStyle(() => {
