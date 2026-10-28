@@ -7,3 +7,4 @@
 # Claude Code: configurações pessoais de cada máquina
 .claude/settings.local.json
 .claude/worktrees/
+/.evidencias-originais/

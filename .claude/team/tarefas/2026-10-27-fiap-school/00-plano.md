@@ -39,7 +39,7 @@ GET  /api/students/:id/report-cards/:year
   404 ano inexistente
 GET  /api/health → 200 {status: "ok"}
 ```
-401 sem token ou com token inválido; 403 em aluno não vinculado. `id` do aluno é
+401 sem token ou com token inválido; 403 em aluno não vinculado. O parâmetro de rota é sempre `:id` (vence o `:studentId` do D21); o guard de ownership lê `params.id`. Em `/demo/grades` (Tarefa 16) o `studentId` vem no corpo e o use case confere o vínculo. `id` do aluno é
 o `id` interno (cuid), não o RM.
 
 ## Tarefas
@@ -130,6 +130,13 @@ o `id` interno (cuid), não o RM.
   o logger não registra token, senha nem CPF.
 - Teste que falha primeiro: store de sessão, interceptor de 401 e parse dos schemas.
 
+### Tarefa 8b — Mobile: splash animada com o logo FIAP
+- Trilha: mobile · Depende de: Tarefa 8 (sessão) e `01-design.md` seção 3.1/4.1 (atualizada pelo designer)
+- Pedido do usuário em 2026-10-27: "criar uma splash screen animada com o logo da fiap".
+- Comportamento: a splash nativa (bootsplash) passa para a `SplashScreen` em JS sem piscar; a JS anima o logo FIAP (entrada + loop leve enquanto a sessão carrega, com duração mínima para a animação completar e máxima para não travar o app), e sai para Login (logo desliza até a posição do login), App (fade + scale) ou NoStudent/BootError, conforme 3.1. Respeita "reduzir movimento". 60 fps no UI thread (reanimated), sem JS thread na animação.
+- Teste que falha primeiro: o ViewModel da splash decide o destino (sem token → Login; token + /me ok com aluno → App; 0 aluno → NoStudent; erro → BootError) e respeita a duração mínima; render da SplashScreen com `testID="splash-screen"`.
+- Verificação: lint, tsc, test + gravação no iOS simulator (`xcrun simctl io <id> recordVideo`) em `evidencias/tarefa-8b-splash.mp4`.
+
 ### Tarefa 9 — Mobile: Login
 - Trilha: mobile · Depende de: Tarefa 8 e `01-design.md`
 - Comportamento: M1 e M2 (login e sessão persistida), com os estados do Figma
@@ -157,11 +164,20 @@ o `id` interno (cuid), não o RM.
 - Verificação: Maestro não está instalado na máquina; os flows rodam assim que o
   usuário instalar, e o workflow fica com `workflow_dispatch`.
 
-### Tarefa 15 — OTA (expo-updates)
+### Tarefa 15 — OTA (expo-updates) — **REMOVIDA em 2026-10-28 a pedido do usuário** ("remover o OTA")
 - Trilha: mobile · Depende de: Tarefa 13 · Comportamento: D34.
 
-### Tarefa 16 — Push
-- Trilhas: api + mobile · Depende de: Tarefas 6 e 15 · Comportamento: D12, M10.
+### Tarefa 16a — API: ordem dos alunos e e2e estável (substitui a parte API da antiga Tarefa 16)
+- Trilha: api · Depende de: nenhuma
+- Comportamento: `GET /api/me` devolve os alunos na ordem do JSON/seed (Rafael antes de Joana), com e2e que fixa a ordem; o e2e de concorrência caso (b) deixa de depender de tempo (adiado da revisão final).
+
+### Tarefa 16b — Mobile: remover Expo Modules
+- Trilha: mobile · Depende de: Tarefa 14
+- Motivo: OTA e push foram removidos a pedido do usuário; os Expo Modules ficaram sem uso e o enunciado pede só as dependências necessárias e React Native CLI.
+- Comportamento: `expo` e afins saem do `package.json`; AppDelegate/SceneDelegate/MainApplication/MainActivity/Podfile/settings.gradle/babel voltam ao template do RN 0.88 (mantendo bootsplash, fontes, modo escuro, nome do módulo); app continua idêntico no iOS; build Android configurado.
+
+### Tarefa 16 — Push — **REMOVIDA em 2026-10-28 a pedido do usuário** ("remover o Push")
+- Trilhas: api + mobile · Depende de: Tarefas 6 e 13 (a 15 foi removida) · Comportamento: D12, M10.
 
 ### Tarefa 17 — README final e CD
 - Trilha: tooling · Depende de: tudo

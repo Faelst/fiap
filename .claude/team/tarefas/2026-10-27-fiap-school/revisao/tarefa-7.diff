@@ -1,0 +1,3736 @@
+bd67851 feat(mobile): navegação, splash nativa e Montserrat embutida
+cb16f21 feat(mobile): tema Restyle a partir do Figma, com Box, Text e Card
+589c2f3 chore(mobile): expo modules (SDK 58) no projeto RN CLI e metro sem watchman
+52649c8 chore(mobile): projeto React Native CLI 0.88 com TypeScript e yarn 4
+ mobile/.bundle/config                              |     2 +
+ mobile/.eslintignore                               |     5 +
+ mobile/.eslintrc.js                                |     4 +
+ mobile/.gitignore                                  |    80 +
+ mobile/.prettierignore                             |    12 +
+ mobile/.prettierrc.js                              |     5 +
+ mobile/.yarn/releases/yarn-4.18.1.cjs              |  1000 ++
+ mobile/.yarnrc.yml                                 |     3 +
+ mobile/Gemfile                                     |    17 +
+ mobile/README.md                                   |    97 +
+ mobile/android/app/build.gradle                    |   124 +
+ mobile/android/app/debug.keystore                  |   Bin 0 -> 2257 bytes
+ mobile/android/app/proguard-rules.pro              |    10 +
+ mobile/android/app/src/main/AndroidManifest.xml    |    27 +
+ .../app/src/main/assets/fonts/Montserrat-Bold.ttf  |   Bin 0 -> 454864 bytes
+ .../src/main/assets/fonts/Montserrat-Medium.ttf    |   Bin 0 -> 447320 bytes
+ .../src/main/assets/fonts/Montserrat-Regular.ttf   |   Bin 0 -> 445928 bytes
+ .../src/main/assets/fonts/Montserrat-SemiBold.ttf  |   Bin 0 -> 454716 bytes
+ .../main/java/br/com/fiap/school/MainActivity.kt   |    34 +
+ .../java/br/com/fiap/school/MainApplication.kt     |    36 +
+ .../src/main/res/drawable-hdpi/bootsplash_logo.png |   Bin 0 -> 3490 bytes
+ .../src/main/res/drawable-mdpi/bootsplash_logo.png |   Bin 0 -> 2819 bytes
+ .../main/res/drawable-xhdpi/bootsplash_logo.png    |   Bin 0 -> 5077 bytes
+ .../main/res/drawable-xxhdpi/bootsplash_logo.png   |   Bin 0 -> 9241 bytes
+ .../main/res/drawable-xxxhdpi/bootsplash_logo.png  |   Bin 0 -> 14562 bytes
+ .../main/res/drawable/rn_edit_text_material.xml    |    37 +
+ .../app/src/main/res/mipmap-hdpi/ic_launcher.png   |   Bin 0 -> 3056 bytes
+ .../src/main/res/mipmap-hdpi/ic_launcher_round.png |   Bin 0 -> 5024 bytes
+ .../app/src/main/res/mipmap-mdpi/ic_launcher.png   |   Bin 0 -> 2096 bytes
+ .../src/main/res/mipmap-mdpi/ic_launcher_round.png |   Bin 0 -> 2858 bytes
+ .../app/src/main/res/mipmap-xhdpi/ic_launcher.png  |   Bin 0 -> 4569 bytes
+ .../main/res/mipmap-xhdpi/ic_launcher_round.png    |   Bin 0 -> 7098 bytes
+ .../app/src/main/res/mipmap-xxhdpi/ic_launcher.png |   Bin 0 -> 6464 bytes
+ .../main/res/mipmap-xxhdpi/ic_launcher_round.png   |   Bin 0 -> 10676 bytes
+ .../src/main/res/mipmap-xxxhdpi/ic_launcher.png    |   Bin 0 -> 9250 bytes
+ .../main/res/mipmap-xxxhdpi/ic_launcher_round.png  |   Bin 0 -> 15523 bytes
+ mobile/android/app/src/main/res/values/colors.xml  |     3 +
+ mobile/android/app/src/main/res/values/strings.xml |     3 +
+ mobile/android/app/src/main/res/values/styles.xml  |    12 +
+ mobile/android/build.gradle                        |    22 +
+ mobile/android/gradle.properties                   |    49 +
+ mobile/android/gradle/wrapper/gradle-wrapper.jar   |   Bin 0 -> 48966 bytes
+ .../gradle/wrapper/gradle-wrapper.properties       |     7 +
+ mobile/android/gradlew                             |   248 +
+ mobile/android/gradlew.bat                         |    98 +
+ mobile/android/link-assets-manifest.json           |    21 +
+ mobile/android/settings.gradle                     |    20 +
+ mobile/app.json                                    |     4 +
+ mobile/assets/bootsplash/logo.png                  |   Bin 0 -> 3549 bytes
+ mobile/assets/bootsplash/logo@1,5x.png             |   Bin 0 -> 6138 bytes
+ mobile/assets/bootsplash/logo@2x.png               |   Bin 0 -> 9316 bytes
+ mobile/assets/bootsplash/logo@3x.png               |   Bin 0 -> 17862 bytes
+ mobile/assets/bootsplash/logo@4x.png               |   Bin 0 -> 28772 bytes
+ mobile/assets/bootsplash/manifest.json             |     7 +
+ mobile/assets/fonts/Montserrat-Bold.ttf            |   Bin 0 -> 454864 bytes
+ mobile/assets/fonts/Montserrat-Medium.ttf          |   Bin 0 -> 447320 bytes
+ mobile/assets/fonts/Montserrat-Regular.ttf         |   Bin 0 -> 445928 bytes
+ mobile/assets/fonts/Montserrat-SemiBold.ttf        |   Bin 0 -> 454716 bytes
+ mobile/assets/licenses/Montserrat-OFL.txt          |    93 +
+ mobile/assets/logo-fiap-school.png                 |   Bin 0 -> 2654 bytes
+ mobile/babel.config.js                             |     3 +
+ mobile/index.js                                    |    10 +
+ mobile/ios/.xcode.env                              |    11 +
+ mobile/ios/FiapSchool.xcodeproj/project.pbxproj    |   579 +
+ .../xcshareddata/xcschemes/FiapSchool.xcscheme     |    88 +
+ .../contents.xcworkspacedata                       |    10 +
+ mobile/ios/FiapSchool/AppDelegate.swift            |    51 +
+ mobile/ios/FiapSchool/BootSplash.storyboard        |    46 +
+ .../Contents.json                                  |    20 +
+ .../AppIcon.appiconset/Contents.json               |    53 +
+ .../BootSplashLogo-0730a4.imageset/Contents.json   |    23 +
+ .../BootSplashLogo-0730a4.imageset/logo-0730a4.png |   Bin 0 -> 3549 bytes
+ .../logo-0730a4@2x.png                             |   Bin 0 -> 9316 bytes
+ .../logo-0730a4@3x.png                             |   Bin 0 -> 17862 bytes
+ .../ios/FiapSchool/Images.xcassets/Contents.json   |     6 +
+ mobile/ios/FiapSchool/Info.plist                   |    86 +
+ mobile/ios/FiapSchool/LaunchScreen.storyboard      |    47 +
+ mobile/ios/FiapSchool/PrivacyInfo.xcprivacy        |    48 +
+ mobile/ios/FiapSchool/SceneDelegate.swift          |     5 +
+ mobile/ios/Podfile                                 |    52 +
+ mobile/ios/Podfile.lock                            |  2597 +++++
+ mobile/ios/link-assets-manifest.json               |    21 +
+ mobile/jest.config.js                              |    10 +
+ mobile/jest.setup.ts                               |    20 +
+ mobile/jest/resolver.js                            |    14 +
+ mobile/metro.config.js                             |    20 +
+ mobile/package.json                                |    60 +
+ mobile/react-native.config.js                      |     9 +
+ mobile/src/app/App.tsx                             |    24 +
+ mobile/src/app/Navigation.tsx                      |    33 +
+ mobile/src/app/__tests__/App.test.tsx              |    27 +
+ mobile/src/components/PlaceholderScreen.tsx        |    83 +
+ mobile/src/features/auth/LoginScreen.tsx           |    20 +
+ mobile/src/features/lessons/LessonsScreen.tsx      |    20 +
+ .../src/features/report-card/ReportCardScreen.tsx  |    22 +
+ .../src/features/students/SelectStudentScreen.tsx  |    22 +
+ mobile/src/navigation/AppTabs.tsx                  |    44 +
+ mobile/src/navigation/RootStack.tsx                |    38 +
+ mobile/src/navigation/types.ts                     |    32 +
+ mobile/src/theme/__tests__/Card.test.tsx           |    36 +
+ mobile/src/theme/__tests__/Text.test.tsx           |    23 +
+ mobile/src/theme/components.ts                     |    24 +
+ mobile/src/theme/fonts.ts                          |    11 +
+ mobile/src/theme/index.ts                          |     9 +
+ mobile/src/theme/motion.ts                         |    12 +
+ mobile/src/theme/palette.ts                        |    15 +
+ mobile/src/theme/sizes.ts                          |    22 +
+ mobile/src/theme/theme.ts                          |   263 +
+ mobile/src/theme/useTheme.ts                       |     6 +
+ mobile/tsconfig.json                               |     5 +
+ mobile/yarn.lock                                   | 11591 +++++++++++++++++++
+ 111 files changed, 18351 insertions(+)
+diff --git a/mobile/.bundle/config b/mobile/.bundle/config
+new file mode 100644
+index 0000000..848943b
+--- /dev/null
++++ b/mobile/.bundle/config
+@@ -0,0 +1,2 @@
++BUNDLE_PATH: "vendor/bundle"
++BUNDLE_FORCE_RUBY_PLATFORM: 1
+diff --git a/mobile/.eslintignore b/mobile/.eslintignore
+new file mode 100644
+index 0000000..ac90239
+--- /dev/null
++++ b/mobile/.eslintignore
+@@ -0,0 +1,5 @@
++node_modules
++ios
++android
++coverage
++.yarn
+diff --git a/mobile/.eslintrc.js b/mobile/.eslintrc.js
+new file mode 100644
+index 0000000..187894b
+--- /dev/null
++++ b/mobile/.eslintrc.js
+@@ -0,0 +1,4 @@
++module.exports = {
++  root: true,
++  extends: '@react-native',
++};
+diff --git a/mobile/.gitignore b/mobile/.gitignore
+new file mode 100644
+index 0000000..29a2b90
+--- /dev/null
++++ b/mobile/.gitignore
+@@ -0,0 +1,80 @@
++# OSX
++#
++.DS_Store
++
++# Xcode
++#
++build/
++*.pbxuser
++!default.pbxuser
++*.mode1v3
++!default.mode1v3
++*.mode2v3
++!default.mode2v3
++*.perspectivev3
++!default.perspectivev3
++xcuserdata
++*.xccheckout
++*.moved-aside
++DerivedData
++*.hmap
++*.ipa
++*.xcuserstate
++**/.xcode.env.local
++
++# Android/IntelliJ
++#
++build/
++.idea
++.gradle
++local.properties
++*.iml
++*.hprof
++.cxx/
++*.keystore
++!debug.keystore
++.kotlin/
++
++# node.js
++#
++node_modules/
++npm-debug.log
++yarn-error.log
++
++# fastlane
++#
++# It is recommended to not store the screenshots in the git repo. Instead, use fastlane to re-generate the
++# screenshots whenever they are needed.
++# For more information about the recommended setup visit:
++# https://docs.fastlane.tools/best-practices/source-control/
++
++**/fastlane/report.xml
++**/fastlane/Preview.html
++**/fastlane/screenshots
++**/fastlane/test_output
++
++# Bundle artifact
++*.jsbundle
++
++# Ruby / CocoaPods
++**/Pods/
++/vendor/bundle/
++
++# Temporary files created by Metro to check the health of the file watcher
++.metro-health-check*
++
++# testing
++/coverage
++
++# Yarn
++.yarn/*
++!.yarn/patches
++!.yarn/plugins
++!.yarn/releases
++!.yarn/sdks
++!.yarn/versions
++
++# Expo
++.expo
++dist/
++web-build/
+\ No newline at end of file
+diff --git a/mobile/.prettierignore b/mobile/.prettierignore
+new file mode 100644
+index 0000000..a44c56b
+--- /dev/null
++++ b/mobile/.prettierignore
+@@ -0,0 +1,12 @@
++node_modules
++ios/Pods
++ios/build
++android/build
++android/app/build
++coverage
++.yarn
++yarn.lock
++assets/bootsplash/manifest.json
++*.pbxproj
++ios/**/*.json
++android/**/*.json
+diff --git a/mobile/.prettierrc.js b/mobile/.prettierrc.js
+new file mode 100644
+index 0000000..06860c8
+--- /dev/null
++++ b/mobile/.prettierrc.js
+@@ -0,0 +1,5 @@
++module.exports = {
++  arrowParens: 'avoid',
++  singleQuote: true,
++  trailingComma: 'all',
++};
+diff --git a/mobile/.yarnrc.yml b/mobile/.yarnrc.yml
+new file mode 100644
+index 0000000..900c913
+--- /dev/null
++++ b/mobile/.yarnrc.yml
+@@ -0,0 +1,3 @@
++nodeLinker: node-modules
++
++yarnPath: .yarn/releases/yarn-4.18.1.cjs
+diff --git a/mobile/Gemfile b/mobile/Gemfile
+new file mode 100644
+index 0000000..5151523
+--- /dev/null
++++ b/mobile/Gemfile
+@@ -0,0 +1,17 @@
++source 'https://rubygems.org'
++
++# You may use http://rbenv.org/ or https://rvm.io/ to install and use this version
++ruby ">= 2.6.10"
++
++# Exclude problematic versions of cocoapods and activesupport that causes build failures.
++gem 'cocoapods', '>= 1.13', '!= 1.15.0', '!= 1.15.1'
++gem 'activesupport', '>= 6.1.7.5', '!= 7.1.0'
++gem 'xcodeproj', '< 1.26.0'
++gem 'concurrent-ruby', '< 1.3.4'
++
++# Ruby 3.4.0 has removed some libraries from the standard library.
++gem 'bigdecimal'
++gem 'logger'
++gem 'benchmark'
++gem 'mutex_m'
++gem 'nkf'
+diff --git a/mobile/README.md b/mobile/README.md
+new file mode 100644
+index 0000000..3e2c3f8
+--- /dev/null
++++ b/mobile/README.md
+@@ -0,0 +1,97 @@
++This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
++
++# Getting Started
++
++> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
++
++## Step 1: Start Metro
++
++First, you will need to run **Metro**, the JavaScript build tool for React Native.
++
++To start the Metro dev server, run the following command from the root of your React Native project:
++
++```sh
++# Using npm
++npm start
++
++# OR using Yarn
++yarn start
++```
++
++## Step 2: Build and run your app
++
++With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
++
++### Android
++
++```sh
++# Using npm
++npm run android
++
++# OR using Yarn
++yarn android
++```
++
++### iOS
++
++For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
++
++The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
++
++```sh
++bundle install
++```
++
++Then, and every time you update your native dependencies, run:
++
++```sh
++bundle exec pod install
++```
++
++For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
++
++```sh
++# Using npm
++npm run ios
++
++# OR using Yarn
++yarn ios
++```
++
++If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
++
++This is one way to run your app — you can also build it directly from Android Studio or Xcode.
++
++## Step 3: Modify your app
++
++Now that you have successfully run the app, let's make changes!
++
++Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
++
++When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
++
++- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
++- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
++
++## Congratulations! :tada:
++
++You've successfully run and modified your React Native App. :partying_face:
++
++### Now what?
++
++- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
++- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
++
++# Troubleshooting
++
++If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
++
++# Learn More
++
++To learn more about React Native, take a look at the following resources:
++
++- [React Native Website](https://reactnative.dev) - learn more about React Native.
++- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
++- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
++- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
++- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+diff --git a/mobile/android/app/build.gradle b/mobile/android/app/build.gradle
+new file mode 100644
+index 0000000..0534e70
+--- /dev/null
++++ b/mobile/android/app/build.gradle
+@@ -0,0 +1,124 @@
++apply plugin: "com.android.application"
++apply plugin: "org.jetbrains.kotlin.android"
++apply plugin: "com.facebook.react"
++
++/**
++ * This is the configuration block to customize your React Native Android app.
++ * By default you don't need to apply any configuration, just uncomment the lines you need.
++ */
++react {
++    /* Folders */
++    //   The root of your project, i.e. where "package.json" lives. Default is '../..'
++    // root = file("../../")
++    //   The folder where the react-native NPM package is. Default is ../../node_modules/react-native
++    // reactNativeDir = file("../../node_modules/react-native")
++    //   The folder where the react-native Codegen package is. Default is ../../node_modules/@react-native/codegen
++    // codegenDir = file("../../node_modules/@react-native/codegen")
++    //   The cli.js file which is the React Native CLI entrypoint. Default is ../../node_modules/react-native/cli.js
++    // cliFile = file("../../node_modules/react-native/cli.js")
++
++    /* Variants */
++    //   The list of variants to that are debuggable. For those we're going to
++    //   skip the bundling of the JS bundle and the assets. Default is "debug", "debugOptimized".
++    //   If you add flavors like lite, prod, etc. you'll have to list your debuggableVariants.
++    // debuggableVariants = ["liteDebug", "liteDebugOptimized", "prodDebug", "prodDebugOptimized"]
++
++    /* Bundling */
++    //   A list containing the node command and its flags. Default is just 'node'.
++    // nodeExecutableAndArgs = ["node"]
++    //
++    //   The command to run when bundling. By default is 'bundle'
++    // bundleCommand = "ram-bundle"
++    //
++    //   The path to the CLI configuration file. Default is empty.
++    // bundleConfig = file(../rn-cli.config.js)
++    //
++    //   The name of the generated asset file containing your JS bundle
++    // bundleAssetName = "MyApplication.android.bundle"
++    //
++    //   The entry file for bundle generation. Default is 'index.android.js' or 'index.js'
++    // entryFile = file("../js/MyApplication.android.js")
++    //
++    //   A list of extra flags to pass to the 'bundle' commands.
++    //   See https://github.com/react-native-community/cli/blob/main/docs/commands.md#bundle
++    // extraPackagerArgs = []
++
++    /* Hermes Commands */
++    //   The hermes compiler command to run. By default it is 'hermesc'
++    // hermesCommand = "$rootDir/my-custom-hermesc/bin/hermesc"
++    //
++    //   The list of flags to pass to the Hermes compiler. By default is "-O", "-output-source-map"
++    // hermesFlags = ["-O", "-output-source-map"]
++
++    /* Autolinking */
++    autolinkLibrariesWithApp()
++    //
++    // Added by install-expo-modules
++    entryFile = file(["node", "-e", "require('expo/scripts/resolveAppEntry')", rootDir.getAbsoluteFile().getParentFile().getAbsolutePath(), "android", "absolute"].execute(null, rootDir).text.trim())
++    cliFile = new File(["node", "--print", "require.resolve('@expo/cli')"].execute(null, rootDir).text.trim())
++    bundleCommand = "export:embed"
++}
++
++/**
++ * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
++ */
++def enableProguardInReleaseBuilds = false
++
++/**
++ * The preferred build flavor of JavaScriptCore (JSC)
++ *
++ * For example, to use the international variant, you can use:
++ * `def jscFlavor = io.github.react-native-community:jsc-android-intl:2026004.+`
++ *
++ * The international variant includes ICU i18n library and necessary data
++ * allowing to use e.g. `Date.toLocaleString` and `String.localeCompare` that
++ * give correct results when using with locales other than en-US. Note that
++ * this variant is about 6MiB larger per architecture than default.
++ */
++def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
++
++android {
++    ndkVersion rootProject.ext.ndkVersion
++    buildToolsVersion rootProject.ext.buildToolsVersion
++    compileSdk rootProject.ext.compileSdkVersion
++
++    namespace "br.com.fiap.school"
++    defaultConfig {
++        applicationId "br.com.fiap.school"
++        minSdkVersion rootProject.ext.minSdkVersion
++        targetSdkVersion rootProject.ext.targetSdkVersion
++        versionCode 1
++        versionName "1.0"
++    }
++    signingConfigs {
++        debug {
++            storeFile file('debug.keystore')
++            storePassword 'android'
++            keyAlias 'androiddebugkey'
++            keyPassword 'android'
++        }
++    }
++    buildTypes {
++        debug {
++            signingConfig signingConfigs.debug
++        }
++        release {
++            // Caution! In production, you need to generate your own keystore file.
++            // see https://reactnative.dev/docs/signed-apk-android.
++            signingConfig signingConfigs.debug
++            minifyEnabled enableProguardInReleaseBuilds
++            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
++        }
++    }
++}
++
++dependencies {
++    // The version of react-native is set by the React Native Gradle Plugin
++    implementation("com.facebook.react:react-android")
++
++    if (hermesEnabled.toBoolean()) {
++        implementation("com.facebook.react:hermes-android")
++    } else {
++        implementation jscFlavor
++    }
++}
+diff --git a/mobile/android/app/debug.keystore b/mobile/android/app/debug.keystore
+new file mode 100644
+index 0000000..364e105
+Binary files /dev/null and b/mobile/android/app/debug.keystore differ
+diff --git a/mobile/android/app/proguard-rules.pro b/mobile/android/app/proguard-rules.pro
+new file mode 100644
+index 0000000..11b0257
+--- /dev/null
++++ b/mobile/android/app/proguard-rules.pro
+@@ -0,0 +1,10 @@
++# Add project specific ProGuard rules here.
++# By default, the flags in this file are appended to flags specified
++# in /usr/local/Cellar/android-sdk/24.3.3/tools/proguard/proguard-android.txt
++# You can edit the include path and order by changing the proguardFiles
++# directive in build.gradle.
++#
++# For more details, see
++#   http://developer.android.com/guide/developing/tools/proguard.html
++
++# Add any project specific keep options here:
+diff --git a/mobile/android/app/src/main/AndroidManifest.xml b/mobile/android/app/src/main/AndroidManifest.xml
+new file mode 100644
+index 0000000..d173978
+--- /dev/null
++++ b/mobile/android/app/src/main/AndroidManifest.xml
+@@ -0,0 +1,27 @@
++<manifest xmlns:android="http://schemas.android.com/apk/res/android">
++  <uses-permission android:name="android.permission.INTERNET" />
++
++  <application
++    android:name=".MainApplication"
++    android:label="@string/app_name"
++    android:icon="@mipmap/ic_launcher"
++    android:roundIcon="@mipmap/ic_launcher_round"
++    android:allowBackup="false"
++    android:theme="@style/AppTheme"
++    android:usesCleartextTraffic="${usesCleartextTraffic}"
++    android:supportsRtl="true">
++    <activity
++      android:name=".MainActivity"
++      android:label="@string/app_name"
++      android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
++      android:launchMode="singleTask"
++      android:windowSoftInputMode="adjustResize"
++      android:exported="true"
++      android:theme="@style/BootTheme">
++      <intent-filter>
++        <action android:name="android.intent.action.MAIN" />
++        <category android:name="android.intent.category.LAUNCHER" />
++      </intent-filter>
++    </activity>
++  </application>
++</manifest>
+diff --git a/mobile/android/app/src/main/java/br/com/fiap/school/MainActivity.kt b/mobile/android/app/src/main/java/br/com/fiap/school/MainActivity.kt
+new file mode 100644
+index 0000000..4c47fa2
+--- /dev/null
++++ b/mobile/android/app/src/main/java/br/com/fiap/school/MainActivity.kt
+@@ -0,0 +1,34 @@
++package br.com.fiap.school
++import expo.modules.ReactActivityDelegateWrapper
++
++import android.os.Bundle
++import com.facebook.react.ReactActivity
++import com.facebook.react.ReactActivityDelegate
++import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
++import com.facebook.react.defaults.DefaultReactActivityDelegate
++import com.swmansion.rnscreens.fragment.restoration.RNScreensFragmentFactory
++import com.zoontek.rnbootsplash.RNBootSplash
++
++class MainActivity : ReactActivity() {
++
++  override fun onCreate(savedInstanceState: Bundle?) {
++    // react-native-screens: restaura fragments sem estado ao recriar a activity.
++    supportFragmentManager.fragmentFactory = RNScreensFragmentFactory()
++    // Splash nativa (react-native-bootsplash); o JS a esconde quando a navegação fica pronta.
++    RNBootSplash.init(this, R.style.BootTheme)
++    super.onCreate(savedInstanceState)
++  }
++
++  /**
++   * Returns the name of the main component registered from JavaScript. This is used to schedule
++   * rendering of the component.
++   */
++  override fun getMainComponentName(): String = "FiapSchool"
++
++  /**
++   * Returns the instance of the [ReactActivityDelegate]. We use [DefaultReactActivityDelegate]
++   * which allows you to enable New Architecture with a single boolean flags [fabricEnabled]
++   */
++  override fun createReactActivityDelegate(): ReactActivityDelegate =
++      ReactActivityDelegateWrapper(this, BuildConfig.IS_NEW_ARCHITECTURE_ENABLED, DefaultReactActivityDelegate(this, mainComponentName, fabricEnabled))
++}
+diff --git a/mobile/android/app/src/main/java/br/com/fiap/school/MainApplication.kt b/mobile/android/app/src/main/java/br/com/fiap/school/MainApplication.kt
+new file mode 100644
+index 0000000..5d65493
+--- /dev/null
++++ b/mobile/android/app/src/main/java/br/com/fiap/school/MainApplication.kt
+@@ -0,0 +1,36 @@
++package br.com.fiap.school
++import android.content.res.Configuration
++import expo.modules.ApplicationLifecycleDispatcher
++import expo.modules.ExpoReactHostFactory
++
++import android.app.Application
++import com.facebook.react.PackageList
++import com.facebook.react.ReactApplication
++import com.facebook.react.ReactHost
++import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
++import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
++
++class MainApplication : Application(), ReactApplication {
++
++  override val reactHost: ReactHost by lazy {
++    ExpoReactHostFactory.getDefaultReactHost(
++      context = applicationContext,
++      packageList =
++        PackageList(this).packages.apply {
++          // Packages that cannot be autolinked yet can be added manually here, for example:
++          // add(MyReactNativePackage())
++        },
++    )
++  }
++
++  override fun onCreate() {
++    super.onCreate()
++    loadReactNative(this)
++    ApplicationLifecycleDispatcher.onApplicationCreate(this)
++  }
++
++  override fun onConfigurationChanged(newConfig: Configuration) {
++    super.onConfigurationChanged(newConfig)
++    ApplicationLifecycleDispatcher.onConfigurationChanged(this, newConfig)
++  }
++}
+diff --git a/mobile/android/app/src/main/res/drawable/rn_edit_text_material.xml b/mobile/android/app/src/main/res/drawable/rn_edit_text_material.xml
+new file mode 100644
+index 0000000..5c25e72
+--- /dev/null
++++ b/mobile/android/app/src/main/res/drawable/rn_edit_text_material.xml
+@@ -0,0 +1,37 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Copyright (C) 2014 The Android Open Source Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<inset xmlns:android="http://schemas.android.com/apk/res/android"
++       android:insetLeft="@dimen/abc_edit_text_inset_horizontal_material"
++       android:insetRight="@dimen/abc_edit_text_inset_horizontal_material"
++       android:insetTop="@dimen/abc_edit_text_inset_top_material"
++       android:insetBottom="@dimen/abc_edit_text_inset_bottom_material"
++       >
++
++    <selector>
++        <!--
++          This file is a copy of abc_edit_text_material (https://bit.ly/3k8fX7I).
++          The item below with state_pressed="false" and state_focused="false" causes a NullPointerException.
++          NullPointerException:tempt to invoke virtual method 'android.graphics.drawable.Drawable android.graphics.drawable.Drawable$ConstantState.newDrawable(android.content.res.Resources)'
++
++          <item android:state_pressed="false" android:state_focused="false" android:drawable="@drawable/abc_textfield_default_mtrl_alpha"/>
++
++          For more info, see https://bit.ly/3CdLStv (react-native/pull/29452) and https://bit.ly/3nxOMoR.
++        -->
++        <item android:state_enabled="false" android:drawable="@drawable/abc_textfield_default_mtrl_alpha"/>
++        <item android:drawable="@drawable/abc_textfield_activated_mtrl_alpha"/>
++    </selector>
++
++</inset>
+diff --git a/mobile/android/app/src/main/res/values/colors.xml b/mobile/android/app/src/main/res/values/colors.xml
+new file mode 100644
+index 0000000..961897a
+--- /dev/null
++++ b/mobile/android/app/src/main/res/values/colors.xml
+@@ -0,0 +1,3 @@
++<resources>
++    <color name="bootsplash_background">#000000</color>
++</resources>
+diff --git a/mobile/android/app/src/main/res/values/strings.xml b/mobile/android/app/src/main/res/values/strings.xml
+new file mode 100644
+index 0000000..71880f2
+--- /dev/null
++++ b/mobile/android/app/src/main/res/values/strings.xml
+@@ -0,0 +1,3 @@
++<resources>
++    <string name="app_name">FIAP School</string>
++</resources>
+diff --git a/mobile/android/app/src/main/res/values/styles.xml b/mobile/android/app/src/main/res/values/styles.xml
+new file mode 100644
+index 0000000..4b89c01
+--- /dev/null
++++ b/mobile/android/app/src/main/res/values/styles.xml
+@@ -0,0 +1,12 @@
++<resources>
++    <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
++        <!-- Customize your theme here. -->
++        <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
++    </style>
++
++    <style name="BootTheme" parent="Theme.BootSplash">
++        <item name="bootSplashBackground">@color/bootsplash_background</item>
++        <item name="bootSplashLogo">@drawable/bootsplash_logo</item>
++        <item name="postBootSplashTheme">@style/AppTheme</item>
++    </style>
++</resources>
+diff --git a/mobile/android/build.gradle b/mobile/android/build.gradle
+new file mode 100644
+index 0000000..71645ec
+--- /dev/null
++++ b/mobile/android/build.gradle
+@@ -0,0 +1,22 @@
++buildscript {
++    ext {
++        buildToolsVersion = "37.0.0"
++        minSdkVersion = 24
++        compileSdkVersion = 37
++        targetSdkVersion = 36
++        ndkVersion = "27.1.12297006"
++        kotlinVersion = "2.2.0"
++    }
++    repositories {
++        google()
++        mavenCentral()
++    }
++    dependencies {
++        classpath("com.android.tools.build:gradle")
++        classpath("com.facebook.react:react-native-gradle-plugin")
++        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin")
++    }
++}
++
++apply plugin: "com.facebook.react.rootproject"
++apply plugin: "expo-root-project"
+diff --git a/mobile/android/gradle.properties b/mobile/android/gradle.properties
+new file mode 100644
+index 0000000..50a0ed6
+--- /dev/null
++++ b/mobile/android/gradle.properties
+@@ -0,0 +1,49 @@
++# Project-wide Gradle settings.
++
++# IDE (e.g. Android Studio) users:
++# Gradle settings configured through the IDE *will override*
++# any settings specified in this file.
++
++# For more details on how to configure your build environment visit
++# http://www.gradle.org/docs/current/userguide/build_environment.html
++
++# Specifies the JVM arguments used for the daemon process.
++# The setting is particularly useful for tweaking memory settings.
++# Default value: -Xmx512m -XX:MaxMetaspaceSize=256m
++org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m
++
++# When configured, Gradle will run in incubating parallel mode.
++# This option should only be used with decoupled projects. More details, visit
++# http://www.gradle.org/docs/current/userguide/multi_project_builds.html#sec:decoupled_projects
++# org.gradle.parallel=true
++
++# AndroidX package structure to make it clearer which packages are bundled with the
++# Android operating system, and which are packaged with your app's APK
++# https://developer.android.com/topic/libraries/support-library/androidx-rn
++android.useAndroidX=true
++
++# Use this property to specify which architecture you want to build.
++# You can also override it from the CLI using
++# ./gradlew <task> -PreactNativeArchitectures=x86_64
++reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64
++
++# Use this property to enable support to the new architecture.
++# This will allow you to use TurboModules and the Fabric render in
++# your application. You should enable this flag either if you want
++# to write custom TurboModules/Fabric components OR use libraries that
++# are providing them.
++newArchEnabled=true
++
++# Use this property to enable or disable the Hermes JS engine.
++# If set to false, you will be using JSC instead.
++hermesEnabled=true
++
++# Use this property to enable edge-to-edge display support.
++# This allows your app to draw behind system bars for an immersive UI.
++# Note: Only works with ReactActivity and should not be used with custom Activity.
++edgeToEdgeEnabled=true
++
++# Opt out of built-in kotlin and new DSL behavior that ships with AGP 9.
++# Starting from AGP 10.x these opt outs will be removed.
++android.builtInKotlin=false
++android.newDsl=false
+\ No newline at end of file
+diff --git a/mobile/android/gradle/wrapper/gradle-wrapper.jar b/mobile/android/gradle/wrapper/gradle-wrapper.jar
+new file mode 100644
+index 0000000..d997cfc
+Binary files /dev/null and b/mobile/android/gradle/wrapper/gradle-wrapper.jar differ
+diff --git a/mobile/android/gradle/wrapper/gradle-wrapper.properties b/mobile/android/gradle/wrapper/gradle-wrapper.properties
+new file mode 100644
+index 0000000..c61a118
+--- /dev/null
++++ b/mobile/android/gradle/wrapper/gradle-wrapper.properties
+@@ -0,0 +1,7 @@
++distributionBase=GRADLE_USER_HOME
++distributionPath=wrapper/dists
++distributionUrl=https\://services.gradle.org/distributions/gradle-9.4.1-bin.zip
++networkTimeout=10000
++validateDistributionUrl=true
++zipStoreBase=GRADLE_USER_HOME
++zipStorePath=wrapper/dists
+diff --git a/mobile/android/gradlew b/mobile/android/gradlew
+new file mode 100755
+index 0000000..739907d
+--- /dev/null
++++ b/mobile/android/gradlew
+@@ -0,0 +1,248 @@
++#!/bin/sh
++
++#
++# Copyright © 2015 the original authors.
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#      https://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++#
++# SPDX-License-Identifier: Apache-2.0
++#
++
++##############################################################################
++#
++#   Gradle start up script for POSIX generated by Gradle.
++#
++#   Important for running:
++#
++#   (1) You need a POSIX-compliant shell to run this script. If your /bin/sh is
++#       noncompliant, but you have some other compliant shell such as ksh or
++#       bash, then to run this script, type that shell name before the whole
++#       command line, like:
++#
++#           ksh Gradle
++#
++#       Busybox and similar reduced shells will NOT work, because this script
++#       requires all of these POSIX shell features:
++#         * functions;
++#         * expansions «$var», «${var}», «${var:-default}», «${var+SET}»,
++#           «${var#prefix}», «${var%suffix}», and «$( cmd )»;
++#         * compound commands having a testable exit status, especially «case»;
++#         * various built-in commands including «command», «set», and «ulimit».
++#
++#   Important for patching:
++#
++#   (2) This script targets any POSIX shell, so it avoids extensions provided
++#       by Bash, Ksh, etc; in particular arrays are avoided.
++#
++#       The "traditional" practice of packing multiple parameters into a
++#       space-separated string is a well documented source of bugs and security
++#       problems, so this is (mostly) avoided, by progressively accumulating
++#       options in "$@", and eventually passing that to Java.
++#
++#       Where the inherited environment variables (DEFAULT_JVM_OPTS, JAVA_OPTS,
++#       and GRADLE_OPTS) rely on word-splitting, this is performed explicitly;
++#       see the in-line comments for details.
++#
++#       There are tweaks for specific operating systems such as AIX, CygWin,
++#       Darwin, MinGW, and NonStop.
++#
++#   (3) This script is generated from the Groovy template
++#       https://github.com/gradle/gradle/blob/2d6327017519d23b96af35865dc997fcb544fb40/platforms/jvm/plugins-application/src/main/resources/org/gradle/api/internal/plugins/unixStartScript.txt
++#       within the Gradle project.
++#
++#       You can find Gradle at https://github.com/gradle/gradle/.
++#
++##############################################################################
++
++# Attempt to set APP_HOME
++
++# Resolve links: $0 may be a link
++app_path=$0
++
++# Need this for daisy-chained symlinks.
++while
++    APP_HOME=${app_path%"${app_path##*/}"}  # leaves a trailing /; empty if no leading path
++    [ -h "$app_path" ]
++do
++    ls=$( ls -ld "$app_path" )
++    link=${ls#*' -> '}
++    case $link in             #(
++      /*)   app_path=$link ;; #(
++      *)    app_path=$APP_HOME$link ;;
++    esac
++done
++
++# This is normally unused
++# shellcheck disable=SC2034
++APP_BASE_NAME=${0##*/}
++# Discard cd standard output in case $CDPATH is set (https://github.com/gradle/gradle/issues/25036)
++APP_HOME=$( cd -P "${APP_HOME:-./}" > /dev/null && printf '%s\n' "$PWD" ) || exit
++
++# Use the maximum available, or set MAX_FD != -1 to use that value.
++MAX_FD=maximum
++
++warn () {
++    echo "$*"
++} >&2
++
++die () {
++    echo
++    echo "$*"
++    echo
++    exit 1
++} >&2
++
++# OS specific support (must be 'true' or 'false').
++cygwin=false
++msys=false
++darwin=false
++nonstop=false
++case "$( uname )" in                #(
++  CYGWIN* )         cygwin=true  ;; #(
++  Darwin* )         darwin=true  ;; #(
++  MSYS* | MINGW* )  msys=true    ;; #(
++  NONSTOP* )        nonstop=true ;;
++esac
++
++
++
++# Determine the Java command to use to start the JVM.
++if [ -n "$JAVA_HOME" ] ; then
++    if [ -x "$JAVA_HOME/jre/sh/java" ] ; then
++        # IBM's JDK on AIX uses strange locations for the executables
++        JAVACMD=$JAVA_HOME/jre/sh/java
++    else
++        JAVACMD=$JAVA_HOME/bin/java
++    fi
++    if [ ! -x "$JAVACMD" ] ; then
++        die "ERROR: JAVA_HOME is set to an invalid directory: $JAVA_HOME
++
++Please set the JAVA_HOME variable in your environment to match the
++location of your Java installation."
++    fi
++else
++    JAVACMD=java
++    if ! command -v java >/dev/null 2>&1
++    then
++        die "ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.
++
++Please set the JAVA_HOME variable in your environment to match the
++location of your Java installation."
++    fi
++fi
++
++# Increase the maximum file descriptors if we can.
++if ! "$cygwin" && ! "$darwin" && ! "$nonstop" ; then
++    case $MAX_FD in #(
++      max*)
++        # In POSIX sh, ulimit -H is undefined. That's why the result is checked to see if it worked.
++        # shellcheck disable=SC2039,SC3045
++        MAX_FD=$( ulimit -H -n ) ||
++            warn "Could not query maximum file descriptor limit"
++    esac
++    case $MAX_FD in  #(
++      '' | soft) :;; #(
++      *)
++        # In POSIX sh, ulimit -n is undefined. That's why the result is checked to see if it worked.
++        # shellcheck disable=SC2039,SC3045
++        ulimit -n "$MAX_FD" ||
++            warn "Could not set maximum file descriptor limit to $MAX_FD"
++    esac
++fi
++
++# Collect all arguments for the java command, stacking in reverse order:
++#   * args from the command line
++#   * the main class name
++#   * -classpath
++#   * -D...appname settings
++#   * --module-path (only if needed)
++#   * DEFAULT_JVM_OPTS, JAVA_OPTS, and GRADLE_OPTS environment variables.
++
++# For Cygwin or MSYS, switch paths to Windows format before running java
++if "$cygwin" || "$msys" ; then
++    APP_HOME=$( cygpath --path --mixed "$APP_HOME" )
++
++    JAVACMD=$( cygpath --unix "$JAVACMD" )
++
++    # Now convert the arguments - kludge to limit ourselves to /bin/sh
++    for arg do
++        if
++            case $arg in                                #(
++              -*)   false ;;                            # don't mess with options #(
++              /?*)  t=${arg#/} t=/${t%%/*}              # looks like a POSIX filepath
++                    [ -e "$t" ] ;;                      #(
++              *)    false ;;
++            esac
++        then
++            arg=$( cygpath --path --ignore --mixed "$arg" )
++        fi
++        # Roll the args list around exactly as many times as the number of
++        # args, so each arg winds up back in the position where it started, but
++        # possibly modified.
++        #
++        # NB: a `for` loop captures its iteration list before it begins, so
++        # changing the positional parameters here affects neither the number of
++        # iterations, nor the values presented in `arg`.
++        shift                   # remove old arg
++        set -- "$@" "$arg"      # push replacement arg
++    done
++fi
++
++
++# Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
++DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'
++
++# Collect all arguments for the java command:
++#   * DEFAULT_JVM_OPTS, JAVA_OPTS, and optsEnvironmentVar are not allowed to contain shell fragments,
++#     and any embedded shellness will be escaped.
++#   * For example: A user cannot expect ${Hostname} to be expanded, as it is an environment variable and will be
++#     treated as '${Hostname}' itself on the command line.
++
++set -- \
++        "-Dorg.gradle.appname=$APP_BASE_NAME" \
++        -jar "$APP_HOME/gradle/wrapper/gradle-wrapper.jar" \
++        "$@"
++
++# Stop when "xargs" is not available.
++if ! command -v xargs >/dev/null 2>&1
++then
++    die "xargs is not available"
++fi
++
++# Use "xargs" to parse quoted args.
++#
++# With -n1 it outputs one arg per line, with the quotes and backslashes removed.
++#
++# In Bash we could simply go:
++#
++#   readarray ARGS < <( xargs -n1 <<<"$var" ) &&
++#   set -- "${ARGS[@]}" "$@"
++#
++# but POSIX shell has neither arrays nor command substitution, so instead we
++# post-process each arg (as a line of input to sed) to backslash-escape any
++# character that might be a shell metacharacter, then use eval to reverse
++# that process (while maintaining the separation between arguments), and wrap
++# the whole thing up as a single "set" statement.
++#
++# This will of course break if any of these variables contains a newline or
++# an unmatched quote.
++#
++
++eval "set -- $(
++        printf '%s\n' "$DEFAULT_JVM_OPTS $JAVA_OPTS $GRADLE_OPTS" |
++        xargs -n1 |
++        sed ' s~[^-[:alnum:]+,./:=@_]~\\&~g; ' |
++        tr '\n' ' '
++    )" '"$@"'
++
++exec "$JAVACMD" "$@"
+diff --git a/mobile/android/gradlew.bat b/mobile/android/gradlew.bat
+new file mode 100644
+index 0000000..39baf4d
+--- /dev/null
++++ b/mobile/android/gradlew.bat
+@@ -0,0 +1,98 @@
++@REM Copyright (c) Meta Platforms, Inc. and affiliates.
++@REM
++@REM This source code is licensed under the MIT license found in the
++@REM LICENSE file in the root directory of this source tree.
++
++@rem
++@rem Copyright 2015 the original author or authors.
++@rem
++@rem Licensed under the Apache License, Version 2.0 (the "License");
++@rem you may not use this file except in compliance with the License.
++@rem You may obtain a copy of the License at
++@rem
++@rem      https://www.apache.org/licenses/LICENSE-2.0
++@rem
++@rem Unless required by applicable law or agreed to in writing, software
++@rem distributed under the License is distributed on an "AS IS" BASIS,
++@rem WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++@rem See the License for the specific language governing permissions and
++@rem limitations under the License.
++@rem
++@rem SPDX-License-Identifier: Apache-2.0
++@rem
++
++@if "%DEBUG%"=="" @echo off
++@rem ##########################################################################
++@rem
++@rem  Gradle startup script for Windows
++@rem
++@rem ##########################################################################
++
++@rem Set local scope for the variables with windows NT shell
++if "%OS%"=="Windows_NT" setlocal
++
++set DIRNAME=%~dp0
++if "%DIRNAME%"=="" set DIRNAME=.
++@rem This is normally unused
++set APP_BASE_NAME=%~n0
++set APP_HOME=%DIRNAME%
++
++@rem Resolve any "." and ".." in APP_HOME to make it shorter.
++for %%i in ("%APP_HOME%") do set APP_HOME=%%~fi
++
++@rem Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
++set DEFAULT_JVM_OPTS="-Xmx64m" "-Xms64m"
++
++@rem Find java.exe
++if defined JAVA_HOME goto findJavaFromJavaHome
++
++set JAVA_EXE=java.exe
++%JAVA_EXE% -version >NUL 2>&1
++if %ERRORLEVEL% equ 0 goto execute
++
++echo. 1>&2
++echo ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH. 1>&2
++echo. 1>&2
++echo Please set the JAVA_HOME variable in your environment to match the 1>&2
++echo location of your Java installation. 1>&2
++
++goto fail
++
++:findJavaFromJavaHome
++set JAVA_HOME=%JAVA_HOME:"=%
++set JAVA_EXE=%JAVA_HOME%/bin/java.exe
++
++if exist "%JAVA_EXE%" goto execute
++
++echo. 1>&2
++echo ERROR: JAVA_HOME is set to an invalid directory: %JAVA_HOME% 1>&2
++echo. 1>&2
++echo Please set the JAVA_HOME variable in your environment to match the 1>&2
++echo location of your Java installation. 1>&2
++
++goto fail
++
++:execute
++@rem Setup the command line
++
++
++
++@rem Execute Gradle
++"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -jar "%APP_HOME%\gradle\wrapper\gradle-wrapper.jar" %*
++
++:end
++@rem End local scope for the variables with windows NT shell
++if %ERRORLEVEL% equ 0 goto mainEnd
++
++:fail
++rem Set variable GRADLE_EXIT_CONSOLE if you need the _script_ return code instead of
++rem the _cmd.exe /c_ return code!
++set EXIT_CODE=%ERRORLEVEL%
++if %EXIT_CODE% equ 0 set EXIT_CODE=1
++if not ""=="%GRADLE_EXIT_CONSOLE%" exit %EXIT_CODE%
++exit /b %EXIT_CODE%
++
++:mainEnd
++if "%OS%"=="Windows_NT" endlocal
++
++:omega
+diff --git a/mobile/android/link-assets-manifest.json b/mobile/android/link-assets-manifest.json
+new file mode 100644
+index 0000000..bf0ad8c
+--- /dev/null
++++ b/mobile/android/link-assets-manifest.json
+@@ -0,0 +1,21 @@
++{
++  "migIndex": 1,
++  "data": [
++    {
++      "path": "assets/fonts/Montserrat-Bold.ttf",
++      "sha1": "8d25a921501a92977c63bbdc0545c9e8be0cac4b"
++    },
++    {
++      "path": "assets/fonts/Montserrat-Medium.ttf",
++      "sha1": "321d56022fc72f5e35decbc8e97442116a96908e"
++    },
++    {
++      "path": "assets/fonts/Montserrat-Regular.ttf",
++      "sha1": "7a56bc06d2b862fb6d070dfc77e8ac366e2942b2"
++    },
++    {
++      "path": "assets/fonts/Montserrat-SemiBold.ttf",
++      "sha1": "3db04f05d6ea9c594e32567b3e846efe66e8d47e"
++    }
++  ]
++}
+\ No newline at end of file
+diff --git a/mobile/android/settings.gradle b/mobile/android/settings.gradle
+new file mode 100644
+index 0000000..e8d8932
+--- /dev/null
++++ b/mobile/android/settings.gradle
+@@ -0,0 +1,20 @@
++pluginManagement { includeBuild("../node_modules/@react-native/gradle-plugin") 
++  def expoPluginsPath = new File(
++    providers.exec {
++      workingDir(rootDir)
++      commandLine("node", "--print", "require.resolve('expo-modules-autolinking/package.json', { paths: [require.resolve('expo/package.json')] })")
++    }.standardOutput.asText.get().trim(),
++    "../android/expo-gradle-plugin"
++  ).absolutePath
++  includeBuild(expoPluginsPath)
++}
++plugins { id("com.facebook.react.settings") 
++id("expo-autolinking-settings")
++}
++extensions.configure(com.facebook.react.ReactSettingsExtension){ ex -> ex.autolinkLibrariesFromCommand(expoAutolinking.rnConfigCommand) }
++rootProject.name = 'br.com.fiap.school'
++include ':app'
++includeBuild('../node_modules/@react-native/gradle-plugin')
++expoAutolinking.useExpoModules()
++expoAutolinking.useExpoVersionCatalog()
++includeBuild(expoAutolinking.reactNativeGradlePlugin)
+diff --git a/mobile/app.json b/mobile/app.json
+new file mode 100644
+index 0000000..6c49ed9
+--- /dev/null
++++ b/mobile/app.json
+@@ -0,0 +1,4 @@
++{
++  "name": "FiapSchool",
++  "displayName": "FIAP School"
++}
+diff --git a/mobile/assets/bootsplash/manifest.json b/mobile/assets/bootsplash/manifest.json
+new file mode 100644
+index 0000000..768941b
+--- /dev/null
++++ b/mobile/assets/bootsplash/manifest.json
+@@ -0,0 +1,7 @@
++{
++  "background": "#000000",
++  "logo": {
++    "width": 306,
++    "height": 49
++  }
++}
+diff --git a/mobile/assets/licenses/Montserrat-OFL.txt b/mobile/assets/licenses/Montserrat-OFL.txt
+new file mode 100644
+index 0000000..fe576a2
+--- /dev/null
++++ b/mobile/assets/licenses/Montserrat-OFL.txt
+@@ -0,0 +1,93 @@
++Copyright 2024 The Montserrat.Git Project Authors (https://github.com/JulietaUla/Montserrat.git)
++
++This Font Software is licensed under the SIL Open Font License, Version 1.1.
++This license is copied below, and is also available with a FAQ at:
++https://openfontlicense.org
++
++
++-----------------------------------------------------------
++SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
++-----------------------------------------------------------
++
++PREAMBLE
++The goals of the Open Font License (OFL) are to stimulate worldwide
++development of collaborative font projects, to support the font creation
++efforts of academic and linguistic communities, and to provide a free and
++open framework in which fonts may be shared and improved in partnership
++with others.
++
++The OFL allows the licensed fonts to be used, studied, modified and
++redistributed freely as long as they are not sold by themselves. The
++fonts, including any derivative works, can be bundled, embedded, 
++redistributed and/or sold with any software provided that any reserved
++names are not used by derivative works. The fonts and derivatives,
++however, cannot be released under any other type of license. The
++requirement for fonts to remain under this license does not apply
++to any document created using the fonts or their derivatives.
++
++DEFINITIONS
++"Font Software" refers to the set of files released by the Copyright
++Holder(s) under this license and clearly marked as such. This may
++include source files, build scripts and documentation.
++
++"Reserved Font Name" refers to any names specified as such after the
++copyright statement(s).
++
++"Original Version" refers to the collection of Font Software components as
++distributed by the Copyright Holder(s).
++
++"Modified Version" refers to any derivative made by adding to, deleting,
++or substituting -- in part or in whole -- any of the components of the
++Original Version, by changing formats or by porting the Font Software to a
++new environment.
++
++"Author" refers to any designer, engineer, programmer, technical
++writer or other person who contributed to the Font Software.
++
++PERMISSION & CONDITIONS
++Permission is hereby granted, free of charge, to any person obtaining
++a copy of the Font Software, to use, study, copy, merge, embed, modify,
++redistribute, and sell modified and unmodified copies of the Font
++Software, subject to the following conditions:
++
++1) Neither the Font Software nor any of its individual components,
++in Original or Modified Versions, may be sold by itself.
++
++2) Original or Modified Versions of the Font Software may be bundled,
++redistributed and/or sold with any software, provided that each copy
++contains the above copyright notice and this license. These can be
++included either as stand-alone text files, human-readable headers or
++in the appropriate machine-readable metadata fields within text or
++binary files as long as those fields can be easily viewed by the user.
++
++3) No Modified Version of the Font Software may use the Reserved Font
++Name(s) unless explicit written permission is granted by the corresponding
++Copyright Holder. This restriction only applies to the primary font name as
++presented to the users.
++
++4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
++Software shall not be used to promote, endorse or advertise any
++Modified Version, except to acknowledge the contribution(s) of the
++Copyright Holder(s) and the Author(s) or with their explicit written
++permission.
++
++5) The Font Software, modified or unmodified, in part or in whole,
++must be distributed entirely under this license, and must not be
++distributed under any other license. The requirement for fonts to
++remain under this license does not apply to any document created
++using the Font Software.
++
++TERMINATION
++This license becomes null and void if any of the above conditions are
++not met.
++
++DISCLAIMER
++THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
++OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
++COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
++INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
++DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
++OTHER DEALINGS IN THE FONT SOFTWARE.
+\ No newline at end of file
+diff --git a/mobile/babel.config.js b/mobile/babel.config.js
+new file mode 100644
+index 0000000..fcb3486
+--- /dev/null
++++ b/mobile/babel.config.js
+@@ -0,0 +1,3 @@
++module.exports = {
++  presets: ['babel-preset-expo'],
++};
+diff --git a/mobile/index.js b/mobile/index.js
+new file mode 100644
+index 0000000..f942cc3
+--- /dev/null
++++ b/mobile/index.js
+@@ -0,0 +1,10 @@
++/**
++ * @format
++ */
++
++import { AppRegistry } from 'react-native';
++
++import { App } from './src/app/App';
++import { name as appName } from './app.json';
++
++AppRegistry.registerComponent(appName, () => App);
+diff --git a/mobile/ios/.xcode.env b/mobile/ios/.xcode.env
+new file mode 100644
+index 0000000..3d5782c
+--- /dev/null
++++ b/mobile/ios/.xcode.env
+@@ -0,0 +1,11 @@
++# This `.xcode.env` file is versioned and is used to source the environment
++# used when running script phases inside Xcode.
++# To customize your local environment, you can create an `.xcode.env.local`
++# file that is not versioned.
++
++# NODE_BINARY variable contains the PATH to the node executable.
++#
++# Customize the NODE_BINARY variable here.
++# For example, to use nvm with brew, add the following line
++# . "$(brew --prefix nvm)/nvm.sh" --no-use
++export NODE_BINARY=$(command -v node)
+diff --git a/mobile/ios/FiapSchool.xcodeproj/project.pbxproj b/mobile/ios/FiapSchool.xcodeproj/project.pbxproj
+new file mode 100644
+index 0000000..212f257
+--- /dev/null
++++ b/mobile/ios/FiapSchool.xcodeproj/project.pbxproj
+@@ -0,0 +1,579 @@
++// !$*UTF8*$!
++{
++	archiveVersion = 1;
++	classes = {
++	};
++	objectVersion = 54;
++	objects = {
++
++/* Begin PBXBuildFile section */
++		0C80B921A6F3F58F76C31292 /* libPods-FiapSchool.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCACB8F33CDC322A6C60F78 /* libPods-FiapSchool.a */; };
++		128209FD81BB4787845A8F91 /* BootSplash.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 94CC261EA26243D98701ABA3 /* BootSplash.storyboard */; };
++		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
++		2267EC062AF95393C95918AC /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
++		39417068D46B46C589B390FC /* Montserrat-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = FAD5BE1017DF4A5E855F090E /* Montserrat-SemiBold.ttf */; };
++		4FB30F2BEA691E32F7B19099 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FF47B4EF76CBFDD94A925AA /* ExpoModulesProvider.swift */; };
++		692E5995C13B4C44915844C4 /* Colors.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3098275493674BD8ACF77C84 /* Colors.xcassets */; };
++		73E0B95F462A4812B6D0F1C8 /* Montserrat-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = E7CB1D99C41A407DB807F410 /* Montserrat-Bold.ttf */; };
++		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
++		761780EF2CA45674006654EF /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EE2CA45674006654EF /* SceneDelegate.swift */; };
++		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
++		B90C8F36B40743DFAA14AC7F /* Montserrat-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 038E879694AE41568BDB707A /* Montserrat-Medium.ttf */; };
++		F740F10BFE6F4EDFAF679F3C /* Montserrat-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = EFA5295F8254441FB941ABBB /* Montserrat-Regular.ttf */; };
++/* End PBXBuildFile section */
++
++/* Begin PBXFileReference section */
++		038E879694AE41568BDB707A /* Montserrat-Medium.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Montserrat-Medium.ttf"; path = "../assets/fonts/Montserrat-Medium.ttf"; sourceTree = "<group>"; };
++		13B07F961A680F5B00A75B9A /* FiapSchool.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FiapSchool.app; sourceTree = BUILT_PRODUCTS_DIR; };
++		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = FiapSchool/Images.xcassets; sourceTree = "<group>"; };
++		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = FiapSchool/Info.plist; sourceTree = "<group>"; };
++		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = FiapSchool/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
++		1FF47B4EF76CBFDD94A925AA /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-FiapSchool/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
++		3098275493674BD8ACF77C84 /* Colors.xcassets */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = folder.assetcatalog; name = Colors.xcassets; path = FiapSchool/Colors.xcassets; sourceTree = "<group>"; };
++		3B4392A12AC88292D35C810B /* Pods-FiapSchool.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-FiapSchool.debug.xcconfig"; path = "Target Support Files/Pods-FiapSchool/Pods-FiapSchool.debug.xcconfig"; sourceTree = "<group>"; };
++		5709B34CF0A7D63546082F79 /* Pods-FiapSchool.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-FiapSchool.release.xcconfig"; path = "Target Support Files/Pods-FiapSchool/Pods-FiapSchool.release.xcconfig"; sourceTree = "<group>"; };
++		5DCACB8F33CDC322A6C60F78 /* libPods-FiapSchool.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-FiapSchool.a"; sourceTree = BUILT_PRODUCTS_DIR; };
++		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = FiapSchool/AppDelegate.swift; sourceTree = "<group>"; };
++		761780EE2CA45674006654EF /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SceneDelegate.swift; path = FiapSchool/SceneDelegate.swift; sourceTree = "<group>"; };
++		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = FiapSchool/LaunchScreen.storyboard; sourceTree = "<group>"; };
++		94CC261EA26243D98701ABA3 /* BootSplash.storyboard */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = BootSplash.storyboard; path = FiapSchool/BootSplash.storyboard; sourceTree = "<group>"; };
++		E7CB1D99C41A407DB807F410 /* Montserrat-Bold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Montserrat-Bold.ttf"; path = "../assets/fonts/Montserrat-Bold.ttf"; sourceTree = "<group>"; };
++		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
++		EFA5295F8254441FB941ABBB /* Montserrat-Regular.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Montserrat-Regular.ttf"; path = "../assets/fonts/Montserrat-Regular.ttf"; sourceTree = "<group>"; };
++		FAD5BE1017DF4A5E855F090E /* Montserrat-SemiBold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Montserrat-SemiBold.ttf"; path = "../assets/fonts/Montserrat-SemiBold.ttf"; sourceTree = "<group>"; };
++/* End PBXFileReference section */
++
++/* Begin PBXFrameworksBuildPhase section */
++		13B07F8C1A680F5B00A75B9A /* Frameworks */ = {
++			isa = PBXFrameworksBuildPhase;
++			buildActionMask = 2147483647;
++			files = (
++				0C80B921A6F3F58F76C31292 /* libPods-FiapSchool.a in Frameworks */,
++			);
++			runOnlyForDeploymentPostprocessing = 0;
++		};
++/* End PBXFrameworksBuildPhase section */
++
++/* Begin PBXGroup section */
++		1263B58A4A3E453BB46AE70B /* Resources */ = {
++			isa = PBXGroup;
++			children = (
++				038E879694AE41568BDB707A /* Montserrat-Medium.ttf */,
++				E7CB1D99C41A407DB807F410 /* Montserrat-Bold.ttf */,
++				FAD5BE1017DF4A5E855F090E /* Montserrat-SemiBold.ttf */,
++				EFA5295F8254441FB941ABBB /* Montserrat-Regular.ttf */,
++			);
++			name = Resources;
++			path = "";
++			sourceTree = "<group>";
++		};
++		13B07FAE1A68108700A75B9A /* FiapSchool */ = {
++			isa = PBXGroup;
++			children = (
++				13B07FB51A68108700A75B9A /* Images.xcassets */,
++				761780EC2CA45674006654EE /* AppDelegate.swift */,
++				761780EE2CA45674006654EF /* SceneDelegate.swift */,
++				13B07FB61A68108700A75B9A /* Info.plist */,
++				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
++				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
++				94CC261EA26243D98701ABA3 /* BootSplash.storyboard */,
++				3098275493674BD8ACF77C84 /* Colors.xcassets */,
++			);
++			name = FiapSchool;
++			sourceTree = "<group>";
++		};
++		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
++			isa = PBXGroup;
++			children = (
++				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
++				5DCACB8F33CDC322A6C60F78 /* libPods-FiapSchool.a */,
++			);
++			name = Frameworks;
++			sourceTree = "<group>";
++		};
++		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
++			isa = PBXGroup;
++			children = (
++			);
++			name = Libraries;
++			sourceTree = "<group>";
++		};
++		83CBB9F61A601CBA00E9B192 = {
++			isa = PBXGroup;
++			children = (
++				13B07FAE1A68108700A75B9A /* FiapSchool */,
++				832341AE1AAA6A7D00B99B32 /* Libraries */,
++				83CBBA001A601CBA00E9B192 /* Products */,
++				2D16E6871FA4F8E400B85C8A /* Frameworks */,
++				BBD78D7AC51CEA395F1C20DB /* Pods */,
++				D1CECD9D74EA812330B76FDF /* ExpoModulesProviders */,
++				1263B58A4A3E453BB46AE70B /* Resources */,
++			);
++			indentWidth = 2;
++			sourceTree = "<group>";
++			tabWidth = 2;
++			usesTabs = 0;
++		};
++		83CBBA001A601CBA00E9B192 /* Products */ = {
++			isa = PBXGroup;
++			children = (
++				13B07F961A680F5B00A75B9A /* FiapSchool.app */,
++			);
++			name = Products;
++			sourceTree = "<group>";
++		};
++		BBD78D7AC51CEA395F1C20DB /* Pods */ = {
++			isa = PBXGroup;
++			children = (
++				3B4392A12AC88292D35C810B /* Pods-FiapSchool.debug.xcconfig */,
++				5709B34CF0A7D63546082F79 /* Pods-FiapSchool.release.xcconfig */,
++			);
++			path = Pods;
++			sourceTree = "<group>";
++		};
++		D1CECD9D74EA812330B76FDF /* ExpoModulesProviders */ = {
++			isa = PBXGroup;
++			children = (
++				FA5F9615A8BD2170324CBFA0 /* FiapSchool */,
++			);
++			name = ExpoModulesProviders;
++			sourceTree = "<group>";
++		};
++		FA5F9615A8BD2170324CBFA0 /* FiapSchool */ = {
++			isa = PBXGroup;
++			children = (
++				1FF47B4EF76CBFDD94A925AA /* ExpoModulesProvider.swift */,
++			);
++			name = FiapSchool;
++			sourceTree = "<group>";
++		};
++/* End PBXGroup section */
++
++/* Begin PBXNativeTarget section */
++		13B07F861A680F5B00A75B9A /* FiapSchool */ = {
++			isa = PBXNativeTarget;
++			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "FiapSchool" */;
++			buildPhases = (
++				C38B50BA6285516D6DCD4F65 /* [CP] Check Pods Manifest.lock */,
++				CC6E88838CF79EDEF78383D4 /* [Expo] Configure project */,
++				13B07F871A680F5B00A75B9A /* Sources */,
++				13B07F8C1A680F5B00A75B9A /* Frameworks */,
++				13B07F8E1A680F5B00A75B9A /* Resources */,
++				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
++				00EEFC60759A1932668264C0 /* [CP] Embed Pods Frameworks */,
++				E235C05ADACE081382539298 /* [CP] Copy Pods Resources */,
++			);
++			buildRules = (
++			);
++			dependencies = (
++			);
++			name = FiapSchool;
++			productName = FiapSchool;
++			productReference = 13B07F961A680F5B00A75B9A /* FiapSchool.app */;
++			productType = "com.apple.product-type.application";
++		};
++/* End PBXNativeTarget section */
++
++/* Begin PBXProject section */
++		83CBB9F71A601CBA00E9B192 /* Project object */ = {
++			isa = PBXProject;
++			attributes = {
++				LastUpgradeCheck = 1210;
++				TargetAttributes = {
++					13B07F861A680F5B00A75B9A = {
++						LastSwiftMigration = 1120;
++					};
++				};
++			};
++			buildConfigurationList = 83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "FiapSchool" */;
++			compatibilityVersion = "Xcode 12.0";
++			developmentRegion = en;
++			hasScannedForEncodings = 0;
++			knownRegions = (
++				en,
++				Base,
++			);
++			mainGroup = 83CBB9F61A601CBA00E9B192;
++			productRefGroup = 83CBBA001A601CBA00E9B192 /* Products */;
++			projectDirPath = "";
++			projectRoot = "";
++			targets = (
++				13B07F861A680F5B00A75B9A /* FiapSchool */,
++			);
++		};
++/* End PBXProject section */
++
++/* Begin PBXResourcesBuildPhase section */
++		13B07F8E1A680F5B00A75B9A /* Resources */ = {
++			isa = PBXResourcesBuildPhase;
++			buildActionMask = 2147483647;
++			files = (
++				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
++				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
++				2267EC062AF95393C95918AC /* PrivacyInfo.xcprivacy in Resources */,
++				B90C8F36B40743DFAA14AC7F /* Montserrat-Medium.ttf in Resources */,
++				73E0B95F462A4812B6D0F1C8 /* Montserrat-Bold.ttf in Resources */,
++				39417068D46B46C589B390FC /* Montserrat-SemiBold.ttf in Resources */,
++				F740F10BFE6F4EDFAF679F3C /* Montserrat-Regular.ttf in Resources */,
++				128209FD81BB4787845A8F91 /* BootSplash.storyboard in Resources */,
++				692E5995C13B4C44915844C4 /* Colors.xcassets in Resources */,
++			);
++			runOnlyForDeploymentPostprocessing = 0;
++		};
++/* End PBXResourcesBuildPhase section */
++
++/* Begin PBXShellScriptBuildPhase section */
++		00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */ = {
++			isa = PBXShellScriptBuildPhase;
++			buildActionMask = 2147483647;
++			files = (
++			);
++			inputPaths = (
++				"$(SRCROOT)/.xcode.env.local",
++				"$(SRCROOT)/.xcode.env",
++			);
++			name = "Bundle React Native code and images";
++			outputPaths = (
++			);
++			runOnlyForDeploymentPostprocessing = 0;
++			shellPath = /bin/sh;
++			shellScript = "if [[ -f \"$PODS_ROOT/../.xcode.env\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env\"\nfi\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n# The project root by default is one level up from the ios directory\nexport PROJECT_ROOT=\"$PROJECT_DIR\"/..\n\nif [[ \"$CONFIGURATION\" = *Debug* ]]; then\n  export SKIP_BUNDLING=1\nfi\nif [[ -z \"$ENTRY_FILE\" ]]; then\n  # Set the entry JS file using the bundler's entry resolution.\n  export ENTRY_FILE=\"$(\"$NODE_BINARY\" -e \"require('expo/scripts/resolveAppEntry')\" \"$PROJECT_ROOT\" ios absolute | tail -n 1)\"\nfi\n\nif [[ -z \"$CLI_PATH\" ]]; then\n  # Use Expo CLI\n  export CLI_PATH=\"$(\"$NODE_BINARY\" --print \"require.resolve('@expo/cli')\")\"\nfi\nif [[ -z \"$BUNDLE_COMMAND\" ]]; then\n  # Default Expo CLI command for bundling\n  export BUNDLE_COMMAND=\"export:embed\"\nfi\n\n`\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('react-native/package.json')) + '/scripts/react-native-xcode.sh'\"`\n";
++		};
++		00EEFC60759A1932668264C0 /* [CP] Embed Pods Frameworks */ = {
++			isa = PBXShellScriptBuildPhase;
++			buildActionMask = 2147483647;
++			files = (
++			);
++			inputFileListPaths = (
++				"${PODS_ROOT}/Target Support Files/Pods-FiapSchool/Pods-FiapSchool-frameworks-${CONFIGURATION}-input-files.xcfilelist",
++			);
++			name = "[CP] Embed Pods Frameworks";
++			outputFileListPaths = (
++				"${PODS_ROOT}/Target Support Files/Pods-FiapSchool/Pods-FiapSchool-frameworks-${CONFIGURATION}-output-files.xcfilelist",
++			);
++			runOnlyForDeploymentPostprocessing = 0;
++			shellPath = /bin/sh;
++			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-FiapSchool/Pods-FiapSchool-frameworks.sh\"\n";
++			showEnvVarsInLog = 0;
++		};
++		C38B50BA6285516D6DCD4F65 /* [CP] Check Pods Manifest.lock */ = {
++			isa = PBXShellScriptBuildPhase;
++			buildActionMask = 2147483647;
++			files = (
++			);
++			inputFileListPaths = (
++			);
++			inputPaths = (
++				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
++				"${PODS_ROOT}/Manifest.lock",
++			);
++			name = "[CP] Check Pods Manifest.lock";
++			outputFileListPaths = (
++			);
++			outputPaths = (
++				"$(DERIVED_FILE_DIR)/Pods-FiapSchool-checkManifestLockResult.txt",
++			);
++			runOnlyForDeploymentPostprocessing = 0;
++			shellPath = /bin/sh;
++			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
++			showEnvVarsInLog = 0;
++		};
++		CC6E88838CF79EDEF78383D4 /* [Expo] Configure project */ = {
++			isa = PBXShellScriptBuildPhase;
++			alwaysOutOfDate = 1;
++			buildActionMask = 2147483647;
++			files = (
++			);
++			inputFileListPaths = (
++			);
++			inputPaths = (
++				"$(SRCROOT)/.xcode.env",
++				"$(SRCROOT)/.xcode.env.local",
++				"$(SRCROOT)/Pods/Target Support Files/Pods-FiapSchool/expo-configure-project.sh",
++			);
++			name = "[Expo] Configure project";
++			outputFileListPaths = (
++			);
++			outputPaths = (
++				"$(SRCROOT)/Pods/Target Support Files/Pods-FiapSchool/ExpoModulesProvider.swift",
++			);
++			runOnlyForDeploymentPostprocessing = 0;
++			shellPath = /bin/sh;
++			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-FiapSchool/expo-configure-project.sh\"\n";
++		};
++		E235C05ADACE081382539298 /* [CP] Copy Pods Resources */ = {
++			isa = PBXShellScriptBuildPhase;
++			buildActionMask = 2147483647;
++			files = (
++			);
++			inputFileListPaths = (
++				"${PODS_ROOT}/Target Support Files/Pods-FiapSchool/Pods-FiapSchool-resources-${CONFIGURATION}-input-files.xcfilelist",
++			);
++			name = "[CP] Copy Pods Resources";
++			outputFileListPaths = (
++				"${PODS_ROOT}/Target Support Files/Pods-FiapSchool/Pods-FiapSchool-resources-${CONFIGURATION}-output-files.xcfilelist",
++			);
++			runOnlyForDeploymentPostprocessing = 0;
++			shellPath = /bin/sh;
++			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-FiapSchool/Pods-FiapSchool-resources.sh\"\n";
++			showEnvVarsInLog = 0;
++		};
++/* End PBXShellScriptBuildPhase section */
++
++/* Begin PBXSourcesBuildPhase section */
++		13B07F871A680F5B00A75B9A /* Sources */ = {
++			isa = PBXSourcesBuildPhase;
++			buildActionMask = 2147483647;
++			files = (
++				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
++				761780EF2CA45674006654EF /* SceneDelegate.swift in Sources */,
++				4FB30F2BEA691E32F7B19099 /* ExpoModulesProvider.swift in Sources */,
++			);
++			runOnlyForDeploymentPostprocessing = 0;
++		};
++/* End PBXSourcesBuildPhase section */
++
++/* Begin XCBuildConfiguration section */
++		13B07F941A680F5B00A75B9A /* Debug */ = {
++			isa = XCBuildConfiguration;
++			baseConfigurationReference = 3B4392A12AC88292D35C810B /* Pods-FiapSchool.debug.xcconfig */;
++			buildSettings = {
++				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
++				CLANG_ENABLE_MODULES = YES;
++				CURRENT_PROJECT_VERSION = 1;
++				ENABLE_BITCODE = NO;
++				INFOPLIST_FILE = FiapSchool/Info.plist;
++				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
++				LD_RUNPATH_SEARCH_PATHS = (
++					"$(inherited)",
++					"@executable_path/Frameworks",
++				);
++				MARKETING_VERSION = 1.0;
++				OTHER_LDFLAGS = (
++					"$(inherited)",
++					"-ObjC",
++					"-lc++",
++				);
++				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
++				PRODUCT_BUNDLE_IDENTIFIER = br.com.fiap.school;
++				PRODUCT_NAME = FiapSchool;
++				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
++				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
++				SWIFT_VERSION = 5.0;
++				TARGETED_DEVICE_FAMILY = "1,2";
++				VERSIONING_SYSTEM = "apple-generic";
++			};
++			name = Debug;
++		};
++		13B07F951A680F5B00A75B9A /* Release */ = {
++			isa = XCBuildConfiguration;
++			baseConfigurationReference = 5709B34CF0A7D63546082F79 /* Pods-FiapSchool.release.xcconfig */;
++			buildSettings = {
++				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
++				CLANG_ENABLE_MODULES = YES;
++				CURRENT_PROJECT_VERSION = 1;
++				INFOPLIST_FILE = FiapSchool/Info.plist;
++				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
++				LD_RUNPATH_SEARCH_PATHS = (
++					"$(inherited)",
++					"@executable_path/Frameworks",
++				);
++				MARKETING_VERSION = 1.0;
++				OTHER_LDFLAGS = (
++					"$(inherited)",
++					"-ObjC",
++					"-lc++",
++				);
++				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
++				PRODUCT_BUNDLE_IDENTIFIER = br.com.fiap.school;
++				PRODUCT_NAME = FiapSchool;
++				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
++				SWIFT_VERSION = 5.0;
++				TARGETED_DEVICE_FAMILY = "1,2";
++				VERSIONING_SYSTEM = "apple-generic";
++			};
++			name = Release;
++		};
++		83CBBA201A601CBA00E9B192 /* Debug */ = {
++			isa = XCBuildConfiguration;
++			buildSettings = {
++				ALWAYS_SEARCH_USER_PATHS = NO;
++				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
++				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
++				CLANG_CXX_LIBRARY = "libc++";
++				CLANG_ENABLE_MODULES = YES;
++				CLANG_ENABLE_OBJC_ARC = YES;
++				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
++				CLANG_WARN_BOOL_CONVERSION = YES;
++				CLANG_WARN_COMMA = YES;
++				CLANG_WARN_CONSTANT_CONVERSION = YES;
++				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
++				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
++				CLANG_WARN_EMPTY_BODY = YES;
++				CLANG_WARN_ENUM_CONVERSION = YES;
++				CLANG_WARN_INFINITE_RECURSION = YES;
++				CLANG_WARN_INT_CONVERSION = YES;
++				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
++				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
++				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
++				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
++				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
++				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
++				CLANG_WARN_STRICT_PROTOTYPES = YES;
++				CLANG_WARN_SUSPICIOUS_MOVE = YES;
++				CLANG_WARN_UNREACHABLE_CODE = YES;
++				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
++				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
++				COPY_PHASE_STRIP = NO;
++				ENABLE_STRICT_OBJC_MSGSEND = YES;
++				ENABLE_TESTABILITY = YES;
++				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
++				GCC_C_LANGUAGE_STANDARD = gnu99;
++				GCC_DYNAMIC_NO_PIC = NO;
++				GCC_NO_COMMON_BLOCKS = YES;
++				GCC_OPTIMIZATION_LEVEL = 0;
++				GCC_PREPROCESSOR_DEFINITIONS = (
++					"DEBUG=1",
++					"$(inherited)",
++				);
++				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
++				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
++				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
++				GCC_WARN_UNDECLARED_SELECTOR = YES;
++				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
++				GCC_WARN_UNUSED_FUNCTION = YES;
++				GCC_WARN_UNUSED_VARIABLE = YES;
++				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
++				LD_RUNPATH_SEARCH_PATHS = (
++					/usr/lib/swift,
++					"$(inherited)",
++				);
++				LIBRARY_SEARCH_PATHS = (
++					"\"$(SDKROOT)/usr/lib/swift\"",
++					"\"$(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME)\"",
++					"\"$(inherited)\"",
++				);
++				MTL_ENABLE_DEBUG_INFO = YES;
++				ONLY_ACTIVE_ARCH = YES;
++				OTHER_CFLAGS = (
++					"$(inherited)",
++					"-DRCT_REMOVE_LEGACY_ARCH=1",
++				);
++				OTHER_CPLUSPLUSFLAGS = (
++					"$(OTHER_CFLAGS)",
++					"-DFOLLY_NO_CONFIG",
++					"-DFOLLY_MOBILE=1",
++					"-DFOLLY_USE_LIBCPP=1",
++					"-DFOLLY_CFG_NO_COROUTINES=1",
++					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
++					"-DRCT_REMOVE_LEGACY_ARCH=1",
++				);
++				PODFILE_DIR = "$(SRCROOT)";
++				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
++				SDKROOT = iphoneos;
++				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
++				SWIFT_VERSION = 5.0;
++				USE_HERMES = true;
++			};
++			name = Debug;
++		};
++		83CBBA211A601CBA00E9B192 /* Release */ = {
++			isa = XCBuildConfiguration;
++			buildSettings = {
++				ALWAYS_SEARCH_USER_PATHS = NO;
++				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
++				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
++				CLANG_CXX_LIBRARY = "libc++";
++				CLANG_ENABLE_MODULES = YES;
++				CLANG_ENABLE_OBJC_ARC = YES;
++				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
++				CLANG_WARN_BOOL_CONVERSION = YES;
++				CLANG_WARN_COMMA = YES;
++				CLANG_WARN_CONSTANT_CONVERSION = YES;
++				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
++				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
++				CLANG_WARN_EMPTY_BODY = YES;
++				CLANG_WARN_ENUM_CONVERSION = YES;
++				CLANG_WARN_INFINITE_RECURSION = YES;
++				CLANG_WARN_INT_CONVERSION = YES;
++				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
++				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
++				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
++				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
++				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
++				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
++				CLANG_WARN_STRICT_PROTOTYPES = YES;
++				CLANG_WARN_SUSPICIOUS_MOVE = YES;
++				CLANG_WARN_UNREACHABLE_CODE = YES;
++				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
++				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
++				COPY_PHASE_STRIP = YES;
++				ENABLE_NS_ASSERTIONS = NO;
++				ENABLE_STRICT_OBJC_MSGSEND = YES;
++				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
++				GCC_C_LANGUAGE_STANDARD = gnu99;
++				GCC_NO_COMMON_BLOCKS = YES;
++				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
++				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
++				GCC_WARN_UNDECLARED_SELECTOR = YES;
++				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
++				GCC_WARN_UNUSED_FUNCTION = YES;
++				GCC_WARN_UNUSED_VARIABLE = YES;
++				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
++				LD_RUNPATH_SEARCH_PATHS = (
++					/usr/lib/swift,
++					"$(inherited)",
++				);
++				LIBRARY_SEARCH_PATHS = (
++					"\"$(SDKROOT)/usr/lib/swift\"",
++					"\"$(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME)\"",
++					"\"$(inherited)\"",
++				);
++				MTL_ENABLE_DEBUG_INFO = NO;
++				OTHER_CFLAGS = (
++					"$(inherited)",
++					"-DRCT_REMOVE_LEGACY_ARCH=1",
++				);
++				OTHER_CPLUSPLUSFLAGS = (
++					"$(OTHER_CFLAGS)",
++					"-DFOLLY_NO_CONFIG",
++					"-DFOLLY_MOBILE=1",
++					"-DFOLLY_USE_LIBCPP=1",
++					"-DFOLLY_CFG_NO_COROUTINES=1",
++					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
++					"-DRCT_REMOVE_LEGACY_ARCH=1",
++				);
++				PODFILE_DIR = "$(SRCROOT)";
++				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
++				SDKROOT = iphoneos;
++				SWIFT_VERSION = 5.0;
++				USE_HERMES = true;
++				VALIDATE_PRODUCT = YES;
++			};
++			name = Release;
++		};
++/* End XCBuildConfiguration section */
++
++/* Begin XCConfigurationList section */
++		13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "FiapSchool" */ = {
++			isa = XCConfigurationList;
++			buildConfigurations = (
++				13B07F941A680F5B00A75B9A /* Debug */,
++				13B07F951A680F5B00A75B9A /* Release */,
++			);
++			defaultConfigurationIsVisible = 0;
++			defaultConfigurationName = Release;
++		};
++		83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "FiapSchool" */ = {
++			isa = XCConfigurationList;
++			buildConfigurations = (
++				83CBBA201A601CBA00E9B192 /* Debug */,
++				83CBBA211A601CBA00E9B192 /* Release */,
++			);
++			defaultConfigurationIsVisible = 0;
++			defaultConfigurationName = Release;
++		};
++/* End XCConfigurationList section */
++	};
++	rootObject = 83CBB9F71A601CBA00E9B192 /* Project object */;
++}
+diff --git a/mobile/ios/FiapSchool.xcodeproj/xcshareddata/xcschemes/FiapSchool.xcscheme b/mobile/ios/FiapSchool.xcodeproj/xcshareddata/xcschemes/FiapSchool.xcscheme
+new file mode 100644
+index 0000000..105456b
+--- /dev/null
++++ b/mobile/ios/FiapSchool.xcodeproj/xcshareddata/xcschemes/FiapSchool.xcscheme
+@@ -0,0 +1,88 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<Scheme
++   LastUpgradeVersion = "1210"
++   version = "1.3">
++   <BuildAction
++      parallelizeBuildables = "YES"
++      buildImplicitDependencies = "YES">
++      <BuildActionEntries>
++         <BuildActionEntry
++            buildForTesting = "YES"
++            buildForRunning = "YES"
++            buildForProfiling = "YES"
++            buildForArchiving = "YES"
++            buildForAnalyzing = "YES">
++            <BuildableReference
++               BuildableIdentifier = "primary"
++               BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
++               BuildableName = "FiapSchool.app"
++               BlueprintName = "FiapSchool"
++               ReferencedContainer = "container:FiapSchool.xcodeproj">
++            </BuildableReference>
++         </BuildActionEntry>
++      </BuildActionEntries>
++   </BuildAction>
++   <TestAction
++      buildConfiguration = "Debug"
++      selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
++      selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
++      shouldUseLaunchSchemeArgsEnv = "YES">
++      <Testables>
++         <TestableReference
++            skipped = "NO">
++            <BuildableReference
++               BuildableIdentifier = "primary"
++               BlueprintIdentifier = "00E356ED1AD99517003FC87E"
++               BuildableName = "FiapSchoolTests.xctest"
++               BlueprintName = "FiapSchoolTests"
++               ReferencedContainer = "container:FiapSchool.xcodeproj">
++            </BuildableReference>
++         </TestableReference>
++      </Testables>
++   </TestAction>
++   <LaunchAction
++      buildConfiguration = "Debug"
++      selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
++      selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
++      launchStyle = "0"
++      useCustomWorkingDirectory = "NO"
++      ignoresPersistentStateOnLaunch = "NO"
++      debugDocumentVersioning = "YES"
++      debugServiceExtension = "internal"
++      allowLocationSimulation = "YES">
++      <BuildableProductRunnable
++         runnableDebuggingMode = "0">
++         <BuildableReference
++            BuildableIdentifier = "primary"
++            BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
++            BuildableName = "FiapSchool.app"
++            BlueprintName = "FiapSchool"
++            ReferencedContainer = "container:FiapSchool.xcodeproj">
++         </BuildableReference>
++      </BuildableProductRunnable>
++   </LaunchAction>
++   <ProfileAction
++      buildConfiguration = "Release"
++      shouldUseLaunchSchemeArgsEnv = "YES"
++      savedToolIdentifier = ""
++      useCustomWorkingDirectory = "NO"
++      debugDocumentVersioning = "YES">
++      <BuildableProductRunnable
++         runnableDebuggingMode = "0">
++         <BuildableReference
++            BuildableIdentifier = "primary"
++            BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
++            BuildableName = "FiapSchool.app"
++            BlueprintName = "FiapSchool"
++            ReferencedContainer = "container:FiapSchool.xcodeproj">
++         </BuildableReference>
++      </BuildableProductRunnable>
++   </ProfileAction>
++   <AnalyzeAction
++      buildConfiguration = "Debug">
++   </AnalyzeAction>
++   <ArchiveAction
++      buildConfiguration = "Release"
++      revealArchiveInOrganizer = "YES">
++   </ArchiveAction>
++</Scheme>
+diff --git a/mobile/ios/FiapSchool.xcworkspace/contents.xcworkspacedata b/mobile/ios/FiapSchool.xcworkspace/contents.xcworkspacedata
+new file mode 100644
+index 0000000..3dc2c41
+--- /dev/null
++++ b/mobile/ios/FiapSchool.xcworkspace/contents.xcworkspacedata
+@@ -0,0 +1,10 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<Workspace
++   version = "1.0">
++   <FileRef
++      location = "group:FiapSchool.xcodeproj">
++   </FileRef>
++   <FileRef
++      location = "group:Pods/Pods.xcodeproj">
++   </FileRef>
++</Workspace>
+diff --git a/mobile/ios/FiapSchool/AppDelegate.swift b/mobile/ios/FiapSchool/AppDelegate.swift
+new file mode 100644
+index 0000000..1264afc
+--- /dev/null
++++ b/mobile/ios/FiapSchool/AppDelegate.swift
+@@ -0,0 +1,51 @@
++internal import Expo
++import React
++import ReactAppDependencyProvider
++import RNBootSplash
++
++@main
++class AppDelegate: ExpoAppDelegate, ExpoReactNativeFactoryProvider {
++  var window: UIWindow?
++
++  var reactNativeDelegate: ExpoReactNativeFactoryDelegate?
++  var reactNativeFactory: RCTReactNativeFactory?
++
++  // Nome registrado no AppRegistry (index.js / app.json).
++  var reactNativeFactoryModuleName: String { "FiapSchool" }
++
++  public override func application(
++    _ application: UIApplication,
++    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
++  ) -> Bool {
++    let delegate = ReactNativeDelegate()
++    let factory = ExpoReactNativeFactory(delegate: delegate)
++    delegate.dependencyProvider = RCTAppDependencyProvider()
++
++    reactNativeDelegate = delegate
++    reactNativeFactory = factory
++
++    // A janela é criada e o React Native é iniciado pelo SceneDelegate
++    // (ciclo de vida por cena, exigido pelo SDK do iOS 27).
++    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
++  }
++}
++
++class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
++  // Splash nativa (react-native-bootsplash); o JS a esconde quando a navegação fica pronta.
++  override func customize(_ rootView: UIView) {
++    super.customize(rootView)
++    RNBootSplash.initWithStoryboard("BootSplash", rootView: rootView)
++  }
++
++  override func sourceURL(for bridge: RCTBridge) -> URL? {
++    bridge.bundleURL ?? bundleURL()
++  }
++
++  override func bundleURL() -> URL? {
++#if DEBUG
++    return RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: "index")
++#else
++    return Bundle.main.url(forResource: "main", withExtension: "jsbundle")
++#endif
++  }
++}
+diff --git a/mobile/ios/FiapSchool/BootSplash.storyboard b/mobile/ios/FiapSchool/BootSplash.storyboard
+new file mode 100644
+index 0000000..4593e3e
+--- /dev/null
++++ b/mobile/ios/FiapSchool/BootSplash.storyboard
+@@ -0,0 +1,46 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="21701" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="01J-lp-oVM">
++    <device id="retina4_7" orientation="portrait" appearance="light"/>
++    <dependencies>
++        <deployment identifier="iOS"/>
++        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="21678"/>
++        <capability name="Named colors" minToolsVersion="9.0"/>
++        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
++        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
++    </dependencies>
++    <scenes>
++        <!--View Controller-->
++        <scene sceneID="EHf-IW-A2E">
++            <objects>
++                <viewController modalTransitionStyle="crossDissolve" id="01J-lp-oVM" sceneMemberID="viewController">
++                    <view key="view" autoresizesSubviews="NO" contentMode="scaleToFill" id="Ze5-6b-2t3">
++                        <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
++                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
++                        <subviews>
++                            <imageView autoresizesSubviews="NO" clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="BootSplashLogo-0730a4" translatesAutoresizingMaskIntoConstraints="NO" id="3lX-Ut-9ad">
++                                <rect key="frame" x="34.5" y="309" width="306" height="49"/>
++                                <accessibility key="accessibilityConfiguration">
++                                    <accessibilityTraits key="traits" image="YES" notEnabled="YES"/>
++                                </accessibility>
++                            </imageView>
++                        </subviews>
++                        <viewLayoutGuide key="safeArea" id="Bcu-3y-fUS"/>
++                        <color key="backgroundColor" name="BootSplashBackground-0730a4"/>
++                        <constraints>
++                            <constraint firstItem="3lX-Ut-9ad" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="Fh9-Fy-1nT"/>
++                            <constraint firstItem="3lX-Ut-9ad" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="nvB-Ic-PnI"/>
++                        </constraints>
++                    </view>
++                </viewController>
++                <placeholder placeholderIdentifier="IBFirstResponder" id="iYj-Kq-Ea1" userLabel="First Responder" sceneMemberID="firstResponder"/>
++            </objects>
++            <point key="canvasLocation" x="0.0" y="0.0"/>
++        </scene>
++    </scenes>
++    <resources>
++        <image name="BootSplashLogo-0730a4" width="306" height="49"/>
++        <namedColor name="BootSplashBackground-0730a4">
++            <color red="0.00000000000000" green="0.00000000000000" blue="0.00000000000000" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
++        </namedColor>
++    </resources>
++</document>
+diff --git a/mobile/ios/FiapSchool/Colors.xcassets/BootSplashBackground-0730a4.colorset/Contents.json b/mobile/ios/FiapSchool/Colors.xcassets/BootSplashBackground-0730a4.colorset/Contents.json
+new file mode 100644
+index 0000000..34ca97d
+--- /dev/null
++++ b/mobile/ios/FiapSchool/Colors.xcassets/BootSplashBackground-0730a4.colorset/Contents.json
+@@ -0,0 +1,20 @@
++{
++  "colors": [
++    {
++      "idiom": "universal",
++      "color": {
++        "color-space": "srgb",
++        "components": {
++          "blue": "0.00000000000000",
++          "green": "0.00000000000000",
++          "red": "0.00000000000000",
++          "alpha": "1.000"
++        }
++      }
++    }
++  ],
++  "info": {
++    "author": "xcode",
++    "version": 1
++  }
++}
+diff --git a/mobile/ios/FiapSchool/Images.xcassets/AppIcon.appiconset/Contents.json b/mobile/ios/FiapSchool/Images.xcassets/AppIcon.appiconset/Contents.json
+new file mode 100644
+index 0000000..8121323
+--- /dev/null
++++ b/mobile/ios/FiapSchool/Images.xcassets/AppIcon.appiconset/Contents.json
+@@ -0,0 +1,53 @@
++{
++  "images" : [
++    {
++      "idiom" : "iphone",
++      "scale" : "2x",
++      "size" : "20x20"
++    },
++    {
++      "idiom" : "iphone",
++      "scale" : "3x",
++      "size" : "20x20"
++    },
++    {
++      "idiom" : "iphone",
++      "scale" : "2x",
++      "size" : "29x29"
++    },
++    {
++      "idiom" : "iphone",
++      "scale" : "3x",
++      "size" : "29x29"
++    },
++    {
++      "idiom" : "iphone",
++      "scale" : "2x",
++      "size" : "40x40"
++    },
++    {
++      "idiom" : "iphone",
++      "scale" : "3x",
++      "size" : "40x40"
++    },
++    {
++      "idiom" : "iphone",
++      "scale" : "2x",
++      "size" : "60x60"
++    },
++    {
++      "idiom" : "iphone",
++      "scale" : "3x",
++      "size" : "60x60"
++    },
++    {
++      "idiom" : "ios-marketing",
++      "scale" : "1x",
++      "size" : "1024x1024"
++    }
++  ],
++  "info" : {
++    "author" : "xcode",
++    "version" : 1
++  }
++}
+diff --git a/mobile/ios/FiapSchool/Images.xcassets/BootSplashLogo-0730a4.imageset/Contents.json b/mobile/ios/FiapSchool/Images.xcassets/BootSplashLogo-0730a4.imageset/Contents.json
+new file mode 100644
+index 0000000..b94feff
+--- /dev/null
++++ b/mobile/ios/FiapSchool/Images.xcassets/BootSplashLogo-0730a4.imageset/Contents.json
+@@ -0,0 +1,23 @@
++{
++  "images": [
++    {
++      "idiom": "universal",
++      "filename": "logo-0730a4.png",
++      "scale": "1x"
++    },
++    {
++      "idiom": "universal",
++      "filename": "logo-0730a4@2x.png",
++      "scale": "2x"
++    },
++    {
++      "idiom": "universal",
++      "filename": "logo-0730a4@3x.png",
++      "scale": "3x"
++    }
++  ],
++  "info": {
++    "author": "xcode",
++    "version": 1
++  }
++}
+diff --git a/mobile/ios/FiapSchool/Images.xcassets/Contents.json b/mobile/ios/FiapSchool/Images.xcassets/Contents.json
+new file mode 100644
+index 0000000..2d92bd5
+--- /dev/null
++++ b/mobile/ios/FiapSchool/Images.xcassets/Contents.json
+@@ -0,0 +1,6 @@
++{
++  "info" : {
++    "version" : 1,
++    "author" : "xcode"
++  }
++}
+diff --git a/mobile/ios/FiapSchool/Info.plist b/mobile/ios/FiapSchool/Info.plist
+new file mode 100644
+index 0000000..d54b04c
+--- /dev/null
++++ b/mobile/ios/FiapSchool/Info.plist
+@@ -0,0 +1,86 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
++<plist version="1.0">
++<dict>
++	<key>CADisableMinimumFrameDurationOnPhone</key>
++	<true/>
++	<key>CFBundleDevelopmentRegion</key>
++	<string>en</string>
++	<key>CFBundleDisplayName</key>
++	<string>FIAP School</string>
++	<key>CFBundleExecutable</key>
++	<string>$(EXECUTABLE_NAME)</string>
++	<key>CFBundleIdentifier</key>
++	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
++	<key>CFBundleInfoDictionaryVersion</key>
++	<string>6.0</string>
++	<key>CFBundleName</key>
++	<string>$(PRODUCT_NAME)</string>
++	<key>CFBundlePackageType</key>
++	<string>APPL</string>
++	<key>CFBundleShortVersionString</key>
++	<string>$(MARKETING_VERSION)</string>
++	<key>CFBundleSignature</key>
++	<string>????</string>
++	<key>CFBundleVersion</key>
++	<string>$(CURRENT_PROJECT_VERSION)</string>
++	<key>LSRequiresIPhoneOS</key>
++	<true/>
++	<key>NSAppTransportSecurity</key>
++	<dict>
++		<key>NSAllowsArbitraryLoads</key>
++		<false/>
++		<key>NSAllowsLocalNetworking</key>
++		<true/>
++	</dict>
++	<key>NSLocationWhenInUseUsageDescription</key>
++	<string></string>
++	<key>RCTNewArchEnabled</key>
++	<true/>
++	<key>UIAppFonts</key>
++	<array>
++		<string>Montserrat-Medium.ttf</string>
++		<string>Montserrat-Bold.ttf</string>
++		<string>Montserrat-SemiBold.ttf</string>
++		<string>Montserrat-Regular.ttf</string>
++	</array>
++	<key>UIApplicationSceneManifest</key>
++	<dict>
++		<key>UIApplicationSupportsMultipleScenes</key>
++		<false/>
++		<key>UISceneConfigurations</key>
++		<dict>
++			<key>UIWindowSceneSessionRoleApplication</key>
++			<array>
++				<dict>
++					<key>UISceneConfigurationName</key>
++					<string>Default Configuration</string>
++					<key>UISceneDelegateClassName</key>
++					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
++				</dict>
++			</array>
++		</dict>
++	</dict>
++	<key>UILaunchStoryboardName</key>
++	<string>BootSplash</string>
++	<key>UIRequiredDeviceCapabilities</key>
++	<array>
++		<string>arm64</string>
++	</array>
++	<key>UIStatusBarStyle</key>
++	<string>UIStatusBarStyleLightContent</string>
++	<key>UISupportedInterfaceOrientations</key>
++	<array>
++		<string>UIInterfaceOrientationPortrait</string>
++	</array>
++	<key>UISupportedInterfaceOrientations~ipad</key>
++	<array>
++		<string>UIInterfaceOrientationLandscapeLeft</string>
++		<string>UIInterfaceOrientationLandscapeRight</string>
++		<string>UIInterfaceOrientationPortrait</string>
++		<string>UIInterfaceOrientationPortraitUpsideDown</string>
++	</array>
++	<key>UIViewControllerBasedStatusBarAppearance</key>
++	<false/>
++</dict>
++</plist>
+diff --git a/mobile/ios/FiapSchool/LaunchScreen.storyboard b/mobile/ios/FiapSchool/LaunchScreen.storyboard
+new file mode 100644
+index 0000000..1662cc7
+--- /dev/null
++++ b/mobile/ios/FiapSchool/LaunchScreen.storyboard
+@@ -0,0 +1,47 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="15702" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="01J-lp-oVM">
++    <device id="retina4_7" orientation="portrait" appearance="light"/>
++    <dependencies>
++        <deployment identifier="iOS"/>
++        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="15704"/>
++        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
++        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
++    </dependencies>
++    <scenes>
++        <!--View Controller-->
++        <scene sceneID="EHf-IW-A2E">
++            <objects>
++                <viewController id="01J-lp-oVM" sceneMemberID="viewController">
++                    <view key="view" contentMode="scaleToFill" id="Ze5-6b-2t3">
++                        <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
++                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
++                        <subviews>
++                            <label opaque="NO" clipsSubviews="YES" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="FiapSchool" textAlignment="center" lineBreakMode="middleTruncation" baselineAdjustment="alignBaselines" minimumFontSize="18" translatesAutoresizingMaskIntoConstraints="NO" id="GJd-Yh-RWb">
++                                <rect key="frame" x="0.0" y="202" width="375" height="43"/>
++                                <fontDescription key="fontDescription" type="boldSystem" pointSize="36"/>
++                                <nil key="highlightedColor"/>
++                            </label>
++                            <label opaque="NO" clipsSubviews="YES" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Powered by React Native" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" minimumFontSize="9" translatesAutoresizingMaskIntoConstraints="NO" id="MN2-I3-ftu">
++                                <rect key="frame" x="0.0" y="626" width="375" height="21"/>
++                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
++                                <nil key="highlightedColor"/>
++                            </label>
++                        </subviews>
++                        <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
++                        <constraints>
++                            <constraint firstItem="Bcu-3y-fUS" firstAttribute="bottom" secondItem="MN2-I3-ftu" secondAttribute="bottom" constant="20" id="OZV-Vh-mqD"/>
++                            <constraint firstItem="Bcu-3y-fUS" firstAttribute="centerX" secondItem="GJd-Yh-RWb" secondAttribute="centerX" id="Q3B-4B-g5h"/>
++                            <constraint firstItem="MN2-I3-ftu" firstAttribute="centerX" secondItem="Bcu-3y-fUS" secondAttribute="centerX" id="akx-eg-2ui"/>
++                            <constraint firstItem="MN2-I3-ftu" firstAttribute="leading" secondItem="Bcu-3y-fUS" secondAttribute="leading" id="i1E-0Y-4RG"/>
++                            <constraint firstItem="GJd-Yh-RWb" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="bottom" multiplier="1/3" constant="1" id="moa-c2-u7t"/>
++                            <constraint firstItem="GJd-Yh-RWb" firstAttribute="leading" secondItem="Bcu-3y-fUS" secondAttribute="leading" symbolic="YES" id="x7j-FC-K8j"/>
++                        </constraints>
++                        <viewLayoutGuide key="safeArea" id="Bcu-3y-fUS"/>
++                    </view>
++                </viewController>
++                <placeholder placeholderIdentifier="IBFirstResponder" id="iYj-Kq-Ea1" userLabel="First Responder" sceneMemberID="firstResponder"/>
++            </objects>
++            <point key="canvasLocation" x="52.173913043478265" y="375"/>
++        </scene>
++    </scenes>
++</document>
+diff --git a/mobile/ios/FiapSchool/PrivacyInfo.xcprivacy b/mobile/ios/FiapSchool/PrivacyInfo.xcprivacy
+new file mode 100644
+index 0000000..5bb83c5
+--- /dev/null
++++ b/mobile/ios/FiapSchool/PrivacyInfo.xcprivacy
+@@ -0,0 +1,48 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
++<plist version="1.0">
++<dict>
++	<key>NSPrivacyAccessedAPITypes</key>
++	<array>
++		<dict>
++			<key>NSPrivacyAccessedAPIType</key>
++			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
++			<key>NSPrivacyAccessedAPITypeReasons</key>
++			<array>
++				<string>CA92.1</string>
++			</array>
++		</dict>
++		<dict>
++			<key>NSPrivacyAccessedAPIType</key>
++			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
++			<key>NSPrivacyAccessedAPITypeReasons</key>
++			<array>
++				<string>0A2A.1</string>
++				<string>3B52.1</string>
++				<string>C617.1</string>
++			</array>
++		</dict>
++		<dict>
++			<key>NSPrivacyAccessedAPIType</key>
++			<string>NSPrivacyAccessedAPICategoryDiskSpace</string>
++			<key>NSPrivacyAccessedAPITypeReasons</key>
++			<array>
++				<string>E174.1</string>
++				<string>85F4.1</string>
++			</array>
++		</dict>
++		<dict>
++			<key>NSPrivacyAccessedAPIType</key>
++			<string>NSPrivacyAccessedAPICategorySystemBootTime</string>
++			<key>NSPrivacyAccessedAPITypeReasons</key>
++			<array>
++				<string>35F9.1</string>
++			</array>
++		</dict>
++	</array>
++	<key>NSPrivacyCollectedDataTypes</key>
++	<array/>
++	<key>NSPrivacyTracking</key>
++	<false/>
++</dict>
++</plist>
+diff --git a/mobile/ios/FiapSchool/SceneDelegate.swift b/mobile/ios/FiapSchool/SceneDelegate.swift
+new file mode 100644
+index 0000000..4aba1df
+--- /dev/null
++++ b/mobile/ios/FiapSchool/SceneDelegate.swift
+@@ -0,0 +1,5 @@
++internal import Expo
++
++@objc(SceneDelegate)
++class SceneDelegate: ExpoAppSceneDelegate {
++}
+diff --git a/mobile/ios/Podfile b/mobile/ios/Podfile
+new file mode 100644
+index 0000000..013de0c
+--- /dev/null
++++ b/mobile/ios/Podfile
+@@ -0,0 +1,52 @@
++require File.join(File.dirname(`node --print "require.resolve('expo/package.json')"`), "scripts/autolinking")
++# Resolve react_native_pods.rb with node to allow for hoisting
++require Pod::Executable.execute_command('node', ['-p',
++  'require.resolve(
++    "react-native/scripts/react_native_pods.rb",
++    {paths: [process.argv[1]]},
++  )', __dir__]).strip
++
++platform :ios, '16.4'
++prepare_react_native_project!
++
++linkage = ENV['USE_FRAMEWORKS']
++if linkage != nil
++  Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
++  use_frameworks! :linkage => linkage.to_sym
++end
++
++target 'FiapSchool' do
++  use_expo_modules!
++
++  if ENV['EXPO_USE_COMMUNITY_AUTOLINKING'] == '1'
++    config_command = ['node', '-e', "process.argv=['', '', 'config'];require('@react-native-community/cli').run()"];
++  else
++    config_command = [
++      'node',
++      '--no-warnings',
++      '--eval',
++      'require(require.resolve(\'expo-modules-autolinking\', { paths: [require.resolve(\'expo/package.json\')] }))(process.argv.slice(1))',
++      'react-native-config',
++      '--json',
++      '--platform',
++      'ios'
++    ]
++  end
++
++  config = use_native_modules!(config_command)
++
++  use_react_native!(
++    :path => config[:reactNativePath],
++    # An absolute path to your application root.
++    :app_path => "#{Pod::Config.instance.installation_root}/.."
++  )
++
++  post_install do |installer|
++    react_native_post_install(
++      installer,
++      config[:reactNativePath],
++      :mac_catalyst_enabled => false,
++      # :ccache_enabled => true
++    )
++  end
++end
+diff --git a/mobile/ios/link-assets-manifest.json b/mobile/ios/link-assets-manifest.json
+new file mode 100644
+index 0000000..bf0ad8c
+--- /dev/null
++++ b/mobile/ios/link-assets-manifest.json
+@@ -0,0 +1,21 @@
++{
++  "migIndex": 1,
++  "data": [
++    {
++      "path": "assets/fonts/Montserrat-Bold.ttf",
++      "sha1": "8d25a921501a92977c63bbdc0545c9e8be0cac4b"
++    },
++    {
++      "path": "assets/fonts/Montserrat-Medium.ttf",
++      "sha1": "321d56022fc72f5e35decbc8e97442116a96908e"
++    },
++    {
++      "path": "assets/fonts/Montserrat-Regular.ttf",
++      "sha1": "7a56bc06d2b862fb6d070dfc77e8ac366e2942b2"
++    },
++    {
++      "path": "assets/fonts/Montserrat-SemiBold.ttf",
++      "sha1": "3db04f05d6ea9c594e32567b3e846efe66e8d47e"
++    }
++  ]
++}
+\ No newline at end of file
+diff --git a/mobile/jest.config.js b/mobile/jest.config.js
+new file mode 100644
+index 0000000..7c0c0d2
+--- /dev/null
++++ b/mobile/jest.config.js
+@@ -0,0 +1,10 @@
++module.exports = {
++  preset: '@react-native/jest-preset',
++  resolver: './jest/resolver.js',
++  setupFiles: ['./node_modules/react-native-gesture-handler/jestSetup.js'],
++  setupFilesAfterEnv: ['./jest.setup.ts'],
++  transformIgnorePatterns: [
++    'node_modules/(?!((jest-)?react-native(-.*)?|@react-native(-community)?|@react-navigation|@shopify/restyle|expo(nent)?|@expo(nent)?/.*|expo-modules-core)/)',
++  ],
++  testPathIgnorePatterns: ['/node_modules/', '/ios/', '/android/'],
++};
+diff --git a/mobile/jest.setup.ts b/mobile/jest.setup.ts
+new file mode 100644
+index 0000000..8f0b9dd
+--- /dev/null
++++ b/mobile/jest.setup.ts
+@@ -0,0 +1,20 @@
++/* eslint-env jest */
++
++jest.mock('react-native-worklets', () =>
++  require('react-native-worklets/src/mock'),
++);
++
++jest.mock('react-native-reanimated', () =>
++  require('react-native-reanimated/mock'),
++);
++
++jest.mock(
++  'react-native-safe-area-context',
++  () => require('react-native-safe-area-context/jest/mock').default,
++);
++
++jest.mock('react-native-bootsplash', () => ({
++  hide: jest.fn().mockResolvedValue(undefined),
++  isVisible: jest.fn().mockReturnValue(false),
++  useHideAnimation: jest.fn().mockReturnValue({ container: {}, logo: {} }),
++}));
+diff --git a/mobile/jest/resolver.js b/mobile/jest/resolver.js
+new file mode 100644
+index 0000000..9ed1baa
+--- /dev/null
++++ b/mobile/jest/resolver.js
+@@ -0,0 +1,14 @@
++/**
++ * Encadeia o resolver do preset do RN (libera subpaths de `react-native`) com o
++ * do reanimated/worklets (que tira as extensões `.native` de alguns módulos no
++ * Jest, senão o reanimated tenta iniciar o módulo nativo).
++ */
++const rnResolver = require('@react-native/jest-preset/jest/resolver');
++const reanimatedResolver = require('react-native-reanimated/jest/resolver');
++
++module.exports = (request, options) =>
++  reanimatedResolver(request, {
++    ...options,
++    defaultResolver: (req, opts) =>
++      rnResolver(req, { ...opts, defaultResolver: options.defaultResolver }),
++  });
+diff --git a/mobile/metro.config.js b/mobile/metro.config.js
+new file mode 100644
+index 0000000..2ebbbbd
+--- /dev/null
++++ b/mobile/metro.config.js
+@@ -0,0 +1,20 @@
++const { getDefaultConfig } = require('expo/metro-config');
++const { mergeConfig } = require('@react-native/metro-config');
++
++/**
++ * Metro configuration
++ * https://reactnative.dev/docs/metro
++ *
++ * O watchman é desligado de propósito: na máquina de desenvolvimento ele está
++ * quebrado (falta a libglog), e o crawler em Node atende bem um projeto deste
++ * tamanho.
++ *
++ * @type {import('@react-native/metro-config').MetroConfig}
++ */
++const config = {
++  resolver: {
++    useWatchman: false,
++  },
++};
++
++module.exports = mergeConfig(getDefaultConfig(__dirname), config);
+diff --git a/mobile/package.json b/mobile/package.json
+new file mode 100644
+index 0000000..2d92d0f
+--- /dev/null
++++ b/mobile/package.json
+@@ -0,0 +1,60 @@
++{
++  "name": "fiap-school-mobile",
++  "version": "0.0.1",
++  "private": true,
++  "scripts": {
++    "android": "react-native run-android",
++    "ios": "react-native run-ios",
++    "start": "react-native start",
++    "lint": "eslint .",
++    "format": "prettier --write .",
++    "format:check": "prettier --check .",
++    "tsc": "tsc --noEmit",
++    "test": "jest",
++    "link:assets": "react-native-asset"
++  },
++  "dependencies": {
++    "@react-navigation/bottom-tabs": "^7.21.0",
++    "@react-navigation/native": "^7.5.1",
++    "@react-navigation/native-stack": "^7.21.0",
++    "@shopify/restyle": "^2.4.5",
++    "expo": "~58.0.0",
++    "react": "19.3.0",
++    "react-native": "0.88.0",
++    "react-native-bootsplash": "^7.3.4",
++    "react-native-gesture-handler": "~3.3.0",
++    "react-native-reanimated": "4.7.1",
++    "react-native-safe-area-context": "~5.10.1",
++    "react-native-screens": "~4.30.0",
++    "react-native-worklets": "0.13.0"
++  },
++  "devDependencies": {
++    "@babel/core": "^7.25.2",
++    "@babel/preset-env": "^7.25.3",
++    "@babel/runtime": "^7.25.0",
++    "@react-native-community/cli": "20.2.0",
++    "@react-native-community/cli-platform-android": "20.2.0",
++    "@react-native-community/cli-platform-ios": "20.2.0",
++    "@react-native/babel-preset": "0.88.0",
++    "@react-native/eslint-config": "0.88.0",
++    "@react-native/jest-preset": "0.88.0",
++    "@react-native/metro-config": "0.88.0",
++    "@react-native/typescript-config": "0.88.0",
++    "@testing-library/react-native": "^14.1.0",
++    "@types/jest": "^29.5.13",
++    "@types/react": "^19.2.0",
++    "@types/react-refresh": "^0",
++    "babel-preset-expo": "~58.0.0",
++    "eslint": "^8.19.0",
++    "jest": "^29.6.3",
++    "prettier": "2.8.8",
++    "react-native-asset": "^2.3.0",
++    "react-refresh": "^0.19.0",
++    "test-renderer": "^1.0.0",
++    "typescript": "^6.0.3"
++  },
++  "engines": {
++    "node": ">= 22.11.0"
++  },
++  "packageManager": "yarn@4.18.1"
++}
+diff --git a/mobile/react-native.config.js b/mobile/react-native.config.js
+new file mode 100644
+index 0000000..db76ed4
+--- /dev/null
++++ b/mobile/react-native.config.js
+@@ -0,0 +1,9 @@
++module.exports = {
++  project: {
++    ios: {},
++    android: {},
++  },
++  // Linkadas com `yarn link:assets` (react-native-asset): copia para
++  // android/app/src/main/assets/fonts e registra no Xcode e no Info.plist.
++  assets: ['./assets/fonts'],
++};
+diff --git a/mobile/src/app/App.tsx b/mobile/src/app/App.tsx
+new file mode 100644
+index 0000000..ff951d1
+--- /dev/null
++++ b/mobile/src/app/App.tsx
+@@ -0,0 +1,24 @@
++import { ThemeProvider } from '@shopify/restyle';
++import { StatusBar, StyleSheet } from 'react-native';
++import { GestureHandlerRootView } from 'react-native-gesture-handler';
++import { SafeAreaProvider } from 'react-native-safe-area-context';
++
++import { theme } from '../theme';
++import { Navigation } from './Navigation';
++
++export function App() {
++  return (
++    <GestureHandlerRootView style={styles.fill}>
++      <SafeAreaProvider>
++        <ThemeProvider theme={theme}>
++          <StatusBar barStyle="light-content" />
++          <Navigation />
++        </ThemeProvider>
++      </SafeAreaProvider>
++    </GestureHandlerRootView>
++  );
++}
++
++const styles = StyleSheet.create({
++  fill: { flex: 1 },
++});
+diff --git a/mobile/src/app/Navigation.tsx b/mobile/src/app/Navigation.tsx
+new file mode 100644
+index 0000000..9b40ddd
+--- /dev/null
++++ b/mobile/src/app/Navigation.tsx
+@@ -0,0 +1,33 @@
++import {
++  DarkTheme,
++  NavigationContainer,
++  type Theme as NavigationTheme,
++} from '@react-navigation/native';
++import BootSplash from 'react-native-bootsplash';
++
++import { RootStack } from '../navigation/RootStack';
++import { theme } from '../theme';
++
++const navigationTheme: NavigationTheme = {
++  ...DarkTheme,
++  colors: {
++    ...DarkTheme.colors,
++    primary: theme.colors.primary,
++    background: theme.colors.background,
++    card: theme.colors.surface,
++    text: theme.colors.text,
++    border: theme.colors.surface,
++  },
++};
++
++const hideSplash = () => {
++  BootSplash.hide({ fade: true });
++};
++
++export function Navigation() {
++  return (
++    <NavigationContainer theme={navigationTheme} onReady={hideSplash}>
++      <RootStack />
++    </NavigationContainer>
++  );
++}
+diff --git a/mobile/src/app/__tests__/App.test.tsx b/mobile/src/app/__tests__/App.test.tsx
+new file mode 100644
+index 0000000..f427333
+--- /dev/null
++++ b/mobile/src/app/__tests__/App.test.tsx
+@@ -0,0 +1,27 @@
++import { act, fireEvent, render, screen } from '@testing-library/react-native';
++import BootSplash from 'react-native-bootsplash';
++
++import { App } from '../App';
++
++describe('App', () => {
++  it('abre no Login e esconde a splash nativa quando a navegação fica pronta', async () => {
++    await render(<App />);
++
++    expect(await screen.findByTestId('login-screen')).toBeOnTheScreen();
++    expect(BootSplash.hide).toHaveBeenCalledWith({ fade: true });
++  });
++
++  it('vai do Login para as abas e abre a seleção de aluno em modal', async () => {
++    await render(<App />);
++
++    await act(() => fireEvent.press(screen.getByTestId('login-submit-button')));
++    expect(await screen.findByTestId('agenda-screen')).toBeOnTheScreen();
++
++    await act(() =>
++      fireEvent.press(screen.getByTestId('header-switch-student-button')),
++    );
++    expect(
++      await screen.findByTestId('select-student-screen'),
++    ).toBeOnTheScreen();
++  });
++});
+diff --git a/mobile/src/components/PlaceholderScreen.tsx b/mobile/src/components/PlaceholderScreen.tsx
+new file mode 100644
+index 0000000..775990b
+--- /dev/null
++++ b/mobile/src/components/PlaceholderScreen.tsx
+@@ -0,0 +1,83 @@
++import { Pressable, StyleSheet } from 'react-native';
++import Animated, { FadeInDown, ReduceMotion } from 'react-native-reanimated';
++import { SafeAreaView } from 'react-native-safe-area-context';
++
++import { Box, Text, useTheme } from '../theme';
++
++type PlaceholderAction = {
++  label: string;
++  onPress: () => void;
++  testID: string;
++};
++
++type PlaceholderScreenProps = {
++  testID: string;
++  title: string;
++  description: string;
++  actions?: PlaceholderAction[];
++};
++
++/**
++ * Tela provisória da Tarefa 7: valida tema, fonte, navegação e reanimated.
++ * Cada tela real substitui a sua nas Tarefas 9 a 12.
++ */
++export function PlaceholderScreen({
++  testID,
++  title,
++  description,
++  actions = [],
++}: PlaceholderScreenProps) {
++  const { motion, sizes } = useTheme();
++
++  return (
++    <Box testID={testID} flex={1} backgroundColor="background">
++      <SafeAreaView style={styles.fill} edges={['top']}>
++        <Animated.View
++          style={styles.fill}
++          entering={FadeInDown.duration(motion.base)
++            .easing(motion.easeOut)
++            .reduceMotion(ReduceMotion.System)}
++        >
++          <Box
++            flex={1}
++            alignItems="center"
++            justifyContent="center"
++            paddingHorizontal="huge"
++            gap="l"
++          >
++            <Text variant="sectionTitle">{title}</Text>
++            <Text variant="body" textAlign="center">
++              {description}
++            </Text>
++            {actions.map(action => (
++              <Pressable
++                key={action.testID}
++                testID={action.testID}
++                accessibilityRole="button"
++                onPress={action.onPress}
++                hitSlop={8}
++              >
++                <Box
++                  minHeight={sizes.touchTarget}
++                  justifyContent="center"
++                  paddingHorizontal="l"
++                  borderWidth={1}
++                  borderColor="primary"
++                  borderRadius="m"
++                >
++                  <Text variant="bodyBold" color="primary">
++                    {action.label}
++                  </Text>
++                </Box>
++              </Pressable>
++            ))}
++          </Box>
++        </Animated.View>
++      </SafeAreaView>
++    </Box>
++  );
++}
++
++const styles = StyleSheet.create({
++  fill: { flex: 1 },
++});
+diff --git a/mobile/src/features/auth/LoginScreen.tsx b/mobile/src/features/auth/LoginScreen.tsx
+new file mode 100644
+index 0000000..115e045
+--- /dev/null
++++ b/mobile/src/features/auth/LoginScreen.tsx
+@@ -0,0 +1,20 @@
++import { PlaceholderScreen } from '../../components/PlaceholderScreen';
++import type { RootStackScreenProps } from '../../navigation/types';
++
++/** Placeholder. O Login real (M1, M2) é a Tarefa 9. */
++export function LoginScreen({ navigation }: RootStackScreenProps<'Login'>) {
++  return (
++    <PlaceholderScreen
++      testID="login-screen"
++      title="Login"
++      description="FIAP School: tema, Montserrat e navegação prontos."
++      actions={[
++        {
++          label: 'ENTRAR',
++          testID: 'login-submit-button',
++          onPress: () => navigation.replace('App', { screen: 'Agenda' }),
++        },
++      ]}
++    />
++  );
++}
+diff --git a/mobile/src/features/lessons/LessonsScreen.tsx b/mobile/src/features/lessons/LessonsScreen.tsx
+new file mode 100644
+index 0000000..679e86a
+--- /dev/null
++++ b/mobile/src/features/lessons/LessonsScreen.tsx
+@@ -0,0 +1,20 @@
++import { PlaceholderScreen } from '../../components/PlaceholderScreen';
++import type { AppTabsScreenProps } from '../../navigation/types';
++
++/** Placeholder. A Agenda real (M4) é a Tarefa 11. */
++export function LessonsScreen({ navigation }: AppTabsScreenProps<'Agenda'>) {
++  return (
++    <PlaceholderScreen
++      testID="agenda-screen"
++      title="Agenda"
++      description="As aulas do dia entram aqui."
++      actions={[
++        {
++          label: 'TROCAR PERFIL',
++          testID: 'header-switch-student-button',
++          onPress: () => navigation.navigate('SelectStudent'),
++        },
++      ]}
++    />
++  );
++}
+diff --git a/mobile/src/features/report-card/ReportCardScreen.tsx b/mobile/src/features/report-card/ReportCardScreen.tsx
+new file mode 100644
+index 0000000..859e59e
+--- /dev/null
++++ b/mobile/src/features/report-card/ReportCardScreen.tsx
+@@ -0,0 +1,22 @@
++import { PlaceholderScreen } from '../../components/PlaceholderScreen';
++import type { AppTabsScreenProps } from '../../navigation/types';
++
++/** Placeholder. O Boletim real (M5) é a Tarefa 12. */
++export function ReportCardScreen({
++  navigation,
++}: AppTabsScreenProps<'Boletim'>) {
++  return (
++    <PlaceholderScreen
++      testID="boletim-screen"
++      title="Boletim"
++      description="Notas e faltas por trimestre entram aqui."
++      actions={[
++        {
++          label: 'SAIR',
++          testID: 'header-logout-button',
++          onPress: () => navigation.replace('Login'),
++        },
++      ]}
++    />
++  );
++}
+diff --git a/mobile/src/features/students/SelectStudentScreen.tsx b/mobile/src/features/students/SelectStudentScreen.tsx
+new file mode 100644
+index 0000000..4c2d88f
+--- /dev/null
++++ b/mobile/src/features/students/SelectStudentScreen.tsx
+@@ -0,0 +1,22 @@
++import { PlaceholderScreen } from '../../components/PlaceholderScreen';
++import type { RootStackScreenProps } from '../../navigation/types';
++
++/** Placeholder. A seleção de aluno real (M6) é a Tarefa 10. */
++export function SelectStudentScreen({
++  navigation,
++}: RootStackScreenProps<'SelectStudent'>) {
++  return (
++    <PlaceholderScreen
++      testID="select-student-screen"
++      title="Escolha o perfil"
++      description="Os cards dos alunos entram aqui."
++      actions={[
++        {
++          label: 'FECHAR',
++          testID: 'select-student-close-button',
++          onPress: () => navigation.goBack(),
++        },
++      ]}
++    />
++  );
++}
+diff --git a/mobile/src/navigation/AppTabs.tsx b/mobile/src/navigation/AppTabs.tsx
+new file mode 100644
+index 0000000..4a802f0
+--- /dev/null
++++ b/mobile/src/navigation/AppTabs.tsx
+@@ -0,0 +1,44 @@
++import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
++
++import { LessonsScreen } from '../features/lessons/LessonsScreen';
++import { ReportCardScreen } from '../features/report-card/ReportCardScreen';
++import { useTheme } from '../theme';
++import type { AppTabsParamList } from './types';
++
++const Tab = createBottomTabNavigator<AppTabsParamList>();
++
++/**
++ * Abas Agenda e Boletim. A tab bar customizada do Figma entra na Tarefa 10;
++ * aqui só as cores do tema na tab bar padrão.
++ */
++export function AppTabs() {
++  const { colors, sizes } = useTheme();
++
++  return (
++    <Tab.Navigator
++      screenOptions={{
++        headerShown: false,
++        animation: 'fade',
++        tabBarIcon: () => null,
++        tabBarActiveTintColor: colors.primary,
++        tabBarInactiveTintColor: colors.text,
++        tabBarStyle: {
++          backgroundColor: colors.surface,
++          borderTopWidth: 0,
++          minHeight: sizes.tabBar,
++        },
++      }}
++    >
++      <Tab.Screen
++        name="Agenda"
++        component={LessonsScreen}
++        options={{ tabBarButtonTestID: 'tab-agenda', title: 'AGENDA' }}
++      />
++      <Tab.Screen
++        name="Boletim"
++        component={ReportCardScreen}
++        options={{ tabBarButtonTestID: 'tab-boletim', title: 'BOLETIM' }}
++      />
++    </Tab.Navigator>
++  );
++}
+diff --git a/mobile/src/navigation/RootStack.tsx b/mobile/src/navigation/RootStack.tsx
+new file mode 100644
+index 0000000..ae7f773
+--- /dev/null
++++ b/mobile/src/navigation/RootStack.tsx
+@@ -0,0 +1,38 @@
++import { createNativeStackNavigator } from '@react-navigation/native-stack';
++
++import { LoginScreen } from '../features/auth/LoginScreen';
++import { SelectStudentScreen } from '../features/students/SelectStudentScreen';
++import { useTheme } from '../theme';
++import { AppTabs } from './AppTabs';
++import type { RootStackParamList } from './types';
++
++const Stack = createNativeStackNavigator<RootStackParamList>();
++
++/**
++ * Stack raiz. A rota inicial é fixa em Login até a sessão existir (Tarefa 8).
++ */
++export function RootStack() {
++  const { colors } = useTheme();
++
++  return (
++    <Stack.Navigator
++      initialRouteName="Login"
++      screenOptions={{
++        headerShown: false,
++        animation: 'fade',
++        contentStyle: { backgroundColor: colors.background },
++      }}
++    >
++      <Stack.Screen name="Login" component={LoginScreen} />
++      <Stack.Screen name="App" component={AppTabs} />
++      <Stack.Screen
++        name="SelectStudent"
++        component={SelectStudentScreen}
++        options={{
++          presentation: 'fullScreenModal',
++          animation: 'slide_from_bottom',
++        }}
++      />
++    </Stack.Navigator>
++  );
++}
+diff --git a/mobile/src/navigation/types.ts b/mobile/src/navigation/types.ts
+new file mode 100644
+index 0000000..0cb5b56
+--- /dev/null
++++ b/mobile/src/navigation/types.ts
+@@ -0,0 +1,32 @@
++import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
++import type {
++  CompositeScreenProps,
++  NavigatorScreenParams,
++} from '@react-navigation/native';
++import type { NativeStackScreenProps } from '@react-navigation/native-stack';
++
++export type AppTabsParamList = {
++  Agenda: undefined;
++  Boletim: undefined;
++};
++
++export type RootStackParamList = {
++  Login: undefined;
++  App: NavigatorScreenParams<AppTabsParamList>;
++  SelectStudent: undefined;
++};
++
++export type RootStackScreenProps<T extends keyof RootStackParamList> =
++  NativeStackScreenProps<RootStackParamList, T>;
++
++export type AppTabsScreenProps<T extends keyof AppTabsParamList> =
++  CompositeScreenProps<
++    BottomTabScreenProps<AppTabsParamList, T>,
++    RootStackScreenProps<keyof RootStackParamList>
++  >;
++
++declare global {
++  namespace ReactNavigation {
++    interface RootParamList extends RootStackParamList {}
++  }
++}
+diff --git a/mobile/src/theme/__tests__/Card.test.tsx b/mobile/src/theme/__tests__/Card.test.tsx
+new file mode 100644
+index 0000000..2babeb0
+--- /dev/null
++++ b/mobile/src/theme/__tests__/Card.test.tsx
+@@ -0,0 +1,36 @@
++import { render, screen } from '@testing-library/react-native';
++import { ThemeProvider } from '@shopify/restyle';
++import { StyleSheet } from 'react-native';
++
++import { Card, theme } from '..';
++
++const renderCard = (variant: 'student' | 'studentSelected') =>
++  render(
++    <ThemeProvider theme={theme}>
++      <Card testID="card" variant={variant} />
++    </ThemeProvider>,
++  );
++
++describe('Card', () => {
++  it('destaca o aluno atual com borda primary na variante studentSelected', async () => {
++    await renderCard('studentSelected');
++
++    const style = StyleSheet.flatten(screen.getByTestId('card').props.style);
++
++    expect(style).toMatchObject({
++      backgroundColor: '#4D4D4D',
++      borderColor: '#29F4D5',
++      borderWidth: 1,
++      borderRadius: 8,
++      height: 90,
++    });
++  });
++
++  it('mantém a borda transparente no aluno não selecionado para não pular o layout', async () => {
++    await renderCard('student');
++
++    const style = StyleSheet.flatten(screen.getByTestId('card').props.style);
++
++    expect(style).toMatchObject({ borderColor: 'transparent', borderWidth: 1 });
++  });
++});
+diff --git a/mobile/src/theme/__tests__/Text.test.tsx b/mobile/src/theme/__tests__/Text.test.tsx
+new file mode 100644
+index 0000000..0b26479
+--- /dev/null
++++ b/mobile/src/theme/__tests__/Text.test.tsx
+@@ -0,0 +1,23 @@
++import { render, screen } from '@testing-library/react-native';
++import { ThemeProvider } from '@shopify/restyle';
++import { StyleSheet } from 'react-native';
++
++import { Text, theme } from '..';
++
++describe('Text', () => {
++  it('aplica cor primary, Montserrat Bold e tamanho 20 na variante sectionTitle', async () => {
++    await render(
++      <ThemeProvider theme={theme}>
++        <Text variant="sectionTitle">AGENDA</Text>
++      </ThemeProvider>,
++    );
++
++    const style = StyleSheet.flatten(screen.getByText('AGENDA').props.style);
++
++    expect(style).toMatchObject({
++      color: '#29F4D5',
++      fontFamily: 'Montserrat-Bold',
++      fontSize: 20,
++    });
++  });
++});
+diff --git a/mobile/src/theme/components.ts b/mobile/src/theme/components.ts
+new file mode 100644
+index 0000000..a5d5a9a
+--- /dev/null
++++ b/mobile/src/theme/components.ts
+@@ -0,0 +1,24 @@
++import {
++  createBox,
++  createRestyleComponent,
++  createText,
++  createVariant,
++  type VariantProps,
++} from '@shopify/restyle';
++import type { ComponentProps } from 'react';
++
++import type { Theme } from './theme';
++
++export const Box = createBox<Theme>();
++export const Text = createText<Theme>();
++
++export type BoxProps = ComponentProps<typeof Box>;
++export type TextProps = ComponentProps<typeof Text>;
++
++export type CardProps = VariantProps<Theme, 'cardVariants'> & BoxProps;
++
++/** Box com as `cardVariants` do tema (dropdown, options, term, student...). */
++export const Card = createRestyleComponent<CardProps, Theme>(
++  [createVariant({ themeKey: 'cardVariants' })],
++  Box,
++);
+diff --git a/mobile/src/theme/fonts.ts b/mobile/src/theme/fonts.ts
+new file mode 100644
+index 0000000..6aa0165
+--- /dev/null
++++ b/mobile/src/theme/fonts.ts
+@@ -0,0 +1,11 @@
++/**
++ * Montserrat embutida (assets/fonts). O nome é o PostScript name no iOS e o
++ * nome do arquivo no Android, que aqui coincidem. O peso vem só daqui: nunca
++ * use `fontWeight` com fonte customizada (no Android cai na fonte do sistema).
++ */
++export const fonts = {
++  regular: 'Montserrat-Regular',
++  medium: 'Montserrat-Medium',
++  semiBold: 'Montserrat-SemiBold',
++  bold: 'Montserrat-Bold',
++} as const;
+diff --git a/mobile/src/theme/index.ts b/mobile/src/theme/index.ts
+new file mode 100644
+index 0000000..e7421c1
+--- /dev/null
++++ b/mobile/src/theme/index.ts
+@@ -0,0 +1,9 @@
++export { Box, Card, Text } from './components';
++export type { BoxProps, CardProps, TextProps } from './components';
++export { fonts } from './fonts';
++export { motion } from './motion';
++export { palette } from './palette';
++export { sizes } from './sizes';
++export { theme } from './theme';
++export type { Theme } from './theme';
++export { useTheme } from './useTheme';
+diff --git a/mobile/src/theme/motion.ts b/mobile/src/theme/motion.ts
+new file mode 100644
+index 0000000..e880f54
+--- /dev/null
++++ b/mobile/src/theme/motion.ts
+@@ -0,0 +1,12 @@
++import { Easing } from 'react-native-reanimated';
++
++/** Durações e curvas das animações (01-design.md, 1.8). */
++export const motion = {
++  fast: 150,
++  base: 220,
++  slow: 320,
++  stagger: 40,
++  easeOut: Easing.out(Easing.cubic),
++  easeIn: Easing.in(Easing.cubic),
++  press: { damping: 18, stiffness: 260, mass: 1 },
++} as const;
+diff --git a/mobile/src/theme/palette.ts b/mobile/src/theme/palette.ts
+new file mode 100644
+index 0000000..2f202ef
+--- /dev/null
++++ b/mobile/src/theme/palette.ts
+@@ -0,0 +1,15 @@
++/**
++ * Únicos hexadecimais do app (01-design.md, 1.1). Componentes não usam a
++ * paleta direto: usam as cores semânticas de `theme.colors`.
++ */
++export const palette = {
++  black: '#000000',
++  white: '#FFFFFF',
++  teal: '#29F4D5',
++  gray900: '#262626',
++  gray700: '#4D4D4D',
++  // Figma: #525252. Ajustado para 3,1:1 de contraste (01-design.md, 6.2).
++  gray600: '#5C5C5C',
++  gray500: '#777777',
++  gray200: '#CCCCCC',
++} as const;
+diff --git a/mobile/src/theme/sizes.ts b/mobile/src/theme/sizes.ts
+new file mode 100644
+index 0000000..aa342bc
+--- /dev/null
++++ b/mobile/src/theme/sizes.ts
+@@ -0,0 +1,22 @@
++/** Tamanhos fixos dos componentes (01-design.md, 1.4). */
++export const sizes = {
++  actionBar: 48,
++  dropdown: 45,
++  termCard: 90,
++  studentCard: 90,
++  primaryButton: 60,
++  secondaryButton: 45,
++  /** Somar `insets.bottom`. */
++  tabBar: 64,
++  touchTarget: 44,
++  icon: 24,
++  chevron: 14,
++  logoutIcon: 10,
++  bullet: 6,
++  bulletSlot: 16,
++  logoHeader: { width: 100, height: 16 },
++  logoLogin: { width: 306, height: 49 },
++  illustration: { width: 328, height: 208 },
++  contentMaxWidth: 600,
++  formMaxWidth: 318,
++} as const;
+diff --git a/mobile/src/theme/theme.ts b/mobile/src/theme/theme.ts
+new file mode 100644
+index 0000000..0f0e4fe
+--- /dev/null
++++ b/mobile/src/theme/theme.ts
+@@ -0,0 +1,263 @@
++import { createTheme } from '@shopify/restyle';
++
++import { fonts } from './fonts';
++import { motion } from './motion';
++import { palette } from './palette';
++import { sizes } from './sizes';
++
++/**
++ * Tema único do app (escuro, sem modo claro). Fonte: 01-design.md, seção 1,
++ * derivada de docs/figma/README.md.
++ */
++export const theme = createTheme({
++  colors: {
++    background: palette.black,
++    primary: palette.teal,
++    surface: palette.gray900,
++    surfaceRaised: palette.gray700,
++    text: palette.white,
++    textOnPrimary: palette.black,
++    textDisabled: palette.gray500,
++    inputLine: palette.gray600,
++    bulletBorder: palette.gray200,
++    transparent: 'transparent',
++  },
++  spacing: {
++    none: 0,
++    xs: 4,
++    s: 8,
++    sm: 12,
++    m: 16,
++    l: 24,
++    xl: 28,
++    xxl: 32,
++    xxxl: 40,
++    huge: 48,
++    section: 64,
++    hero: 80,
++  },
++  borderRadii: {
++    none: 0,
++    m: 8,
++    round: 999,
++  },
++  breakpoints: {
++    compact: 0,
++    phone: 375,
++    tablet: 768,
++  },
++  textVariants: {
++    defaults: {
++      fontFamily: fonts.regular,
++      fontSize: 16,
++      lineHeight: 20,
++      color: 'text',
++    },
++    body: {
++      fontFamily: fonts.regular,
++      fontSize: 16,
++      lineHeight: 20,
++      color: 'text',
++    },
++    bodyMedium: {
++      fontFamily: fonts.medium,
++      fontSize: 16,
++      lineHeight: 20,
++      color: 'text',
++    },
++    bodyBold: {
++      fontFamily: fonts.bold,
++      fontSize: 16,
++      lineHeight: 20,
++      color: 'text',
++    },
++    greeting: {
++      fontFamily: fonts.regular,
++      fontSize: 24,
++      lineHeight: 29,
++      color: 'text',
++      textAlign: 'center',
++    },
++    greetingName: {
++      fontFamily: fonts.bold,
++      fontSize: 24,
++      lineHeight: 29,
++      color: 'text',
++      textTransform: 'uppercase',
++    },
++    title: {
++      fontFamily: fonts.regular,
++      fontSize: 24,
++      lineHeight: 29,
++      color: 'text',
++      textAlign: 'center',
++    },
++    inputValue: {
++      fontFamily: fonts.regular,
++      fontSize: { compact: 28, phone: 32 },
++      lineHeight: { compact: 34, phone: 39 },
++      color: 'text',
++      textAlign: 'center',
++    },
++    label: {
++      fontFamily: fonts.regular,
++      fontSize: 20,
++      lineHeight: 24,
++      color: 'text',
++      textAlign: 'center',
++      textTransform: 'uppercase',
++    },
++    labelFocused: {
++      fontFamily: fonts.semiBold,
++      fontSize: 20,
++      lineHeight: 24,
++      color: 'text',
++      textAlign: 'center',
++      textTransform: 'uppercase',
++    },
++    button: {
++      fontFamily: fonts.medium,
++      fontSize: 20,
++      lineHeight: 24,
++      color: 'textOnPrimary',
++      textAlign: 'center',
++      textTransform: 'uppercase',
++    },
++    sectionTitle: {
++      fontFamily: fonts.bold,
++      fontSize: 20,
++      lineHeight: 24,
++      color: 'primary',
++      textAlign: 'center',
++      textTransform: 'uppercase',
++    },
++    emptyState: {
++      fontFamily: fonts.regular,
++      fontSize: 20,
++      lineHeight: 24,
++      color: 'text',
++      textAlign: 'center',
++    },
++    lessonSubject: {
++      fontFamily: fonts.semiBold,
++      fontSize: 16,
++      lineHeight: 20,
++      color: 'text',
++    },
++    termTitle: {
++      fontFamily: fonts.bold,
++      fontSize: 16,
++      lineHeight: 20,
++      color: 'primary',
++      textTransform: 'uppercase',
++    },
++    error: {
++      fontFamily: fonts.medium,
++      fontSize: 16,
++      lineHeight: 20,
++      color: 'primary',
++      textAlign: 'center',
++    },
++    caption: {
++      fontFamily: fonts.regular,
++      fontSize: 12,
++      lineHeight: 15,
++      color: 'text',
++      textTransform: 'uppercase',
++    },
++    captionPlain: {
++      fontFamily: fonts.regular,
++      fontSize: 12,
++      lineHeight: 15,
++      color: 'text',
++    },
++    subject: {
++      fontFamily: fonts.medium,
++      fontSize: 12,
++      lineHeight: 15,
++      color: 'text',
++      textTransform: 'uppercase',
++    },
++    detail: {
++      fontFamily: fonts.medium,
++      fontSize: 12,
++      lineHeight: 15,
++      color: 'text',
++    },
++    tabLabel: {
++      fontFamily: fonts.bold,
++      fontSize: 10,
++      lineHeight: 12,
++      color: 'text',
++      textAlign: 'center',
++      textTransform: 'uppercase',
++    },
++  },
++  buttonVariants: {
++    defaults: {},
++    primary: {
++      backgroundColor: 'primary',
++      height: sizes.primaryButton,
++      borderRadius: 'none',
++      alignItems: 'center',
++      justifyContent: 'center',
++    },
++    secondary: {
++      borderWidth: 1,
++      borderColor: 'primary',
++      borderRadius: 'm',
++      height: sizes.secondaryButton,
++      paddingHorizontal: 'l',
++      alignItems: 'center',
++      justifyContent: 'center',
++    },
++  },
++  cardVariants: {
++    defaults: {},
++    dropdown: {
++      backgroundColor: 'surface',
++      borderRadius: 'm',
++      height: sizes.dropdown,
++      paddingHorizontal: 'm',
++      flexDirection: 'row',
++      alignItems: 'center',
++      justifyContent: 'space-between',
++    },
++    options: {
++      backgroundColor: 'surface',
++      borderRadius: 'm',
++      paddingVertical: 'xs',
++    },
++    term: {
++      backgroundColor: 'surfaceRaised',
++      borderRadius: 'm',
++      height: sizes.termCard,
++      paddingHorizontal: 'sm',
++      flexDirection: 'row',
++      alignItems: 'center',
++      justifyContent: 'space-between',
++    },
++    student: {
++      backgroundColor: 'surfaceRaised',
++      borderRadius: 'm',
++      height: sizes.studentCard,
++      padding: 'm',
++      borderWidth: 1,
++      borderColor: 'transparent',
++      justifyContent: 'space-between',
++    },
++    studentSelected: {
++      backgroundColor: 'surfaceRaised',
++      borderRadius: 'm',
++      height: sizes.studentCard,
++      padding: 'm',
++      borderWidth: 1,
++      borderColor: 'primary',
++      justifyContent: 'space-between',
++    },
++  },
++  sizes,
++  motion,
++});
++
++export type Theme = typeof theme;
+diff --git a/mobile/src/theme/useTheme.ts b/mobile/src/theme/useTheme.ts
+new file mode 100644
+index 0000000..d613966
+--- /dev/null
++++ b/mobile/src/theme/useTheme.ts
+@@ -0,0 +1,6 @@
++import { useTheme as useRestyleTheme } from '@shopify/restyle';
++
++import type { Theme } from './theme';
++
++/** `useTheme` do Restyle já tipado com o tema do app. */
++export const useTheme = () => useRestyleTheme<Theme>();
+diff --git a/mobile/tsconfig.json b/mobile/tsconfig.json
+new file mode 100644
+index 0000000..c41b7e2
+--- /dev/null
++++ b/mobile/tsconfig.json
+@@ -0,0 +1,5 @@
++{
++  "extends": "@react-native/typescript-config",
++  "include": ["**/*.ts", "**/*.tsx"],
++  "exclude": ["**/node_modules", "**/Pods"]
++}

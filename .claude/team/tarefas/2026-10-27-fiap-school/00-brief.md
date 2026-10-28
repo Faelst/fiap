@@ -113,7 +113,7 @@ pode ser trocada na aprovação.
 - **D11 [chief] Animações com react-native-reanimated 3** (entering/layout
   animations, transição entre os dias, contagem nas notas, pressable com escala)
   e **react-native-bootsplash** para a splash nativa, com animação de saída.
-- **D12 [usuário + chief] Push com expo-notifications em RN CLI.** Entra pelo
+- **D12 — REVOGADA em 2026-10-28: o usuário pediu "remover o Push". Sem push, sem Device, sem /demo/grades; Expo Modules saem do app (Tarefa 16b). Texto abaixo só como histórico.** ~~Push com expo-notifications em RN CLI.~~ Entra pelo
   `npx install-expo-modules` (Expo Modules no projeto bare, sem Expo Go nem
   expo-router). O app pede permissão depois do login, pega o **Expo Push
   Token** e o registra na API (`POST /devices`). A API envia pelo Expo Push
@@ -206,7 +206,7 @@ pode ser trocada na aprovação.
     artefato (exige conta Apple paga).
 - **D33 [chief] Branch padrão `main`**, com PR por entrega e sem merge pelo
   time (regra do `/squad`).
-- **D34 [usuário] OTA com `expo-updates` + EAS Update** (pedido em 2026-10-27:
+- **D34 [usuário] — REVOGADA em 2026-10-28: o usuário pediu "remover o OTA". Nada de expo-updates/EAS Update no projeto; o texto abaixo fica só como histórico.** ~~OTA com `expo-updates` + EAS Update~~ (pedido em 2026-10-27:
   "atualizar ou lançar feature sem submeter nova versão para as lojas"). Entra
   pelos Expo Modules (`install-expo-modules`), o mesmo caminho do push (D12), o
   que fecha a pergunta 1 da seção 11: Expo Modules no projeto RN CLI está aceito.
@@ -240,7 +240,8 @@ em 2026-10-27):
 Guardian        id, firstName, lastName, cpf (único, só dígitos), email (único), passwordHash
 Student         id, rm (único, int), firstName, lastName, className ("7EF"), period ("Matutino"/"Tarde")
 GuardianStudent guardianId, studentId            (N:N)
-Lesson          id, studentId, date ("2025-03-17"), startTime "07:15", endTime "08:00", subject, order
+AgendaDay       id, studentId, date ("2025-03-17")   (único: studentId+date; existe mesmo sem aula)
+Lesson          id, agendaDayId, startTime "07:15", endTime "08:00", subject, order
 ReportCard      id, studentId, year (int), className   (único: studentId+year)
 TermResult      id, reportCardId, term (1–3), subject, grade (decimal | null), absences (int | null), order
 Device          id, guardianId, expoPushToken (único), platform, createdAt

@@ -1,0 +1,455 @@
+00ae8cc test(api): e2e de concorrência do limite por CPF sem depender de tempo
+fc18502 feat(api): alunos do /me na ordem do JSON oficial
+ .../migration.sql                                  | 30 ++++++++++++++
+ api/prisma/schema.prisma                           |  2 +
+ api/prisma/seed.ts                                 |  4 +-
+ api/src/modules/guardians/dto/me.response.ts       |  3 +-
+ .../repositories/guardian-profiles.repository.ts   |  1 +
+ .../prisma-guardian-profiles.repository.ts         |  2 +
+ .../guardians/use-cases/get-me.use-case.spec.ts    | 10 ++---
+ .../modules/guardians/use-cases/get-me.use-case.ts |  6 +--
+ api/test/auth-throttle-cpf-concurrency.e2e-spec.ts | 20 +++++----
+ api/test/me.e2e-spec.ts                            | 47 ++++++++++++++++++----
+ 10 files changed, 96 insertions(+), 29 deletions(-)
+diff --git a/api/prisma/migrations/20261028043754_guardian_student_position/migration.sql b/api/prisma/migrations/20261028043754_guardian_student_position/migration.sql
+new file mode 100644
+index 0000000..4f68563
+--- /dev/null
++++ b/api/prisma/migrations/20261028043754_guardian_student_position/migration.sql
+@@ -0,0 +1,30 @@
++-- RedefineTables
++PRAGMA defer_foreign_keys=ON;
++PRAGMA foreign_keys=OFF;
++CREATE TABLE "new_GuardianStudent" (
++    "guardianId" TEXT NOT NULL,
++    "studentId" TEXT NOT NULL,
++    "position" INTEGER NOT NULL DEFAULT 0,
++
++    PRIMARY KEY ("guardianId", "studentId"),
++    CONSTRAINT "GuardianStudent_guardianId_fkey" FOREIGN KEY ("guardianId") REFERENCES "Guardian" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
++    CONSTRAINT "GuardianStudent_studentId_fkey" FOREIGN KEY ("studentId") REFERENCES "Student" ("id") ON DELETE CASCADE ON UPDATE CASCADE
++);
++INSERT INTO "new_GuardianStudent" ("guardianId", "studentId") SELECT "guardianId", "studentId" FROM "GuardianStudent";
++DROP TABLE "GuardianStudent";
++ALTER TABLE "new_GuardianStudent" RENAME TO "GuardianStudent";
++CREATE INDEX "GuardianStudent_studentId_idx" ON "GuardianStudent"("studentId");
++
++-- Bancos já populados (dev.db, volume do Docker): o seed não roda de novo, então
++-- os vínculos existentes são numerados por rm dentro de cada responsável, que no
++-- JSON oficial é a mesma ordem da lista. Banco novo: tabela vazia, o seed grava.
++UPDATE "GuardianStudent" SET "position" = (
++    SELECT COUNT(*) FROM "GuardianStudent" AS "other"
++    JOIN "Student" AS "otherStudent" ON "otherStudent"."id" = "other"."studentId"
++    WHERE "other"."guardianId" = "GuardianStudent"."guardianId"
++      AND "otherStudent"."rm" < (
++          SELECT "rm" FROM "Student" WHERE "id" = "GuardianStudent"."studentId"
++      )
++);
++PRAGMA foreign_keys=ON;
++PRAGMA defer_foreign_keys=OFF;
+diff --git a/api/prisma/schema.prisma b/api/prisma/schema.prisma
+index 5d05ebe..b04ec18 100644
+--- a/api/prisma/schema.prisma
++++ b/api/prisma/schema.prisma
+@@ -34,20 +34,22 @@ model Student {
+   /// "Matutino" ou "Tarde".
+   period      String
+   guardians   GuardianStudent[]
+   agendaDays  AgendaDay[]
+   reportCards ReportCard[]
+ }
+ 
+ model GuardianStudent {
+   guardianId String
+   studentId  String
++  /// Posição do aluno na lista do responsável, na ordem do JSON. O /me ordena por ela.
++  position   Int      @default(0)
+   guardian   Guardian @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+   student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+ 
+   @@id([guardianId, studentId])
+   @@index([studentId])
+ }
+ 
+ /// Um dia da agenda do aluno. Existe mesmo sem aula (sábado e domingo do JSON).
+ model AgendaDay {
+   id        String   @id @default(cuid())
+diff --git a/api/prisma/seed.ts b/api/prisma/seed.ts
+index e8aaa76..c66a7d4 100644
+--- a/api/prisma/seed.ts
++++ b/api/prisma/seed.ts
+@@ -87,22 +87,24 @@ async function main(): Promise<void> {
+ 
+       for (const [index, guardian] of allGuardians.entries()) {
+         await tx.guardian.create({
+           data: {
+             cpf: guardian.cpf,
+             email: guardian.email,
+             firstName: guardian.firstName,
+             lastName: guardian.lastName,
+             passwordHash: passwordHashes[index],
+             students: {
+-              create: guardian.studentRms.map((rm) => ({
++              // A posição guarda a ordem do JSON, que é a ordem do /me.
++              create: guardian.studentRms.map((rm, position) => ({
+                 studentId: studentIds.get(rm)!,
++                position,
+               })),
+             },
+           },
+         });
+       }
+     });
+ 
+     console.log(
+       `Seed concluído: ${allGuardians.length} responsáveis e ${students.length} alunos.`,
+     );
+diff --git a/api/src/modules/guardians/dto/me.response.ts b/api/src/modules/guardians/dto/me.response.ts
+index 41847ef..f45f199 100644
+--- a/api/src/modules/guardians/dto/me.response.ts
++++ b/api/src/modules/guardians/dto/me.response.ts
+@@ -36,14 +36,15 @@ export class MeResponse implements GetMeOutput {
+   lastName!: string;
+ 
+   @ApiProperty({
+     description: 'Sempre mascarado: só os 6 dígitos do meio aparecem.',
+     example: '***.294.560-**',
+   })
+   cpf!: string;
+ 
+   @ApiProperty({
+     type: [GuardianStudentResponse],
+-    description: 'Ordenados pelo nome. Vazio quando não há aluno vinculado.',
++    description:
++      'Na ordem do cadastro do responsável (a do JSON oficial). Vazio quando não há aluno vinculado.',
+   })
+   students!: GuardianStudentResponse[];
+ }
+diff --git a/api/src/modules/guardians/repositories/guardian-profiles.repository.ts b/api/src/modules/guardians/repositories/guardian-profiles.repository.ts
+index 999db79..93895ea 100644
+--- a/api/src/modules/guardians/repositories/guardian-profiles.repository.ts
++++ b/api/src/modules/guardians/repositories/guardian-profiles.repository.ts
+@@ -11,16 +11,17 @@ export interface GuardianStudentSummary {
+   period: string;
+ }
+ 
+ /** O que o `/me` precisa saber de um responsável. */
+ export interface GuardianProfile {
+   id: string;
+   firstName: string;
+   lastName: string;
+   /** Só dígitos (11). Sai mascarado na resposta. */
+   cpf: string;
++  /** Na ordem do vínculo (`GuardianStudent.position`), a mesma do JSON oficial. */
+   students: GuardianStudentSummary[];
+ }
+ 
+ export interface GuardianProfilesRepository {
+   findProfileById(id: string): Promise<GuardianProfile | null>;
+ }
+diff --git a/api/src/modules/guardians/repositories/prisma-guardian-profiles.repository.ts b/api/src/modules/guardians/repositories/prisma-guardian-profiles.repository.ts
+index ee86f4c..e0a1f3b 100644
+--- a/api/src/modules/guardians/repositories/prisma-guardian-profiles.repository.ts
++++ b/api/src/modules/guardians/repositories/prisma-guardian-profiles.repository.ts
+@@ -11,20 +11,22 @@ export class PrismaGuardianProfilesRepository implements GuardianProfilesReposit
+ 
+   async findProfileById(id: string): Promise<GuardianProfile | null> {
+     const guardian = await this.prisma.guardian.findUnique({
+       where: { id },
+       select: {
+         id: true,
+         firstName: true,
+         lastName: true,
+         cpf: true,
+         students: {
++          // rm desempata, para a ordem nunca depender do plano do SQLite.
++          orderBy: [{ position: 'asc' }, { student: { rm: 'asc' } }],
+           select: {
+             student: {
+               select: {
+                 id: true,
+                 rm: true,
+                 firstName: true,
+                 lastName: true,
+                 className: true,
+                 period: true,
+               },
+diff --git a/api/src/modules/guardians/use-cases/get-me.use-case.spec.ts b/api/src/modules/guardians/use-cases/get-me.use-case.spec.ts
+index c59f6b1..2f36273 100644
+--- a/api/src/modules/guardians/use-cases/get-me.use-case.spec.ts
++++ b/api/src/modules/guardians/use-cases/get-me.use-case.spec.ts
+@@ -18,21 +18,21 @@ const joana = {
+   lastName: 'da Silva',
+   className: '2EM',
+   period: 'Tarde',
+ };
+ 
+ const gustavo: GuardianProfile = {
+   id: 'guardian-gustavo',
+   firstName: 'Gustavo',
+   lastName: 'da Silva',
+   cpf: '96929456004',
+-  // Fora de ordem de propósito: o use case ordena por nome.
++  // Ordem do vínculo (a do JSON oficial), que não é a alfabética.
+   students: [rafael, joana],
+ };
+ const carlos: GuardianProfile = {
+   id: 'guardian-carlos',
+   firstName: 'Carlos',
+   lastName: 'Sem Aluno',
+   cpf: '31415926590',
+   students: [],
+ };
+ 
+@@ -46,40 +46,40 @@ describe('GetMeUseCase', () => {
+   });
+ 
+   it('devolve o responsável com o CPF mascarado e os alunos', async () => {
+     const me = await useCase.execute({ guardianId: 'guardian-gustavo' });
+ 
+     expect(me).toEqual({
+       id: 'guardian-gustavo',
+       firstName: 'Gustavo',
+       lastName: 'da Silva',
+       cpf: '***.294.560-**',
+-      students: [joana, rafael],
++      students: [rafael, joana],
+     });
+   });
+ 
+-  it('ordena os alunos pelo primeiro nome', async () => {
++  it('mantém os alunos na ordem do repositório, sem reordenar por nome', async () => {
+     const me = await useCase.execute({ guardianId: 'guardian-gustavo' });
+ 
+     expect(me.students.map((student) => student.firstName)).toEqual([
+-      'Joana',
+       'Rafael',
++      'Joana',
+     ]);
+   });
+ 
+   it('nunca devolve o CPF completo', async () => {
+     const me = await useCase.execute({ guardianId: 'guardian-gustavo' });
+ 
+     expect(JSON.stringify(me)).not.toContain('96929456004');
+   });
+ 
+-  it('não altera a lista do repositório ao ordenar', async () => {
++  it('não altera a lista do repositório', async () => {
+     await useCase.execute({ guardianId: 'guardian-gustavo' });
+ 
+     expect(gustavo.students.map((student) => student.firstName)).toEqual([
+       'Rafael',
+       'Joana',
+     ]);
+   });
+ 
+   it('devolve students: [] para o responsável sem aluno', async () => {
+     const me = await useCase.execute({ guardianId: 'guardian-carlos' });
+diff --git a/api/src/modules/guardians/use-cases/get-me.use-case.ts b/api/src/modules/guardians/use-cases/get-me.use-case.ts
+index d67132f..28232cc 100644
+--- a/api/src/modules/guardians/use-cases/get-me.use-case.ts
++++ b/api/src/modules/guardians/use-cases/get-me.use-case.ts
+@@ -10,39 +10,37 @@ import {
+ export interface GetMeInput {
+   guardianId: string;
+ }
+ 
+ export interface GetMeOutput {
+   id: string;
+   firstName: string;
+   lastName: string;
+   /** Mascarado: `***.294.560-**`. */
+   cpf: string;
++  /** Na ordem do vínculo (a do JSON oficial), não alfabética. */
+   students: GuardianStudentSummary[];
+ }
+ 
+-const byFirstName = (a: GuardianStudentSummary, b: GuardianStudentSummary) =>
+-  a.firstName.localeCompare(b.firstName, 'pt-BR');
+-
+ @Injectable()
+ export class GetMeUseCase {
+   constructor(
+     @Inject(GUARDIAN_PROFILES_REPOSITORY)
+     private readonly profiles: GuardianProfilesRepository,
+   ) {}
+ 
+   async execute({ guardianId }: GetMeInput): Promise<GetMeOutput> {
+     const profile = await this.profiles.findProfileById(guardianId);
+     if (!profile) {
+       // Token válido de um responsável que não existe mais.
+       throw new GuardianNotFoundError();
+     }
+ 
+     return {
+       id: profile.id,
+       firstName: profile.firstName,
+       lastName: profile.lastName,
+       cpf: maskCpf(profile.cpf),
+-      students: profile.students.toSorted(byFirstName),
++      students: profile.students,
+     };
+   }
+ }
+diff --git a/api/test/auth-throttle-cpf-concurrency.e2e-spec.ts b/api/test/auth-throttle-cpf-concurrency.e2e-spec.ts
+index 2312ea0..f5ed7f7 100644
+--- a/api/test/auth-throttle-cpf-concurrency.e2e-spec.ts
++++ b/api/test/auth-throttle-cpf-concurrency.e2e-spec.ts
+@@ -55,29 +55,27 @@ describe('Limite por CPF com tentativas simultâneas (e2e)', () => {
+     let app: INestApplication<App>;
+ 
+     beforeAll(async () => {
+       app = await bootWithCpfLimit(10);
+     });
+ 
+     afterAll(async () => {
+       await app.close();
+     });
+ 
+-    // Critério: as 20 chegam ao servidor bem antes de o primeiro bcrypt
+-    // (~70 ms) terminar, então exatamente 10 reservam vaga e 10 recebem 429,
+-    // seja qual for a ordem de chegada. A senha certa só pode dar 200 se ela
+-    // estiver entre as 10 primeiras a chegar; nesse caso ela ocupa uma das 10
+-    // vagas. Que a certa além do limite dá 429 está provado de forma
+-    // determinística no spec do interceptor.
+-    it('20 em paralelo com a senha certa no fim: no máximo 10 passam do limite', async () => {
+-      const passwords = [...Array<string>(19).fill('errada'), '123456'];
++    // Só senhas erradas: nenhuma resposta zera o contador, então exatamente
++    // 10 reservam vaga e 10 recebem 429, seja qual for a ordem de chegada ou o
++    // tempo do bcrypt. A senha certa no lote deixava o resultado depender de
++    // tempo (o reset dela abre uma janela nova para as que chegam depois).
++    // Que a certa além do limite dá 429 está provado de forma determinística
++    // no spec do interceptor.
++    it('20 senhas erradas em paralelo: exatamente 10 chegam à senha', async () => {
+       const responses = await Promise.all(
+-        passwords.map((password) => attempt(app, '96929456004', password)),
++        Array.from({ length: 20 }, () => attempt(app, '96929456004', 'errada')),
+       );
+       const statuses = responses.map((response) => response.status);
+ 
++      expect(count(statuses, 401)).toBe(10);
+       expect(count(statuses, 429)).toBe(10);
+-      expect(count(statuses, 401) + count(statuses, 200)).toBe(10);
+-      expect(count(statuses, 200)).toBeLessThanOrEqual(1);
+     });
+   });
+ });
+diff --git a/api/test/me.e2e-spec.ts b/api/test/me.e2e-spec.ts
+index 7769f84..bc38c79 100644
+--- a/api/test/me.e2e-spec.ts
++++ b/api/test/me.e2e-spec.ts
+@@ -1,14 +1,15 @@
+ import { INestApplication } from '@nestjs/common';
+ import { JwtService } from '@nestjs/jwt';
+ import request from 'supertest';
+ import { App } from 'supertest/types';
++import { PrismaService } from '../src/infra/prisma/prisma.service';
+ import { createTestApp } from './setup/create-test-app';
+ import { loginAs } from './setup/auth-helpers';
+ 
+ const ME = '/api/me';
+ 
+ interface MeBody {
+   id: string;
+   firstName: string;
+   lastName: string;
+   cpf: string;
+@@ -24,58 +25,90 @@ describe('GET /api/me (e2e)', () => {
+ 
+   afterAll(async () => {
+     await app.close();
+   });
+ 
+   const getMe = (token: string) =>
+     request(app.getHttpServer())
+       .get(ME)
+       .set('Authorization', `Bearer ${token}`);
+ 
+-  it('200 para o Gustavo: CPF mascarado e Joana e Rafael, por nome', async () => {
++  it('200 para o Gustavo: CPF mascarado e Rafael e Joana, na ordem do JSON', async () => {
+     const response = await getMe(await loginAs(app, 'gustavo'));
+ 
+     expect(response.status).toBe(200);
+     const body = response.body as MeBody;
+     expect(Object.keys(body).sort()).toEqual([
+       'cpf',
+       'firstName',
+       'id',
+       'lastName',
+       'students',
+     ]);
+     expect(body).toMatchObject({
+       firstName: 'Gustavo',
+       lastName: 'da Silva',
+       cpf: '***.294.560-**',
+     });
++    // Ordem do JSON oficial (e do Figma), não alfabética.
++    expect((body.students[0] as { firstName: string }).firstName).toBe(
++      'Rafael',
++    );
+     expect(body.students).toEqual([
+       {
+         id: expect.any(String) as string,
+-        rm: 12568,
+-        firstName: 'Joana',
++        rm: 12567,
++        firstName: 'Rafael',
+         lastName: 'da Silva',
+-        className: '2EM',
++        className: '7EF',
+         period: 'Matutino',
+       },
+       {
+         id: expect.any(String) as string,
+-        rm: 12567,
+-        firstName: 'Rafael',
++        rm: 12568,
++        firstName: 'Joana',
+         lastName: 'da Silva',
+-        className: '7EF',
++        className: '2EM',
+         period: 'Matutino',
+       },
+     ]);
+     expect(JSON.stringify(body)).not.toContain('96929456004');
+   });
+ 
++  it('segue GuardianStudent.position, e não a ordem de inserção', async () => {
++    const prisma = app.get(PrismaService);
++    const gustavo = await prisma.guardian.findUniqueOrThrow({
++      where: { cpf: '96929456004' },
++      select: { id: true },
++    });
++    const setPosition = (rm: number, position: number) =>
++      prisma.guardianStudent.updateMany({
++        where: { guardianId: gustavo.id, student: { rm } },
++        data: { position },
++      });
++
++    // Inverte o vínculo: Joana (12568) em 0, Rafael (12567) em 1.
++    await setPosition(12568, 0);
++    await setPosition(12567, 1);
++    try {
++      const response = await getMe(await loginAs(app, 'gustavo'));
++
++      expect(response.status).toBe(200);
++      expect(
++        (response.body as MeBody).students.map((student) => student.firstName),
++      ).toEqual(['Joana', 'Rafael']);
++    } finally {
++      await setPosition(12567, 0);
++      await setPosition(12568, 1);
++    }
++  });
++
+   it('200 para a Adelaide: só a Bianca', async () => {
+     const response = await getMe(await loginAs(app, 'adelaide'));
+ 
+     expect(response.status).toBe(200);
+     const body = response.body as MeBody;
+     expect(body.cpf).toBe('***.795.670-**');
+     expect(body.students).toEqual([
+       expect.objectContaining({ firstName: 'Bianca', rm: 13752 }),
+     ]);
+   });

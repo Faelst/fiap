@@ -1,0 +1,1374 @@
+db515e3 ci: workflow do Maestro no emulador Android e checagem dos flows no mobile.yml
+32e5e94 feat(mobile): flows do Maestro dos 10 casos de uso e checagem estática dos testIDs
+ .github/workflows/maestro.yml                     | 188 +++++++++++++++++++++
+ .github/workflows/mobile.yml                      |   4 +
+ mobile/.maestro/01-login-invalido.yaml            |  22 +++
+ mobile/.maestro/02-login-sucesso.yaml             |  36 ++++
+ mobile/.maestro/03-sessao-persistida.yaml         |  26 +++
+ mobile/.maestro/04-aulas-navegar-dias.yaml        |  65 ++++++++
+ mobile/.maestro/05-boletim-2025.yaml              |  85 ++++++++++
+ mobile/.maestro/06-boletim-anos-anteriores.yaml   |  53 ++++++
+ mobile/.maestro/07-trocar-aluno.yaml              |  54 ++++++
+ mobile/.maestro/08-um-aluno-sem-botao.yaml        |  34 ++++
+ mobile/.maestro/09-sem-aluno.yaml                 |  30 ++++
+ mobile/.maestro/10-logout.yaml                    |  28 ++++
+ mobile/.maestro/README.md                         |  74 ++++++++
+ mobile/.maestro/config.yaml                       |   4 +
+ mobile/.maestro/scripts/__tests__/testids.test.js | 195 ++++++++++++++++++++++
+ mobile/.maestro/scripts/check-testids.js          |  22 +++
+ mobile/.maestro/scripts/testids.js                | 187 +++++++++++++++++++++
+ mobile/.maestro/subflows/launch-clean.yaml        |  11 ++
+ mobile/.maestro/subflows/login.yaml               |  12 ++
+ mobile/.maestro/subflows/logout.yaml              |   9 +
+ mobile/.maestro/subflows/select-student.yaml      |  16 ++
+ mobile/package.json                               |   6 +-
+ mobile/yarn.lock                                  |   3 +-
+ 23 files changed, 1161 insertions(+), 3 deletions(-)
+diff --git a/.github/workflows/maestro.yml b/.github/workflows/maestro.yml
+new file mode 100644
+index 0000000..fbc1fd6
+--- /dev/null
++++ b/.github/workflows/maestro.yml
+@@ -0,0 +1,188 @@
++name: maestro
++
++# Flows do Maestro (mobile/.maestro) no emulador Android, com a API subindo no
++# próprio job. Não roda a cada push: build Android + emulador custa uns 20–30
++# min (D32). Rode pelo Actions (workflow_dispatch) ou ponha a label `e2e` no PR.
++on:
++  workflow_dispatch:
++  pull_request:
++    branches: [main]
++    types: [opened, synchronize, reopened, labeled]
++    paths:
++      - "mobile/**"
++      - "api/**"
++      - ".github/workflows/maestro.yml"
++
++permissions:
++  contents: read
++
++concurrency:
++  group: maestro-${{ github.ref }}
++  cancel-in-progress: true
++
++jobs:
++  android:
++    name: flows do Maestro (emulador Android)
++    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'e2e') }}
++    runs-on: ubuntu-latest
++    timeout-minutes: 75
++    env:
++      API_PORT: "3333"
++      APK: mobile/android/app/build/outputs/apk/debug/app-debug.apk
++      REPORT_DIR: maestro-report
++      MAESTRO_CLI_NO_ANALYTICS: "1"
++      # O 1º boot do driver do Maestro num emulador de CI pode passar do padrão.
++      MAESTRO_DRIVER_STARTUP_TIMEOUT: "180000"
++    steps:
++      - uses: actions/checkout@v4
++
++      - uses: actions/setup-node@v4
++        with:
++          node-version: 24
++
++      # yarn 1 na api/ e yarn 4 na mobile/, cada um pelo packageManager da pasta.
++      - name: Habilita o corepack
++        run: corepack enable
++
++      # ---------- API ----------
++      - name: API - instala dependências (roda prisma generate)
++        working-directory: api
++        run: yarn install --frozen-lockfile --non-interactive
++
++      # .env do exemplo com segredo novo e os limites do login altos: os flows
++      # logam muitas vezes seguidas, do mesmo IP e com o mesmo CPF.
++      - name: API - .env
++        working-directory: api
++        run: |
++          cp .env.example .env
++          secret="$(openssl rand -base64 48)"
++          echo "::add-mask::${secret}"
++          sed -i \
++            -e "s|^JWT_SECRET=.*|JWT_SECRET=\"${secret}\"|" \
++            -e "s|^PORT=.*|PORT=${API_PORT}|" \
++            -e "s|^LOGIN_THROTTLE_LIMIT=.*|LOGIN_THROTTLE_LIMIT=1000|" \
++            -e "s|^LOGIN_THROTTLE_CPF_LIMIT=.*|LOGIN_THROTTLE_CPF_LIMIT=1000|" \
++            .env
++
++      - name: API - banco (migrate deploy + seed)
++        working-directory: api
++        run: yarn prisma:setup
++
++      - name: API - build
++        working-directory: api
++        run: yarn build
++
++      # Fica de pé até o fim do job (o runner encerra os processos no final).
++      - name: API - sobe e espera o health
++        working-directory: api
++        run: |
++          nohup node dist/main > "${RUNNER_TEMP}/api.log" 2>&1 &
++          for _ in $(seq 1 60); do
++            if curl -fsS "http://127.0.0.1:${API_PORT}/api/health" > /dev/null; then
++              echo "API no ar"
++              exit 0
++            fi
++            sleep 1
++          done
++          echo "A API não respondeu o health em 60 s" >&2
++          tail -n 50 "${RUNNER_TEMP}/api.log" >&2
++          exit 1
++
++      # ---------- App ----------
++      - name: App - pasta de cache do yarn
++        id: yarn-cache
++        working-directory: mobile
++        run: echo "dir=$(yarn config get cacheFolder)" >> "$GITHUB_OUTPUT"
++
++      - uses: actions/cache@v4
++        with:
++          path: ${{ steps.yarn-cache.outputs.dir }}
++          key: yarn-mobile-${{ runner.os }}-${{ hashFiles('mobile/yarn.lock') }}
++          restore-keys: yarn-mobile-${{ runner.os }}-
++
++      - name: App - instala dependências
++        working-directory: mobile
++        run: yarn install --immutable
++
++      - name: App - checagem estática dos flows
++        working-directory: mobile
++        run: yarn maestro:check
++
++      - uses: actions/setup-java@v4
++        with:
++          distribution: temurin
++          java-version: 17
++
++      - uses: gradle/actions/setup-gradle@v4
++
++      # O react-native-config grava o .env no build. 10.0.2.2 é a máquina
++      # (o runner) vista de dentro do emulador.
++      - name: App - .env apontando para a API do job
++        working-directory: mobile
++        run: echo "API_URL=http://10.0.2.2:${API_PORT}/api" > .env
++
++      # O APK debug não traz o JS (vem do Metro) e o release não fala HTTP
++      # (sem cleartext). Então: APK debug com o bundle de produção (dev=false)
++      # dentro dele; sem Metro no ar, o app carrega o bundle do APK. Sem
++      # __DEV__ não há LogBox cobrindo a tela nem Reactotron.
++      - name: App - bundle JS dentro do APK debug
++        working-directory: mobile
++        run: |
++          mkdir -p android/app/src/main/assets
++          npx react-native bundle \
++            --platform android \
++            --dev false \
++            --entry-file index.js \
++            --bundle-output android/app/src/main/assets/index.android.bundle \
++            --assets-dest android/app/src/main/res
++
++      # Só x86_64, o ABI do emulador.
++      - name: App - assembleDebug
++        working-directory: mobile/android
++        run: ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --no-daemon --stacktrace
++
++      # ---------- Maestro ----------
++      - name: Maestro - instala o CLI
++        run: |
++          curl -fsSL "https://get.maestro.mobile.dev" | bash
++          echo "${HOME}/.maestro/bin" >> "$GITHUB_PATH"
++
++      - name: Habilita o KVM (aceleração do emulador)
++        run: |
++          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
++          sudo udevadm control --reload-rules
++          sudo udevadm trigger --name-match=kvm
++
++      # O script do emulator-runner roda linha a linha (sh): um comando por linha.
++      - name: Maestro - flows no emulador (API 34, x86_64)
++        uses: reactivecircus/android-emulator-runner@v2
++        with:
++          api-level: 34
++          arch: x86_64
++          target: google_apis
++          profile: pixel_6
++          disable-animations: true
++          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
++          script: |
++            adb install -r "$APK"
++            mkdir -p "$REPORT_DIR/debug"
++            maestro test mobile/.maestro --format junit --output "$REPORT_DIR/report.xml" --debug-output "$REPORT_DIR/debug"
++
++      # Relatório JUnit e, nas falhas, os prints e logs de cada comando.
++      - name: Relatório do Maestro
++        if: ${{ !cancelled() }}
++        uses: actions/upload-artifact@v4
++        with:
++          name: maestro-report
++          path: ${{ env.REPORT_DIR }}/
++          if-no-files-found: warn
++          retention-days: 14
++
++      - name: Log da API
++        if: ${{ failure() }}
++        uses: actions/upload-artifact@v4
++        with:
++          name: maestro-api-log
++          path: ${{ runner.temp }}/api.log
++          if-no-files-found: warn
++          retention-days: 7
+diff --git a/.github/workflows/mobile.yml b/.github/workflows/mobile.yml
+index 42608fa..49c76ab 100644
+--- a/.github/workflows/mobile.yml
++++ b/.github/workflows/mobile.yml
+@@ -57,20 +57,24 @@ jobs:
+ 
+       - name: Instala dependências
+         run: yarn install --immutable
+ 
+       - name: Lint
+         run: yarn lint
+ 
+       - name: Typecheck
+         run: yarn tsc
+ 
++      # Sem emulador: YAML, appId, subflows e todo id dos flows existindo em src/.
++      - name: Flows do Maestro (checagem estática)
++        run: yarn maestro:check
++
+       - name: Testes de componente e ViewModels (jest --coverage)
+         run: yarn test --coverage --ci
+ 
+       - name: Relatório de cobertura
+         if: ${{ !cancelled() }}
+         uses: actions/upload-artifact@v4
+         with:
+           name: mobile-coverage
+           path: mobile/coverage/
+           if-no-files-found: warn
+diff --git a/mobile/.maestro/01-login-invalido.yaml b/mobile/.maestro/01-login-invalido.yaml
+new file mode 100644
+index 0000000..8ed0545
+--- /dev/null
++++ b/mobile/.maestro/01-login-invalido.yaml
+@@ -0,0 +1,22 @@
++# CPF certo com senha errada: mensagem de erro e continua no Login.
++appId: br.com.fiap.school
++name: 01 - Login inválido mostra o erro
++tags:
++  - login
++---
++- runFlow: subflows/launch-clean.yaml
++- runFlow:
++    file: subflows/login.yaml
++    env:
++      CPF: '96929456004'
++      PASSWORD: '000000'
++# O texto tem quebra de linha (no iOS o rótulo acessível vem sem ela).
++- extendedWaitUntil:
++    visible:
++      id: login-error-message
++      text: '(?s)Usuário ou senha inválida\..*'
++    timeout: 10000
++- assertVisible:
++    id: login-screen
++- assertNotVisible:
++    id: agenda-screen
+diff --git a/mobile/.maestro/02-login-sucesso.yaml b/mobile/.maestro/02-login-sucesso.yaml
+new file mode 100644
+index 0000000..830e4db
+--- /dev/null
++++ b/mobile/.maestro/02-login-sucesso.yaml
+@@ -0,0 +1,36 @@
++# Login do Gustavo (2 alunos): abre a Agenda com o header completo.
++appId: br.com.fiap.school
++name: 02 - Login com sucesso abre a Agenda
++tags:
++  - login
++---
++- runFlow: subflows/launch-clean.yaml
++- runFlow:
++    file: subflows/login.yaml
++    env:
++      CPF: '96929456004'
++      PASSWORD: '123456'
++- extendedWaitUntil:
++    visible:
++      id: agenda-screen
++    timeout: 10000
++- assertVisible:
++    id: header-greeting
++    text: '(?i)olá, gustavo'
++# O aluno inicial vem do /me; qualquer um dos dois serve aqui.
++- assertVisible:
++    text: '(?i)aluno (rafael|joana),.*'
++- assertVisible:
++    id: header-switch-student-button
++- assertVisible:
++    id: header-logout-button
++- assertVisible:
++    id: agenda-title
++- extendedWaitUntil:
++    visible:
++      id: agenda-day-dropdown
++    timeout: 10000
++- assertVisible:
++    id: tab-agenda
++- assertVisible:
++    id: tab-boletim
+diff --git a/mobile/.maestro/03-sessao-persistida.yaml b/mobile/.maestro/03-sessao-persistida.yaml
+new file mode 100644
+index 0000000..e9813e1
+--- /dev/null
++++ b/mobile/.maestro/03-sessao-persistida.yaml
+@@ -0,0 +1,26 @@
++# Sessão salva no keychain: fechar e abrir o app volta direto para a Agenda.
++appId: br.com.fiap.school
++name: 03 - Sessão persistida ao reabrir o app
++tags:
++  - login
++---
++- runFlow: subflows/launch-clean.yaml
++- runFlow:
++    file: subflows/login.yaml
++    env:
++      CPF: '96929456004'
++      PASSWORD: '123456'
++- extendedWaitUntil:
++    visible:
++      id: agenda-screen
++    timeout: 10000
++- stopApp
++# Sem clearState: a sessão tem de sobreviver ao relançamento.
++- launchApp
++# A splash tem duração mínima: 12 s (ledger).
++- extendedWaitUntil:
++    visible:
++      id: agenda-screen
++    timeout: 12000
++- assertNotVisible:
++    id: login-screen
+diff --git a/mobile/.maestro/04-aulas-navegar-dias.yaml b/mobile/.maestro/04-aulas-navegar-dias.yaml
+new file mode 100644
+index 0000000..42dbc7e
+--- /dev/null
++++ b/mobile/.maestro/04-aulas-navegar-dias.yaml
+@@ -0,0 +1,65 @@
++# Agenda do Rafael (semana de 16 a 22/03/2025): troca de dia pelo dropdown e
++# confere as aulas; domingo mostra o estado vazio. Não depende do dia de hoje.
++appId: br.com.fiap.school
++name: 04 - Agenda navega entre os dias
++tags:
++  - agenda
++---
++- runFlow: subflows/launch-clean.yaml
++- runFlow:
++    file: subflows/login.yaml
++    env:
++      CPF: '96929456004'
++      PASSWORD: '123456'
++- extendedWaitUntil:
++    visible:
++      id: agenda-day-dropdown
++    timeout: 10000
++- runFlow:
++    file: subflows/select-student.yaml
++    env:
++      RM: '12567'
++- assertVisible:
++    text: '(?i)aluno rafael,.*'
++
++# Segunda, 17/03: começa com Matemática I às 07:15.
++- tapOn:
++    id: agenda-day-dropdown
++- tapOn:
++    id: agenda-day-dropdown-option-2025-03-17
++- extendedWaitUntil:
++    visible:
++      id: agenda-day-dropdown
++      text: '.*17 de março, segunda-feira'
++    timeout: 5000
++- assertVisible:
++    id: agenda-lesson-0
++    text: '.*07:15.*Matemática I'
++
++# Terça, 18/03: começa com Produção e Interpretação de Textos.
++- tapOn:
++    id: agenda-day-dropdown
++- tapOn:
++    id: agenda-day-dropdown-option-2025-03-18
++- extendedWaitUntil:
++    visible:
++      id: agenda-day-dropdown
++      text: '.*18 de março, terça-feira'
++    timeout: 5000
++- assertVisible:
++    id: agenda-lesson-0
++    text: '.*07:15.*Produção e Interpretação de Textos'
++
++# Domingo, 16/03: sem aulas.
++- tapOn:
++    id: agenda-day-dropdown
++- tapOn:
++    id: agenda-day-dropdown-option-2025-03-16
++- extendedWaitUntil:
++    visible:
++      id: agenda-empty
++    timeout: 5000
++- assertVisible:
++    text: 'Sem aulas neste dia'
++- assertNotVisible:
++    id: agenda-lesson-list
+diff --git a/mobile/.maestro/05-boletim-2025.yaml b/mobile/.maestro/05-boletim-2025.yaml
+new file mode 100644
+index 0000000..0bc611a
+--- /dev/null
++++ b/mobile/.maestro/05-boletim-2025.yaml
+@@ -0,0 +1,85 @@
++# Boletim do Rafael em 2025: "7EF - 2025"; no 1º trimestre, Língua
++# Portuguesa com nota 9,5 e 0 faltas; no 2º (não avaliado), "-".
++appId: br.com.fiap.school
++name: 05 - Boletim de 2025
++tags:
++  - boletim
++---
++- runFlow: subflows/launch-clean.yaml
++- runFlow:
++    file: subflows/login.yaml
++    env:
++      CPF: '96929456004'
++      PASSWORD: '123456'
++- extendedWaitUntil:
++    visible:
++      id: agenda-screen
++    timeout: 10000
++- runFlow:
++    file: subflows/select-student.yaml
++    env:
++      RM: '12567'
++- tapOn:
++    id: tab-boletim
++- extendedWaitUntil:
++    visible:
++      id: boletim-year-dropdown
++      text: '.*7EF - 2025'
++    timeout: 10000
++
++# 1º trimestre > Língua Portuguesa (a 1ª disciplina da API).
++- tapOn:
++    id: boletim-term-1
++- tapOn:
++    id: boletim-term-1-subject-0
++- assertVisible:
++    id: boletim-term-1-subject-0
++    text: 'Língua Portuguesa'
++- scrollUntilVisible:
++    element:
++      id: boletim-term-1-subject-0-result
++    direction: DOWN
++# Nota e faltas num elemento só para o leitor de tela (vale nas 2 plataformas).
++- assertVisible:
++    id: boletim-term-1-subject-0-result
++    text: 'Nota 9,5, 0 faltas'
++# No Android os textos de dentro também aparecem na hierarquia.
++- runFlow:
++    when:
++      platform: Android
++    commands:
++      - assertVisible:
++          id: boletim-term-1-subject-0-grade
++          text: '9,5'
++      - assertVisible:
++          id: boletim-term-1-subject-0-absences
++          text: '0'
++
++# 2º trimestre ainda não avaliado: "-".
++- tapOn:
++    id: boletim-term-1
++- scrollUntilVisible:
++    element:
++      id: boletim-term-2
++    direction: DOWN
++- tapOn:
++    id: boletim-term-2
++- tapOn:
++    id: boletim-term-2-subject-0
++- scrollUntilVisible:
++    element:
++      id: boletim-term-2-subject-0-result
++    direction: DOWN
++- assertVisible:
++    id: boletim-term-2-subject-0-result
++    text: 'Nota e faltas ainda não lançadas'
++- runFlow:
++    when:
++      platform: Android
++    commands:
++      - assertVisible:
++          id: boletim-term-2-subject-0-grade
++          text: '-'
++      - assertVisible:
++          id: boletim-term-2-subject-0-absences
++          text: '-'
+diff --git a/mobile/.maestro/06-boletim-anos-anteriores.yaml b/mobile/.maestro/06-boletim-anos-anteriores.yaml
+new file mode 100644
+index 0000000..ca61f71
+--- /dev/null
++++ b/mobile/.maestro/06-boletim-anos-anteriores.yaml
+@@ -0,0 +1,53 @@
++# Bônus: o dropdown troca para o boletim de 2024 do Rafael ("6EF - 2024").
++appId: br.com.fiap.school
++name: 06 - Boletim de anos anteriores
++tags:
++  - boletim
++---
++- runFlow: subflows/launch-clean.yaml
++- runFlow:
++    file: subflows/login.yaml
++    env:
++      CPF: '96929456004'
++      PASSWORD: '123456'
++- extendedWaitUntil:
++    visible:
++      id: agenda-screen
++    timeout: 10000
++- runFlow:
++    file: subflows/select-student.yaml
++    env:
++      RM: '12567'
++- tapOn:
++    id: tab-boletim
++- extendedWaitUntil:
++    visible:
++      id: boletim-year-dropdown
++      text: '.*7EF - 2025'
++    timeout: 10000
++- tapOn:
++    id: boletim-year-dropdown
++- tapOn:
++    id: boletim-year-dropdown-option-2024
++- extendedWaitUntil:
++    visible:
++      id: boletim-year-dropdown
++      text: '.*6EF - 2024'
++    timeout: 10000
++
++# 2024, 1º trimestre > Língua Portuguesa: nota 8,0 e 1 falta.
++- extendedWaitUntil:
++    visible:
++      id: boletim-term-1
++    timeout: 10000
++- tapOn:
++    id: boletim-term-1
++- tapOn:
++    id: boletim-term-1-subject-0
++- scrollUntilVisible:
++    element:
++      id: boletim-term-1-subject-0-result
++    direction: DOWN
++- assertVisible:
++    id: boletim-term-1-subject-0-result
++    text: 'Nota 8,0, 1 falta'
+diff --git a/mobile/.maestro/07-trocar-aluno.yaml b/mobile/.maestro/07-trocar-aluno.yaml
+new file mode 100644
+index 0000000..ba86abb
+--- /dev/null
++++ b/mobile/.maestro/07-trocar-aluno.yaml
+@@ -0,0 +1,54 @@
++# Gustavo (2 alunos): troca de aluno a partir do Boletim e volta ao Boletim,
++# já com os dados do aluno novo. Escolhe os dois alunos explicitamente, sem
++# depender de qual é o inicial.
++appId: br.com.fiap.school
++name: 07 - Trocar aluno volta à aba de origem
++tags:
++  - alunos
++---
++- runFlow: subflows/launch-clean.yaml
++- runFlow:
++    file: subflows/login.yaml
++    env:
++      CPF: '96929456004'
++      PASSWORD: '123456'
++- extendedWaitUntil:
++    visible:
++      id: agenda-screen
++    timeout: 10000
++- tapOn:
++    id: tab-boletim
++- extendedWaitUntil:
++    visible:
++      id: boletim-year-dropdown
++    timeout: 10000
++
++# Rafael (7EF).
++- runFlow:
++    file: subflows/select-student.yaml
++    env:
++      RM: '12567'
++- extendedWaitUntil:
++    visible:
++      id: boletim-year-dropdown
++      text: '.*7EF - 2025'
++    timeout: 10000
++- assertVisible:
++    text: '(?i)aluno rafael,.*'
++
++# Joana (2EM): continua no Boletim, com o boletim e o header dela.
++- runFlow:
++    file: subflows/select-student.yaml
++    env:
++      RM: '12568'
++- extendedWaitUntil:
++    visible:
++      id: boletim-year-dropdown
++      text: '.*2EM - 2025'
++    timeout: 10000
++- assertVisible:
++    text: '(?i)aluno joana,.*'
++- assertVisible:
++    id: boletim-screen
++- assertNotVisible:
++    id: agenda-day-dropdown
+diff --git a/mobile/.maestro/08-um-aluno-sem-botao.yaml b/mobile/.maestro/08-um-aluno-sem-botao.yaml
+new file mode 100644
+index 0000000..72ad902
+--- /dev/null
++++ b/mobile/.maestro/08-um-aluno-sem-botao.yaml
+@@ -0,0 +1,34 @@
++# Adelaide (1 aluna, Bianca): sem TROCAR PERFIL, nas duas abas.
++appId: br.com.fiap.school
++name: 08 - Responsável com 1 aluno não vê TROCAR PERFIL
++tags:
++  - alunos
++---
++- runFlow: subflows/launch-clean.yaml
++- runFlow:
++    file: subflows/login.yaml
++    env:
++      CPF: '50879567007'
++      PASSWORD: '987654'
++- extendedWaitUntil:
++    visible:
++      id: agenda-screen
++    timeout: 10000
++- assertVisible:
++    id: header-greeting
++    text: '(?i)olá, adelaide'
++- assertVisible:
++    text: '(?i)aluno bianca,.*'
++- assertVisible:
++    id: header-logout-button
++- assertNotVisible:
++    id: header-switch-student-button
++- tapOn:
++    id: tab-boletim
++- extendedWaitUntil:
++    visible:
++      id: boletim-year-dropdown
++      text: '.*1EF - 2025'
++    timeout: 10000
++- assertNotVisible:
++    id: header-switch-student-button
+diff --git a/mobile/.maestro/09-sem-aluno.yaml b/mobile/.maestro/09-sem-aluno.yaml
+new file mode 100644
+index 0000000..04c6650
+--- /dev/null
++++ b/mobile/.maestro/09-sem-aluno.yaml
+@@ -0,0 +1,30 @@
++# Carlos (sem aluno vinculado; extra do seed): estado vazio, sem abas e sem
++# TROCAR PERFIL, mas com SAIR.
++appId: br.com.fiap.school
++name: 09 - Responsável sem aluno vê o estado vazio
++tags:
++  - alunos
++---
++- runFlow: subflows/launch-clean.yaml
++- runFlow:
++    file: subflows/login.yaml
++    env:
++      CPF: '31415926590'
++      PASSWORD: '111111'
++- extendedWaitUntil:
++    visible:
++      id: no-student-screen
++    timeout: 10000
++- assertVisible:
++    id: no-student-empty
++- assertVisible:
++    text: 'Nenhum aluno vinculado'
++- assertVisible:
++    id: header-greeting
++    text: '(?i)olá, carlos'
++- assertVisible:
++    id: header-logout-button
++- assertNotVisible:
++    id: header-switch-student-button
++- assertNotVisible:
++    id: tab-bar
+diff --git a/mobile/.maestro/10-logout.yaml b/mobile/.maestro/10-logout.yaml
+new file mode 100644
+index 0000000..e557523
+--- /dev/null
++++ b/mobile/.maestro/10-logout.yaml
+@@ -0,0 +1,28 @@
++# SAIR volta ao Login; fechar e abrir o app continua no Login.
++appId: br.com.fiap.school
++name: 10 - Logout
++tags:
++  - login
++---
++- runFlow: subflows/launch-clean.yaml
++- runFlow:
++    file: subflows/login.yaml
++    env:
++      CPF: '96929456004'
++      PASSWORD: '123456'
++- extendedWaitUntil:
++    visible:
++      id: agenda-screen
++    timeout: 10000
++- runFlow: subflows/logout.yaml
++- assertNotVisible:
++    id: agenda-screen
++- stopApp
++- launchApp
++# A splash tem duração mínima: 12 s (ledger).
++- extendedWaitUntil:
++    visible:
++      id: login-screen
++    timeout: 12000
++- assertNotVisible:
++    id: agenda-screen
+diff --git a/mobile/.maestro/README.md b/mobile/.maestro/README.md
+new file mode 100644
+index 0000000..33b105d
+--- /dev/null
++++ b/mobile/.maestro/README.md
+@@ -0,0 +1,74 @@
++# Flows do Maestro
++
++Um flow por caso de uso (brief, seção 6), usando `testID` e os responsáveis do
++seed da API.
++
++| Flow                              | Caso de uso                                                    |
++| --------------------------------- | -------------------------------------------------------------- |
++| `01-login-invalido.yaml`          | senha errada → mensagem de erro, continua no Login             |
++| `02-login-sucesso.yaml`           | login → Agenda com o header (saudação, aluno, TROCAR PERFIL)   |
++| `03-sessao-persistida.yaml`       | login → `stopApp` → `launchApp` → Agenda sem login             |
++| `04-aulas-navegar-dias.yaml`      | dropdown de dias: segunda, terça e domingo (vazio)             |
++| `05-boletim-2025.yaml`            | "7EF - 2025", 1º trimestre com nota e faltas, 2º trimestre `-` |
++| `06-boletim-anos-anteriores.yaml` | troca para "6EF - 2024"                                        |
++| `07-trocar-aluno.yaml`            | troca de aluno a partir do Boletim e continua no Boletim       |
++| `08-um-aluno-sem-botao.yaml`      | responsável com 1 aluno não vê TROCAR PERFIL                   |
++| `09-sem-aluno.yaml`               | responsável sem aluno vê o estado vazio                        |
++| `10-logout.yaml`                  | SAIR → Login; reabrir o app continua no Login                  |
++
++`subflows/` tem os passos repetidos (abrir o app limpo, login, trocar aluno,
++sair). Eles só rodam chamados pelos flows (`config.yaml` pega só a raiz).
++
++Contas usadas (seed): Gustavo `96929456004` / `123456` (Rafael e Joana),
++Adelaide `50879567007` / `987654` (Bianca) e Carlos `31415926590` / `111111`
++(sem aluno). Os flows escolhem o aluno pelo TROCAR PERFIL quando o dado
++importa, então não dependem de qual aluno o `/me` traz primeiro, nem do dia de
++hoje (o dia da Agenda é escolhido no dropdown).
++
++## Pré-requisitos
++
++- [Maestro CLI](https://docs.maestro.dev/getting-started/installing-maestro):
++  `curl -fsSL "https://get.maestro.mobile.dev" | bash`.
++- Java 17 (o Maestro roda na JVM).
++- Simulador iOS ou emulador Android com o app instalado (`yarn ios` /
++  `yarn android`), bundle id `br.com.fiap.school`.
++- A API rodando com o seed e com os limites do login altos, porque os flows
++  logam muitas vezes seguidas com o mesmo CPF. Em `api/.env`:
++
++  ```
++  LOGIN_THROTTLE_LIMIT=1000
++  LOGIN_THROTTLE_CPF_LIMIT=1000
++  ```
++
++- `API_URL` do app apontando para essa API (`mobile/.env`; no emulador
++  Android, `http://10.0.2.2:3333/api`). O `.env` entra no build nativo.
++
++## Como rodar
++
++Em `mobile/`:
++
++```bash
++maestro test .maestro                          # todos os flows
++maestro test .maestro/04-aulas-navegar-dias.yaml   # um flow
++maestro test .maestro --include-tags boletim   # por tag (login, agenda, boletim, alunos)
++yarn maestro:check                             # checagem estática, sem Maestro
++```
++
++Com mais de um aparelho ligado, escolha com `maestro --device <id> test ...`.
++
++`yarn maestro:check` confere, sem emulador, que os YAML são válidos, que o
++`appId` é o do app, que os subflows existem e que todo `id` usado nos flows
++existe como `testID` em `src/`. Ele roda no `mobile.yml` a cada PR.
++
++No CI, o workflow `maestro.yml` sobe a API, builda o APK e roda os flows num
++emulador Android. Ele roda pelo `workflow_dispatch` ou num PR com a label
++`e2e`.
++
++## Observações
++
++- A splash tem duração mínima, então os flows esperam o Login ou a Agenda por
++  até 12 s depois do `launchApp`.
++- No iOS, o texto de dentro de um elemento acessível (ex.: nota e faltas, o
++  nome do aluno no header) aparece só no rótulo do elemento. Por isso os flows
++  conferem o rótulo (`Nota 9,5, 0 faltas`, `Aluno Rafael, ...`), que vale nas
++  duas plataformas, e os textos internos (`9,5`, `-`) só no Android.
+diff --git a/mobile/.maestro/config.yaml b/mobile/.maestro/config.yaml
+new file mode 100644
+index 0000000..15d323c
+--- /dev/null
++++ b/mobile/.maestro/config.yaml
+@@ -0,0 +1,4 @@
++# Workspace do Maestro: `maestro test .maestro` roda os flows desta pasta
++# (01 a 10). Os de `subflows/` só rodam chamados por `runFlow`.
++flows:
++  - '*'
+diff --git a/mobile/.maestro/scripts/__tests__/testids.test.js b/mobile/.maestro/scripts/__tests__/testids.test.js
+new file mode 100644
+index 0000000..67d1366
+--- /dev/null
++++ b/mobile/.maestro/scripts/__tests__/testids.test.js
+@@ -0,0 +1,195 @@
++/**
++ * @jest-environment node
++ */
++
++const {
++  collectSourcePatterns,
++  createTestIdMatcher,
++  extractFlowIds,
++} = require('../testids');
++
++describe('collectSourcePatterns', () => {
++  it('lê testID literal em JSX e em objeto', () => {
++    const patterns = collectSourcePatterns(`
++      <Box testID="agenda-screen" />
++      <Button loadingTestID="login-submit-loading" />
++      options={{ tabBarButtonTestID: 'tab-agenda' }}
++    `);
++
++    expect(patterns.literals).toEqual(
++      expect.arrayContaining([
++        'agenda-screen',
++        'login-submit-loading',
++        'tab-agenda',
++      ]),
++    );
++  });
++
++  it('lê os template literals de testID, inclusive os derivados da prop', () => {
++    const patterns = collectSourcePatterns(
++      [
++        '<Card testID={`select-student-card-${student.rm}`} />',
++        '<Text testID={`${testID}-label`} />',
++        'testID={retryTestID ?? `${testID}-retry`}',
++      ].join('\n'),
++    );
++
++    expect(patterns.templates).toEqual(
++      expect.arrayContaining([
++        'select-student-card-${student.rm}',
++        '${testID}-label',
++        '${testID}-retry',
++      ]),
++    );
++  });
++});
++
++describe('createTestIdMatcher', () => {
++  const matches = createTestIdMatcher({
++    literals: ['agenda-day-dropdown', 'header-logout-button'],
++    templates: [
++      'select-student-card-${student.rm}',
++      'boletim-term-${term.term}',
++      '${testID}-subject-${subject.index}',
++      '${testID}-result',
++      '${testID}-option-${option.key}',
++    ],
++  });
++
++  it('aceita um testID literal', () => {
++    expect(matches('header-logout-button')).toBe(true);
++  });
++
++  it('aceita um testID de template com parte variável', () => {
++    expect(matches('select-student-card-12567')).toBe(true);
++  });
++
++  it('aceita um testID derivado de outro (prop + sufixo), em cadeia', () => {
++    expect(matches('agenda-day-dropdown-option-2025-03-17')).toBe(true);
++    expect(matches('boletim-term-1-subject-0-result')).toBe(true);
++  });
++
++  it('recusa um testID que não existe no código', () => {
++    expect(matches('header-logout')).toBe(false);
++    expect(matches('agenda-day-dropdown-opcao-2025-03-17')).toBe(false);
++  });
++
++  it('recusa erro de digitação no meio de um id derivado', () => {
++    // A parte variável de `boletim-term-${term.term}` não engole o resto.
++    expect(matches('boletim-term-2-subjct-0-result')).toBe(false);
++    expect(matches('select-student-card-12567-x')).toBe(false);
++  });
++
++  it('recusa sufixo derivado de uma base que não existe', () => {
++    expect(matches('agenda-dropdown-option-2025-03-17')).toBe(false);
++  });
++});
++
++describe('extractFlowIds', () => {
++  it('acha os id em qualquer nível dos comandos, inclusive em runFlow', () => {
++    const ids = extractFlowIds([
++      { appId: 'br.com.fiap.school' },
++      [
++        { tapOn: { id: 'tab-boletim' } },
++        { extendedWaitUntil: { visible: { id: 'boletim-screen' } } },
++        {
++          runFlow: {
++            when: { platform: 'Android' },
++            commands: [
++              { assertVisible: { id: 'boletim-term-2-subject-0-grade' } },
++            ],
++          },
++        },
++        { inputText: '96929456004' },
++      ],
++    ]);
++
++    expect(ids).toEqual([
++      'tab-boletim',
++      'boletim-screen',
++      'boletim-term-2-subject-0-grade',
++    ]);
++  });
++
++  it('troca variáveis ${...} do flow por um valor de exemplo', () => {
++    const ids = extractFlowIds([
++      {},
++      [{ tapOn: { id: 'select-student-card-${RM}' } }],
++    ]);
++
++    expect(ids).toEqual(['select-student-card-0']);
++  });
++});
++
++describe('checkFlows', () => {
++  const fs = require('fs');
++  const os = require('os');
++  const path = require('path');
++  const { checkFlows } = require('../testids');
++
++  let root;
++  const write = (file, content) => {
++    const full = path.join(root, file);
++    fs.mkdirSync(path.dirname(full), { recursive: true });
++    fs.writeFileSync(full, content);
++  };
++  const run = () =>
++    checkFlows({
++      flowsDir: path.join(root, 'flows'),
++      srcDir: path.join(root, 'src'),
++      appId: 'br.com.fiap.school',
++    });
++
++  beforeEach(() => {
++    root = fs.mkdtempSync(path.join(os.tmpdir(), 'maestro-check-'));
++    write('src/Screen.tsx', '<Box testID="agenda-screen" />');
++    write('src/__tests__/Fake.test.tsx', '<Box testID="so-no-teste" />');
++    write('flows/config.yaml', 'flows:\n  - "*"\n');
++  });
++
++  afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
++
++  it('sem erros quando os ids existem e o subflow existe', () => {
++    write(
++      'flows/01-ok.yaml',
++      'appId: br.com.fiap.school\n---\n- runFlow: subflows/login.yaml\n- assertVisible:\n    id: agenda-screen\n',
++    );
++    write(
++      'flows/subflows/login.yaml',
++      'appId: br.com.fiap.school\n---\n- assertVisible:\n    id: agenda-screen\n',
++    );
++
++    expect(run()).toEqual({ flows: 2, ids: 2, errors: [] });
++  });
++
++  it('aponta id que só existe em teste ou em lugar nenhum', () => {
++    write(
++      'flows/01-ruim.yaml',
++      'appId: br.com.fiap.school\n---\n- tapOn:\n    id: so-no-teste\n',
++    );
++
++    expect(run().errors).toEqual([
++      '01-ruim.yaml: id "so-no-teste" não existe em src/',
++    ]);
++  });
++
++  it('aponta appId errado, YAML inválido e subflow que não existe', () => {
++    write('flows/01-app.yaml', 'appId: outro.app\n---\n- back\n');
++    write('flows/02-yaml.yaml', 'appId: br.com.fiap.school\n---\n- tapOn: [\n');
++    write(
++      'flows/03-sub.yaml',
++      'appId: br.com.fiap.school\n---\n- runFlow:\n    file: subflows/nao-existe.yaml\n',
++    );
++
++    const { errors } = run();
++
++    expect(errors).toHaveLength(3);
++    expect(errors[0]).toBe(
++      '01-app.yaml: appId "outro.app" (esperado br.com.fiap.school)',
++    );
++    expect(errors[1]).toMatch(/^02-yaml\.yaml: YAML inválido/);
++    expect(errors[2]).toBe(
++      '03-sub.yaml: runFlow aponta para subflows/nao-existe.yaml, que não existe',
++    );
++  });
++});
+diff --git a/mobile/.maestro/scripts/check-testids.js b/mobile/.maestro/scripts/check-testids.js
+new file mode 100755
+index 0000000..ce04ee6
+--- /dev/null
++++ b/mobile/.maestro/scripts/check-testids.js
+@@ -0,0 +1,22 @@
++#!/usr/bin/env node
++/**
++ * Checagem estática dos flows do Maestro (roda sem emulador nem Maestro):
++ * YAML válido, appId do app, subflows que existem e todo `id` presente como
++ * testID em `src/`. Uso, em mobile/: `yarn maestro:check`.
++ */
++const path = require('path');
++const { checkFlows } = require('./testids');
++
++const mobileDir = path.resolve(__dirname, '../..');
++const { flows, ids, errors } = checkFlows({
++  flowsDir: path.join(mobileDir, '.maestro'),
++  srcDir: path.join(mobileDir, 'src'),
++  appId: 'br.com.fiap.school',
++});
++
++if (errors.length > 0) {
++  console.error(`Flows do Maestro com ${errors.length} problema(s):`);
++  errors.forEach(error => console.error(`  - ${error}`));
++  process.exit(1);
++}
++console.log(`Flows do Maestro ok: ${flows} arquivos, ${ids} ids conferidos.`);
+diff --git a/mobile/.maestro/scripts/testids.js b/mobile/.maestro/scripts/testids.js
+new file mode 100644
+index 0000000..1b4aac0
+--- /dev/null
++++ b/mobile/.maestro/scripts/testids.js
+@@ -0,0 +1,187 @@
++/**
++ * Cruza os `id` usados nos flows do Maestro com os `testID` do código do app
++ * (`src/`), para pegar um id errado sem precisar subir o emulador.
++ *
++ * Os testID do código vêm de duas formas:
++ * - literal: `testID="agenda-screen"`, `tabBarButtonTestID: 'tab-agenda'`;
++ * - template: `select-student-card-${student.rm}`, ou derivado da prop do
++ *   componente, `${testID}-label`, que vale para qualquer testID passado a ele.
++ */
++
++const fs = require('fs');
++const path = require('path');
++const YAML = require('yaml');
++
++const LITERAL = /\w*[tT]estID\s*[=:]\s*(?:"([^"\n]+)"|'([^'\n]+)')/g;
++const TEMPLATE_LINE = /[tT]estID[^\n]*/g;
++const TEMPLATE = /`([^`\n]+)`/g;
++const PROP_BASE = '${testID}';
++const VARIABLE = /\$\{[^}]+\}/g;
++const FLOW_VARIABLE_SAMPLE = '0';
++// Valor de `${x}` num testID: uma palavra seguida de partes numéricas
++// (`12567`, `1`, `2025-03-17`). Não engole um `-sufixo` com letras, para um
++// erro de digitação no meio do id não passar como parte variável.
++const VARIABLE_VALUE = '[A-Za-z0-9]+(?:-[0-9]+)*';
++
++function collectSourcePatterns(source) {
++  const literals = [];
++  const templates = [];
++  for (const match of source.matchAll(LITERAL)) {
++    literals.push(match[1] ?? match[2]);
++  }
++  for (const [line] of source.matchAll(TEMPLATE_LINE)) {
++    for (const match of line.matchAll(TEMPLATE)) {
++      templates.push(match[1]);
++    }
++  }
++  return { literals, templates };
++}
++
++const escapeRegExp = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
++
++/** `${x}` vira `VARIABLE_VALUE`; o resto é literal. */
++function templateToRegExp(template) {
++  const parts = template.split(VARIABLE).map(escapeRegExp);
++  return new RegExp(`^${parts.join(VARIABLE_VALUE)}$`);
++}
++
++function createTestIdMatcher({ literals, templates }) {
++  const known = new Set(literals);
++  const absolute = [];
++  const derived = [];
++  for (const template of templates) {
++    if (template.startsWith(PROP_BASE)) {
++      derived.push(templateToRegExp(template.slice(PROP_BASE.length)));
++    } else {
++      absolute.push(templateToRegExp(template));
++    }
++  }
++
++  const cache = new Map();
++  const matches = id => {
++    if (cache.has(id)) return cache.get(id);
++    cache.set(id, false);
++    let result = known.has(id) || absolute.some(regExp => regExp.test(id));
++    // Derivado: alguma divisão base + sufixo em que a base também existe.
++    for (let cut = 1; !result && cut < id.length; cut++) {
++      const tail = id.slice(cut);
++      if (derived.some(regExp => regExp.test(tail))) {
++        result = matches(id.slice(0, cut));
++      }
++    }
++    cache.set(id, result);
++    return result;
++  };
++  return matches;
++}
++
++/** Os `id` de qualquer nível dos documentos YAML de um flow, em ordem. */
++function extractFlowIds(documents) {
++  const ids = [];
++  const visit = node => {
++    if (Array.isArray(node)) {
++      node.forEach(visit);
++    } else if (node && typeof node === 'object') {
++      for (const [key, value] of Object.entries(node)) {
++        if (key === 'id' && typeof value === 'string') {
++          ids.push(value.replace(VARIABLE, FLOW_VARIABLE_SAMPLE));
++        } else {
++          visit(value);
++        }
++      }
++    }
++  };
++  visit(documents);
++  return ids;
++}
++
++function listFiles(dir, accept) {
++  return fs
++    .readdirSync(dir, { withFileTypes: true })
++    .flatMap(entry => {
++      const full = path.join(dir, entry.name);
++      if (entry.isDirectory()) return listFiles(full, accept);
++      return accept(full) ? [full] : [];
++    })
++    .sort();
++}
++
++const isAppSource = file =>
++  /\.(ts|tsx|js|jsx)$/.test(file) &&
++  !/\.test\.[jt]sx?$/.test(file) &&
++  !file.split(path.sep).includes('__tests__');
++
++const isFlow = file =>
++  /\.ya?ml$/.test(file) && path.basename(file) !== 'config.yaml';
++
++/** `runFlow: arquivo.yaml` ou `runFlow: { file: arquivo.yaml }`. */
++function extractRunFlowFiles(documents) {
++  const files = [];
++  const visit = node => {
++    if (Array.isArray(node)) {
++      node.forEach(visit);
++    } else if (node && typeof node === 'object') {
++      for (const [key, value] of Object.entries(node)) {
++        if (key === 'runFlow' && typeof value === 'string') files.push(value);
++        else if (key === 'runFlow' && typeof value?.file === 'string') {
++          files.push(value.file);
++        }
++        visit(value);
++      }
++    }
++  };
++  visit(documents);
++  return files;
++}
++
++/**
++ * Confere cada flow de `flowsDir` (e subpastas): YAML válido, `appId` certo,
++ * `runFlow` apontando para um arquivo que existe e todo `id` existindo como
++ * testID no código de `srcDir` (fora dos testes).
++ */
++function checkFlows({ flowsDir, srcDir, appId }) {
++  const patterns = { literals: [], templates: [] };
++  for (const file of listFiles(srcDir, isAppSource)) {
++    const found = collectSourcePatterns(fs.readFileSync(file, 'utf8'));
++    patterns.literals.push(...found.literals);
++    patterns.templates.push(...found.templates);
++  }
++  const matches = createTestIdMatcher(patterns);
++
++  const flows = listFiles(flowsDir, isFlow);
++  const errors = [];
++  let ids = 0;
++  for (const file of flows) {
++    const name = path.relative(flowsDir, file);
++    const parsed = YAML.parseAllDocuments(fs.readFileSync(file, 'utf8'));
++    const invalid = parsed.flatMap(document => document.errors);
++    if (invalid.length > 0) {
++      errors.push(`${name}: YAML inválido (${invalid[0].message})`);
++      continue;
++    }
++    const documents = parsed.map(document => document.toJS());
++    const header = documents[0] ?? {};
++    if (header.appId !== appId) {
++      errors.push(`${name}: appId "${header.appId}" (esperado ${appId})`);
++    }
++    for (const target of extractRunFlowFiles(documents)) {
++      if (!fs.existsSync(path.resolve(path.dirname(file), target))) {
++        errors.push(`${name}: runFlow aponta para ${target}, que não existe`);
++      }
++    }
++    for (const id of extractFlowIds(documents)) {
++      ids++;
++      if (!matches(id)) {
++        errors.push(`${name}: id "${id}" não existe em src/`);
++      }
++    }
++  }
++  return { flows: flows.length, ids, errors };
++}
++
++module.exports = {
++  checkFlows,
++  collectSourcePatterns,
++  createTestIdMatcher,
++  extractFlowIds,
++};
+diff --git a/mobile/.maestro/subflows/launch-clean.yaml b/mobile/.maestro/subflows/launch-clean.yaml
+new file mode 100644
+index 0000000..3724d2b
+--- /dev/null
++++ b/mobile/.maestro/subflows/launch-clean.yaml
+@@ -0,0 +1,11 @@
++# Abre o app do zero (sem sessão salva) e espera o Login.
++# A splash tem duração mínima (1,2 s + saída): por isso os 12 s.
++appId: br.com.fiap.school
++---
++- launchApp:
++    clearState: true
++    clearKeychain: true
++- extendedWaitUntil:
++    visible:
++      id: login-screen
++    timeout: 12000
+diff --git a/mobile/.maestro/subflows/login.yaml b/mobile/.maestro/subflows/login.yaml
+new file mode 100644
+index 0000000..5f5d2a6
+--- /dev/null
++++ b/mobile/.maestro/subflows/login.yaml
+@@ -0,0 +1,12 @@
++# Preenche e envia o Login. Parâmetros: CPF (só dígitos; a máscara entra
++# sozinha) e PASSWORD. Quem chama espera a tela seguinte.
++appId: br.com.fiap.school
++---
++- tapOn:
++    id: login-cpf-input
++- inputText: ${CPF}
++- tapOn:
++    id: login-password-input
++- inputText: ${PASSWORD}
++- tapOn:
++    id: login-submit-button
+diff --git a/mobile/.maestro/subflows/logout.yaml b/mobile/.maestro/subflows/logout.yaml
+new file mode 100644
+index 0000000..3753f6c
+--- /dev/null
++++ b/mobile/.maestro/subflows/logout.yaml
+@@ -0,0 +1,9 @@
++# SAIR (sem confirmação) e espera o Login.
++appId: br.com.fiap.school
++---
++- tapOn:
++    id: header-logout-button
++- extendedWaitUntil:
++    visible:
++      id: login-screen
++    timeout: 5000
+diff --git a/mobile/.maestro/subflows/select-student.yaml b/mobile/.maestro/subflows/select-student.yaml
+new file mode 100644
+index 0000000..39d17c7
+--- /dev/null
++++ b/mobile/.maestro/subflows/select-student.yaml
+@@ -0,0 +1,16 @@
++# Troca o aluno pelo TROCAR PERFIL. Parâmetro: RM do aluno.
++# Escolher o aluno já selecionado também fecha a seleção.
++appId: br.com.fiap.school
++---
++- tapOn:
++    id: header-switch-student-button
++- extendedWaitUntil:
++    visible:
++      id: select-student-card-${RM}
++    timeout: 5000
++- tapOn:
++    id: select-student-card-${RM}
++- extendedWaitUntil:
++    notVisible:
++      id: select-student-screen
++    timeout: 5000
+diff --git a/mobile/package.json b/mobile/package.json
+index 9232e2b..92cc8b8 100644
+--- a/mobile/package.json
++++ b/mobile/package.json
+@@ -4,21 +4,22 @@
+   "private": true,
+   "scripts": {
+     "android": "react-native run-android",
+     "ios": "react-native run-ios",
+     "start": "react-native start",
+     "lint": "eslint .",
+     "format": "prettier --write .",
+     "format:check": "prettier --check .",
+     "tsc": "tsc --noEmit",
+     "test": "jest",
+-    "link:assets": "react-native-asset"
++    "link:assets": "react-native-asset",
++    "maestro:check": "node .maestro/scripts/check-testids.js"
+   },
+   "dependencies": {
+     "@hookform/resolvers": "5.9.1",
+     "@react-navigation/bottom-tabs": "^7.21.0",
+     "@react-navigation/native": "^7.5.1",
+     "@react-navigation/native-stack": "^7.21.0",
+     "@shopify/restyle": "^2.4.5",
+     "@tanstack/react-query": "5.104.5",
+     "axios": "1.20.0",
+     "expo": "~58.0.0",
+@@ -57,17 +58,18 @@
+     "@types/react": "^19.2.0",
+     "@types/react-refresh": "^0",
+     "babel-preset-expo": "~58.0.0",
+     "eslint": "^8.19.0",
+     "jest": "^29.6.3",
+     "msw": "2.15.0",
+     "prettier": "2.8.8",
+     "react-native-asset": "^2.3.0",
+     "react-refresh": "^0.19.0",
+     "test-renderer": "^1.0.0",
+-    "typescript": "^6.0.3"
++    "typescript": "^6.0.3",
++    "yaml": "2.9.1"
+   },
+   "engines": {
+     "node": ">= 22.11.0"
+   },
+   "packageManager": "yarn@4.18.1"
+ }

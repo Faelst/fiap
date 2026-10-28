@@ -1,0 +1,3666 @@
+d5b5c66 fix(mobile): FECHAR da seleção de aluno abaixo da área segura
+38a6aef feat(mobile): header nas abas, seleção de aluno, sem aluno, BootError e logout
+4334db2 feat(mobile): componentes Header, TabBar, StudentCard, estados e ícones SVG
+ mobile/assets/no-classroom.png                     | Bin 0 -> 68192 bytes
+ mobile/ios/Podfile.lock                            |  51 ++++++
+ mobile/package.json                                |   1 +
+ mobile/src/app/__tests__/App.test.tsx              | 139 +++++++++++++++-
+ mobile/src/components/ActionBar.tsx                | 102 ++++++++++++
+ mobile/src/components/EmptyState.tsx               |  91 +++++++++++
+ mobile/src/components/ErrorState.tsx               |  71 ++++++++
+ mobile/src/components/Header.tsx                   | 141 ++++++++++++++++
+ mobile/src/components/PlaceholderScreen.tsx        |  83 ----------
+ mobile/src/components/SecondaryButton.tsx          |  66 ++++++++
+ mobile/src/components/StudentCard.tsx              |  76 +++++++++
+ mobile/src/components/TabBar.tsx                   | 179 +++++++++++++++++++++
+ .../src/components/__tests__/EmptyState.test.tsx   |  41 +++++
+ .../src/components/__tests__/ErrorState.test.tsx   |  53 ++++++
+ mobile/src/components/__tests__/Header.test.tsx    | 152 +++++++++++++++++
+ .../src/components/__tests__/StudentCard.test.tsx  |  64 ++++++++
+ mobile/src/components/__tests__/TabBar.test.tsx    | 109 +++++++++++++
+ mobile/src/components/icons/AgendaIcon.tsx         |  55 +++++++
+ mobile/src/components/icons/BoletimIcon.tsx        |  17 ++
+ mobile/src/components/icons/CloseIcon.tsx          |  15 ++
+ mobile/src/components/icons/LogoutIcon.tsx         |  19 +++
+ mobile/src/constants/strings.ts                    |  51 ++++++
+ .../src/features/auth/__tests__/useLogout.test.tsx |  51 ++++++
+ .../auth/api/__tests__/useLoginMutation.test.tsx   |  48 +++++-
+ mobile/src/features/auth/api/useLoginMutation.ts   |  16 +-
+ mobile/src/features/auth/services/auth.service.ts  |  10 +-
+ mobile/src/features/auth/useLogout.ts              |  22 +++
+ mobile/src/features/header/AppHeader.tsx           |  27 ++++
+ .../header/__tests__/useHeaderViewModel.test.tsx   |  80 +++++++++
+ mobile/src/features/header/useHeaderViewModel.ts   |  39 +++++
+ mobile/src/features/lessons/LessonsScreen.tsx      |  30 ++--
+ .../src/features/report-card/ReportCardScreen.tsx  |  33 ++--
+ mobile/src/features/splash/BootErrorScreen.tsx     |  46 +++---
+ .../__tests__/useBootErrorViewModel.test.tsx       | 156 ++++++++++++++++++
+ .../src/features/splash/useBootErrorViewModel.ts   |  65 ++++++++
+ mobile/src/features/students/NoStudentScreen.tsx   |  43 +++--
+ .../src/features/students/SelectStudentScreen.tsx  | 126 +++++++++++++--
+ .../__tests__/SelectStudentScreen.test.tsx         |  65 ++++++++
+ .../__tests__/useNoStudentViewModel.test.tsx       |  37 +++++
+ .../__tests__/useSelectStudentViewModel.test.tsx   | 129 +++++++++++++++
+ .../students/__tests__/useSessionStudent.test.tsx  | 109 +++++++++++++
+ mobile/src/features/students/selectedStudent.ts    |  14 ++
+ .../src/features/students/useNoStudentViewModel.ts |  14 ++
+ .../features/students/useSelectStudentViewModel.ts |  64 ++++++++
+ mobile/src/features/students/useSessionStudent.ts  |  37 +++++
+ mobile/src/hooks/useShakeStyle.ts                  |  13 +-
+ mobile/src/navigation/AppTabs.tsx                  |  56 ++++---
+ mobile/src/navigation/RootStack.tsx                |  35 +++-
+ mobile/src/services/http/__tests__/client.test.ts  |  28 ++++
+ mobile/src/services/http/interceptors.ts           |   6 +-
+ mobile/src/theme/motion.ts                         |   8 +
+ mobile/yarn.lock                                   |  31 ++++
+ 52 files changed, 2803 insertions(+), 211 deletions(-)
+diff --git a/mobile/assets/no-classroom.png b/mobile/assets/no-classroom.png
+new file mode 100644
+index 0000000..9338bc3
+Binary files /dev/null and b/mobile/assets/no-classroom.png differ
+diff --git a/mobile/package.json b/mobile/package.json
+index a2cbbf7..9232e2b 100644
+--- a/mobile/package.json
++++ b/mobile/package.json
+@@ -27,20 +27,21 @@
+     "react-native": "0.88.0",
+     "react-native-bootsplash": "^7.3.4",
+     "react-native-config": "1.7.2",
+     "react-native-gesture-handler": "~3.3.0",
+     "react-native-keychain": "10.0.0",
+     "react-native-mmkv": "4.3.2",
+     "react-native-nitro-modules": "0.37.1",
+     "react-native-reanimated": "4.7.1",
+     "react-native-safe-area-context": "~5.10.1",
+     "react-native-screens": "~4.30.0",
++    "react-native-svg": "15.16.0",
+     "react-native-worklets": "0.13.0",
+     "reactotron-react-native": "5.3.1",
+     "zod": "4.6.7",
+     "zustand": "5.0.16"
+   },
+   "devDependencies": {
+     "@babel/core": "^7.25.2",
+     "@babel/preset-env": "^7.25.3",
+     "@babel/runtime": "^7.25.0",
+     "@react-native-community/cli": "20.2.0",
+diff --git a/mobile/src/app/__tests__/App.test.tsx b/mobile/src/app/__tests__/App.test.tsx
+index 173a566..8ad2df2 100644
+--- a/mobile/src/app/__tests__/App.test.tsx
++++ b/mobile/src/app/__tests__/App.test.tsx
+@@ -1,18 +1,24 @@
+-import { act, fireEvent, render, screen } from '@testing-library/react-native';
++import {
++  act,
++  fireEvent,
++  render,
++  screen,
++  waitFor,
++} from '@testing-library/react-native';
+ import { http, HttpResponse } from 'msw';
+ import BootSplash from 'react-native-bootsplash';
+ 
+ import { createSecureStorage } from '../../services/storage/secureStorage';
+ import { useBootStore } from '../../stores/boot.store';
+ import { useSessionStore } from '../../stores/session.store';
+-import { API_URL, meWithoutStudents } from '../../test/fixtures';
++import { API_URL, meResponse, meWithoutStudents } from '../../test/fixtures';
+ import { server } from '../../test/msw/server';
+ import { queryClient } from '../queryClient';
+ import { App } from '../App';
+ 
+ /** A splash tem duração mínima de 1200 ms (timers reais aqui, por causa do MSW). */
+ const AFTER_SPLASH = { timeout: 4000 };
+ 
+ const layout = {
+   nativeEvent: { layout: { x: 0, y: 0, width: 414, height: 736 } },
+ };
+@@ -54,20 +60,49 @@ describe('App', () => {
+       screen.getByTestId('login-password-input'),
+       '123456',
+     );
+     await act(() => fireEvent.press(screen.getByTestId('login-submit-button')));
+ 
+     expect(await screen.findByTestId('agenda-screen')).toBeOnTheScreen();
+     expect(screen.queryByTestId('login-screen')).toBeNull();
+     expect(await createSecureStorage().getToken()).toBe('jwt-gustavo');
+   });
+ 
++  it('login de responsável sem aluno abre o NoStudent, não as abas', async () => {
++    server.use(
++      http.post(`${API_URL}/auth/login`, () =>
++        HttpResponse.json({
++          accessToken: 'jwt-carlos',
++          guardian: { id: 'g9', firstName: 'Carlos', lastName: 'Sem Aluno' },
++        }),
++      ),
++      http.get(`${API_URL}/me`, () => HttpResponse.json(meWithoutStudents)),
++    );
++    await render(<App />);
++    await fireEvent(
++      await screen.findByTestId('splash-screen'),
++      'layout',
++      layout,
++    );
++    const cpf = await screen.findByTestId('login-cpf-input', {}, AFTER_SPLASH);
++
++    await fireEvent.changeText(cpf, '31415926590');
++    await fireEvent.changeText(
++      screen.getByTestId('login-password-input'),
++      '111111',
++    );
++    await act(() => fireEvent.press(screen.getByTestId('login-submit-button')));
++
++    expect(await screen.findByTestId('no-student-screen')).toBeOnTheScreen();
++    expect(screen.queryByTestId('agenda-screen')).toBeNull();
++  });
++
+   it('com token e /me com aluno abre nas abas e a seleção de aluno abre em modal', async () => {
+     await createSecureStorage().setToken('jwt-salvo');
+ 
+     await render(<App />);
+ 
+     expect(
+       await screen.findByTestId('agenda-screen', {}, AFTER_SPLASH),
+     ).toBeOnTheScreen();
+     expect(screen.queryByTestId('login-screen')).toBeNull();
+ 
+@@ -147,11 +182,111 @@ describe('App', () => {
+     ).toBeOnTheScreen();
+ 
+     await act(() => fireEvent.press(screen.getByTestId('tab-boletim')));
+     await act(() =>
+       fireEvent.press(screen.getByTestId('header-logout-button')),
+     );
+ 
+     expect(await screen.findByTestId('login-screen')).toBeOnTheScreen();
+     expect(await createSecureStorage().getToken()).toBeNull();
+   });
++
++  it('Header nas abas: responsável, aluno e TROCAR PERFIL; trocar no Boletim volta ao Boletim com o aluno novo', async () => {
++    await createSecureStorage().setToken('jwt-salvo');
++    await render(<App />);
++    expect(
++      await screen.findByTestId('agenda-screen', {}, AFTER_SPLASH),
++    ).toBeOnTheScreen();
++    expect(screen.getByTestId('header-greeting')).toHaveTextContent(
++      'Olá, Gustavo',
++    );
++    expect(screen.getByTestId('header-student-name')).toHaveTextContent(
++      'Rafael',
++    );
++    expect(useSessionStore.getState().selectedStudentId).toBe('s1');
++
++    await act(() => fireEvent.press(screen.getByTestId('tab-boletim')));
++    expect(await screen.findByTestId('boletim-screen')).toBeOnTheScreen();
++    const switchButtons = screen.getAllByTestId('header-switch-student-button');
++    await act(() => fireEvent.press(switchButtons[switchButtons.length - 1]));
++
++    expect(
++      await screen.findByTestId('select-student-screen'),
++    ).toBeOnTheScreen();
++    expect(screen.getByTestId('select-student-card-12567')).toBeSelected();
++    await act(() =>
++      fireEvent.press(screen.getByTestId('select-student-card-12568')),
++    );
++
++    await waitFor(() =>
++      expect(screen.queryByTestId('select-student-screen')).toBeNull(),
++    );
++    expect(screen.getByTestId('boletim-screen')).toBeOnTheScreen();
++    expect(useSessionStore.getState().selectedStudentId).toBe('s2');
++    expect(
++      screen
++        .getAllByTestId('header-student-name')
++        .some(node => node.props.children === 'Marina'),
++    ).toBe(true);
++  });
++
++  it('com um aluno só, o Header não tem TROCAR PERFIL', async () => {
++    await createSecureStorage().setToken('jwt-salvo');
++    server.use(
++      http.get(`${API_URL}/me`, () =>
++        HttpResponse.json({
++          ...meResponse,
++          firstName: 'Adelaide',
++          students: [meResponse.students[0]],
++        }),
++      ),
++    );
++    await render(<App />);
++
++    expect(
++      await screen.findByTestId('agenda-screen', {}, AFTER_SPLASH),
++    ).toBeOnTheScreen();
++    expect(screen.getByTestId('header-greeting')).toHaveTextContent(
++      'Olá, Adelaide',
++    );
++    expect(screen.queryByTestId('header-switch-student-button')).toBeNull();
++    expect(screen.getByTestId('header-logout-button')).toBeOnTheScreen();
++  });
++
++  it('NoStudent real: saudação, estado vazio e SAIR leva ao Login', async () => {
++    await createSecureStorage().setToken('jwt-salvo');
++    server.use(
++      http.get(`${API_URL}/me`, () => HttpResponse.json(meWithoutStudents)),
++    );
++    await render(<App />);
++
++    expect(
++      await screen.findByTestId('no-student-screen', {}, AFTER_SPLASH),
++    ).toBeOnTheScreen();
++    expect(screen.getByTestId('header-greeting')).toHaveTextContent(
++      'Olá, Carlos',
++    );
++    expect(screen.getByText('Nenhum aluno vinculado')).toBeOnTheScreen();
++    expect(screen.queryByTestId('tab-bar')).toBeNull();
++
++    await act(() =>
++      fireEvent.press(screen.getByTestId('header-logout-button')),
++    );
++    expect(await screen.findByTestId('login-screen')).toBeOnTheScreen();
++  });
++
++  it('BootError: TENTAR DE NOVO com a API de volta abre as abas', async () => {
++    await createSecureStorage().setToken('jwt-salvo');
++    server.use(http.get(`${API_URL}/me`, () => HttpResponse.error()));
++    await render(<App />);
++    expect(
++      await screen.findByTestId('boot-error-screen', {}, AFTER_SPLASH),
++    ).toBeOnTheScreen();
++    expect(screen.getByText('Não conseguimos conectar.')).toBeOnTheScreen();
++
++    server.resetHandlers();
++    await act(() => fireEvent.press(screen.getByTestId('boot-error-retry')));
++
++    expect(await screen.findByTestId('agenda-screen')).toBeOnTheScreen();
++    expect(screen.getByTestId('tab-bar')).toBeOnTheScreen();
++  });
+ });
+diff --git a/mobile/src/components/ActionBar.tsx b/mobile/src/components/ActionBar.tsx
+new file mode 100644
+index 0000000..e8eb5ee
+--- /dev/null
++++ b/mobile/src/components/ActionBar.tsx
+@@ -0,0 +1,102 @@
++import { Image, Pressable } from 'react-native';
++import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
++
++import { strings } from '../constants/strings';
++import { Box, Text, useTheme } from '../theme';
++import { LogoutIcon } from './icons/LogoutIcon';
++
++const logo = require('../../assets/logo-fiap-school.png');
++
++type ActionBarProps = {
++  canSwitchStudent: boolean;
++  onSwitchStudent?: () => void;
++  onLogout: () => void;
++  logoutDisabled?: boolean;
++};
++
++/**
++ * Barra de ações (01-design.md, 2.2): logo à esquerda; TROCAR PERFIL (só com
++ * mais de um aluno) e SAIR à direita. Cada ação ocupa a altura da barra (48)
++ * com `s` de padding, então o alvo passa de 44 × 44. Fixa no topo.
++ */
++export function ActionBar({
++  canSwitchStudent,
++  onSwitchStudent,
++  onLogout,
++  logoutDisabled = false,
++}: ActionBarProps) {
++  const { colors, motion, sizes } = useTheme();
++
++  return (
++    <Animated.View
++      entering={FadeIn.duration(motion.base).reduceMotion(ReduceMotion.System)}
++    >
++      <Box
++        testID="header-action-bar"
++        height={sizes.actionBar}
++        flexDirection="row"
++        alignItems="center"
++        justifyContent="space-between"
++        paddingHorizontal="s"
++        backgroundColor="background"
++      >
++        <Box paddingHorizontal="s">
++          <Image
++            source={logo}
++            accessibilityRole="image"
++            accessibilityLabel={strings.header.logoLabel}
++            style={sizes.logoHeader}
++          />
++        </Box>
++        <Box flexDirection="row" alignItems="center" gap="s" height="100%">
++          {canSwitchStudent ? (
++            <Pressable
++              testID="header-switch-student-button"
++              accessibilityRole="button"
++              accessibilityLabel={
++                strings.header.switchStudentAccessibilityLabel
++              }
++              accessibilityHint={strings.header.switchStudentHint}
++              onPress={onSwitchStudent}
++              style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
++            >
++              <Box height="100%" justifyContent="center" paddingHorizontal="s">
++                <Text
++                  variant="caption"
++                  maxFontSizeMultiplier={sizes.fixedHeightFontScale}
++                >
++                  {strings.header.switchStudent}
++                </Text>
++              </Box>
++            </Pressable>
++          ) : null}
++          <Pressable
++            testID="header-logout-button"
++            accessibilityRole="button"
++            accessibilityLabel={strings.header.logoutAccessibilityLabel}
++            accessibilityState={{ disabled: logoutDisabled }}
++            disabled={logoutDisabled}
++            onPress={onLogout}
++            style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
++          >
++            <Box
++              height="100%"
++              flexDirection="row"
++              alignItems="center"
++              gap="xs"
++              paddingHorizontal="s"
++            >
++              <Text
++                variant="caption"
++                maxFontSizeMultiplier={sizes.fixedHeightFontScale}
++              >
++                {strings.header.logout}
++              </Text>
++              <LogoutIcon color={colors.text} size={sizes.logoutIcon} />
++            </Box>
++          </Pressable>
++        </Box>
++      </Box>
++    </Animated.View>
++  );
++}
+diff --git a/mobile/src/components/EmptyState.tsx b/mobile/src/components/EmptyState.tsx
+new file mode 100644
+index 0000000..e7cab6a
+--- /dev/null
++++ b/mobile/src/components/EmptyState.tsx
+@@ -0,0 +1,91 @@
++import type { ReactNode } from 'react';
++import { Image, StyleSheet } from 'react-native';
++import Animated, {
++  FadeIn,
++  FadeInDown,
++  ReduceMotion,
++} from 'react-native-reanimated';
++
++import { Box, Text, useTheme } from '../theme';
++
++const illustrationSource = require('../../assets/no-classroom.png');
++
++type EmptyStateProps = {
++  title: string;
++  description?: string;
++  illustration?: boolean;
++  action?: ReactNode;
++  testID: string;
++};
++
++/**
++ * Estado vazio (01-design.md, 2.10): ilustração do "sem aulas" cortada em
++ * 328 × 208 (os 82 px de baixo do PNG são o degradê), título e descrição.
++ * A ilustração é decorativa.
++ */
++export function EmptyState({
++  title,
++  description,
++  illustration = true,
++  action,
++  testID,
++}: EmptyStateProps) {
++  const { motion, sizes, spacing } = useTheme();
++  const enter = (index: number) =>
++    FadeInDown.duration(motion.base)
++      .delay(index * motion.stagger)
++      .easing(motion.easeOut)
++      .withInitialValues({
++        transform: [{ translateY: motion.enterOffsetSmall }],
++      })
++      .reduceMotion(ReduceMotion.System);
++
++  return (
++    <Box testID={testID} alignItems="center">
++      {illustration ? (
++        <Animated.View
++          entering={FadeIn.duration(motion.base).reduceMotion(
++            ReduceMotion.System,
++          )}
++        >
++          <Box
++            testID={`${testID}-illustration`}
++            accessible={false}
++            importantForAccessibility="no-hide-descendants"
++            overflow="hidden"
++            style={sizes.illustration}
++          >
++            <Image
++              source={illustrationSource}
++              style={styles.illustration}
++              resizeMode="cover"
++            />
++          </Box>
++        </Animated.View>
++      ) : null}
++      <Animated.View entering={enter(0)} style={{ marginTop: spacing.m }}>
++        <Text variant="emptyState">{title}</Text>
++      </Animated.View>
++      {description ? (
++        <Animated.View
++          entering={enter(1)}
++          style={{ marginTop: spacing.s, paddingHorizontal: spacing.huge }}
++        >
++          <Text variant="body" textAlign="center">
++            {description}
++          </Text>
++        </Animated.View>
++      ) : null}
++      {action ? (
++        <Animated.View entering={enter(2)} style={{ marginTop: spacing.l }}>
++          {action}
++        </Animated.View>
++      ) : null}
++    </Box>
++  );
++}
++
++const styles = StyleSheet.create({
++  // PNG 328 × 290 alinhado ao topo; a caixa corta o degradê de baixo.
++  illustration: { width: '100%', aspectRatio: 328 / 290 },
++});
+diff --git a/mobile/src/components/ErrorState.tsx b/mobile/src/components/ErrorState.tsx
+new file mode 100644
+index 0000000..5a0803c
+--- /dev/null
++++ b/mobile/src/components/ErrorState.tsx
+@@ -0,0 +1,71 @@
++import Animated, { FadeInDown, ReduceMotion } from 'react-native-reanimated';
++
++import { strings } from '../constants/strings';
++import { useShakeStyle } from '../hooks/useShakeStyle';
++import { Box, Text, useTheme } from '../theme';
++import { SecondaryButton } from './SecondaryButton';
++
++type ErrorStateProps = {
++  title: string;
++  description: string;
++  onRetry: () => void;
++  retrying: boolean;
++  testID: string;
++  /** Padrão: `${testID}-retry`. */
++  retryTestID?: string;
++  /** Muda a cada retry que falha: dispara o shake curto (4.8). */
++  shakeKey?: number;
++};
++
++/**
++ * Erro com TENTAR DE NOVO (01-design.md, 2.14): título em `emptyState`,
++ * descrição e o botão secundário. Sem ilustração, para não parecer "vazio".
++ */
++export function ErrorState({
++  title,
++  description,
++  onRetry,
++  retrying,
++  testID,
++  retryTestID,
++  shakeKey = 0,
++}: ErrorStateProps) {
++  const { motion, spacing } = useTheme();
++  const shakeStyle = useShakeStyle(shakeKey, 'short');
++  const enter = (index: number) =>
++    FadeInDown.duration(motion.base)
++      .delay(index * motion.stagger)
++      .easing(motion.easeOut)
++      .withInitialValues({
++        transform: [{ translateY: motion.enterOffsetSmall }],
++      })
++      .reduceMotion(ReduceMotion.System);
++
++  return (
++    <Animated.View testID={testID} style={shakeStyle}>
++      <Box
++        alignItems="center"
++        paddingHorizontal="huge"
++        style={{ marginTop: spacing.section }}
++      >
++        <Animated.View entering={enter(0)}>
++          <Text variant="emptyState">{title}</Text>
++        </Animated.View>
++        <Animated.View entering={enter(1)} style={{ marginTop: spacing.s }}>
++          <Text variant="body" textAlign="center">
++            {description}
++          </Text>
++        </Animated.View>
++        <Animated.View entering={enter(2)} style={{ marginTop: spacing.l }}>
++          <SecondaryButton
++            testID={retryTestID ?? `${testID}-retry`}
++            label={strings.common.retry}
++            accessibilityLabel={strings.common.retryAccessibilityLabel}
++            loading={retrying}
++            onPress={onRetry}
++          />
++        </Animated.View>
++      </Box>
++    </Animated.View>
++  );
++}
+diff --git a/mobile/src/components/Header.tsx b/mobile/src/components/Header.tsx
+new file mode 100644
+index 0000000..dc8dd8e
+--- /dev/null
++++ b/mobile/src/components/Header.tsx
+@@ -0,0 +1,141 @@
++import { useState, type ReactNode } from 'react';
++import { ScrollView, StyleSheet } from 'react-native';
++import Animated, {
++  FadeIn,
++  FadeInDown,
++  FadeOut,
++  ReduceMotion,
++} from 'react-native-reanimated';
++
++import { strings } from '../constants/strings';
++import { Box, Text, useTheme } from '../theme';
++import { ActionBar } from './ActionBar';
++
++export type HeaderStudent = {
++  id: string;
++  firstName: string;
++  rm: number;
++  className: string;
++  period: string;
++};
++
++type HeaderProps = {
++  guardianFirstName: string;
++  /** Sem aluno (tela "sem aluno"): só a saudação. */
++  student?: HeaderStudent | null;
++  canSwitchStudent: boolean;
++  onSwitchStudent: () => void;
++  onLogout: () => void;
++  logoutDisabled?: boolean;
++  /** Conteúdo da tela, que rola junto com a saudação. */
++  children?: ReactNode;
++};
++
++/**
++ * Header das telas autenticadas (R5, 01-design.md 2.2): a barra de ações
++ * fica fixa; saudação, bloco do aluno e o conteúdo da tela rolam juntos.
++ * Entrada (4.3) só na montagem; trocar de aluno faz crossfade do bloco do
++ * aluno (`key` pelo id).
++ */
++export function Header({
++  guardianFirstName,
++  student,
++  canSwitchStudent,
++  onSwitchStudent,
++  onLogout,
++  logoutDisabled,
++  children,
++}: HeaderProps) {
++  const { motion, spacing } = useTheme();
++  const studentId = student?.id ?? null;
++  // O 1º aluno entra com a entrada da tela; os seguintes, com crossfade.
++  const [firstStudentId] = useState(studentId);
++  const [switched, setSwitched] = useState(false);
++  if (!switched && studentId !== firstStudentId) setSwitched(true);
++
++  const enterDown = (delay: number) =>
++    FadeInDown.duration(motion.base)
++      .delay(delay)
++      .easing(motion.easeOut)
++      .withInitialValues({
++        transform: [{ translateY: motion.enterOffsetSmall }],
++      })
++      .reduceMotion(ReduceMotion.System);
++
++  return (
++    <Box testID="header" flex={1}>
++      <ActionBar
++        canSwitchStudent={canSwitchStudent}
++        onSwitchStudent={onSwitchStudent}
++        onLogout={onLogout}
++        logoutDisabled={logoutDisabled}
++      />
++      <ScrollView
++        style={styles.fill}
++        contentContainerStyle={styles.grow}
++        showsVerticalScrollIndicator={false}
++      >
++        <Animated.View entering={enterDown(0)} style={{ marginTop: spacing.m }}>
++          <Text
++            testID="header-greeting"
++            variant="greeting"
++            accessibilityRole="header"
++            accessibilityLabel={strings.header.greetingAccessibilityLabel(
++              guardianFirstName,
++            )}
++          >
++            {strings.header.greeting}
++            <Text variant="greetingName">{guardianFirstName}</Text>
++          </Text>
++        </Animated.View>
++        {student ? (
++          <Animated.View
++            key={student.id}
++            entering={
++              switched
++                ? FadeIn.duration(motion.base).reduceMotion(ReduceMotion.System)
++                : enterDown(motion.stagger)
++            }
++            exiting={FadeOut.duration(motion.fast).reduceMotion(
++              ReduceMotion.System,
++            )}
++          >
++            <Box
++              alignItems="center"
++              gap="s"
++              accessible
++              accessibilityLabel={strings.header.studentAccessibilityLabel(
++                student.firstName,
++                student.className,
++                student.rm,
++                student.period,
++              )}
++              style={{ marginTop: spacing.xxl }}
++            >
++              <Text
++                testID="header-student-name"
++                variant="body"
++                textTransform="uppercase"
++              >
++                {student.firstName}
++              </Text>
++              <Text testID="header-student-info" variant="body">
++                {strings.header.studentInfo(
++                  student.className,
++                  student.rm,
++                  student.period,
++                )}
++              </Text>
++            </Box>
++          </Animated.View>
++        ) : null}
++        {children}
++      </ScrollView>
++    </Box>
++  );
++}
++
++const styles = StyleSheet.create({
++  fill: { flex: 1 },
++  grow: { flexGrow: 1 },
++});
+diff --git a/mobile/src/components/PlaceholderScreen.tsx b/mobile/src/components/PlaceholderScreen.tsx
+deleted file mode 100644
+index d5b2b76..0000000
+--- a/mobile/src/components/PlaceholderScreen.tsx
++++ /dev/null
+@@ -1,83 +0,0 @@
+-import { Pressable, StyleSheet } from 'react-native';
+-import Animated, { FadeInDown, ReduceMotion } from 'react-native-reanimated';
+-import { SafeAreaView } from 'react-native-safe-area-context';
+-
+-import { Box, Text, useTheme } from '../theme';
+-
+-type PlaceholderAction = {
+-  label: string;
+-  onPress: () => void;
+-  testID: string;
+-};
+-
+-type PlaceholderScreenProps = {
+-  testID: string;
+-  title: string;
+-  description: string;
+-  actions?: PlaceholderAction[];
+-};
+-
+-/**
+- * Tela provisória da Tarefa 7: valida tema, fonte, navegação e reanimated.
+- * Cada tela real substitui a sua nas Tarefas 9 a 12.
+- */
+-export function PlaceholderScreen({
+-  testID,
+-  title,
+-  description,
+-  actions = [],
+-}: PlaceholderScreenProps) {
+-  const { motion, sizes, spacing } = useTheme();
+-
+-  return (
+-    <Box testID={testID} flex={1} backgroundColor="background">
+-      <SafeAreaView style={styles.fill} edges={['top']}>
+-        <Animated.View
+-          style={styles.fill}
+-          entering={FadeInDown.duration(motion.base)
+-            .easing(motion.easeOut)
+-            .reduceMotion(ReduceMotion.System)}
+-        >
+-          <Box
+-            flex={1}
+-            alignItems="center"
+-            justifyContent="center"
+-            paddingHorizontal="huge"
+-            gap="l"
+-          >
+-            <Text variant="sectionTitle">{title}</Text>
+-            <Text variant="body" textAlign="center">
+-              {description}
+-            </Text>
+-            {actions.map(action => (
+-              <Pressable
+-                key={action.testID}
+-                testID={action.testID}
+-                accessibilityRole="button"
+-                onPress={action.onPress}
+-                hitSlop={spacing.s}
+-              >
+-                <Box
+-                  minHeight={sizes.touchTarget}
+-                  justifyContent="center"
+-                  paddingHorizontal="l"
+-                  borderWidth={1}
+-                  borderColor="primary"
+-                  borderRadius="m"
+-                >
+-                  <Text variant="bodyBold" color="primary">
+-                    {action.label}
+-                  </Text>
+-                </Box>
+-              </Pressable>
+-            ))}
+-          </Box>
+-        </Animated.View>
+-      </SafeAreaView>
+-    </Box>
+-  );
+-}
+-
+-const styles = StyleSheet.create({
+-  fill: { flex: 1 },
+-});
+diff --git a/mobile/src/components/SecondaryButton.tsx b/mobile/src/components/SecondaryButton.tsx
+new file mode 100644
+index 0000000..fee62fc
+--- /dev/null
++++ b/mobile/src/components/SecondaryButton.tsx
+@@ -0,0 +1,66 @@
++import { ActivityIndicator, Pressable } from 'react-native';
++
++import { Box, ButtonContainer, Text, useTheme } from '../theme';
++
++type SecondaryButtonProps = {
++  label: string;
++  onPress: () => void;
++  loading?: boolean;
++  testID: string;
++  accessibilityLabel: string;
++};
++
++/**
++ * Botão com contorno teal (01-design.md, 2.8), usado no TENTAR DE NOVO.
++ * Carregando: spinner no lugar do texto, com a largura mantida (o texto fica
++ * invisível embaixo).
++ */
++export function SecondaryButton({
++  label,
++  onPress,
++  loading = false,
++  testID,
++  accessibilityLabel,
++}: SecondaryButtonProps) {
++  const { colors, sizes } = useTheme();
++
++  return (
++    <Pressable
++      testID={testID}
++      accessibilityRole="button"
++      accessibilityLabel={accessibilityLabel}
++      accessibilityState={{ busy: loading, disabled: loading }}
++      disabled={loading}
++      onPress={onPress}
++      style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
++    >
++      <ButtonContainer variant="secondary">
++        <Text
++          variant="bodyBold"
++          color="primary"
++          maxFontSizeMultiplier={sizes.fixedHeightFontScale}
++          opacity={loading ? 0 : 1}
++        >
++          {label}
++        </Text>
++        {loading ? (
++          <Box
++            position="absolute"
++            top={0}
++            bottom={0}
++            left={0}
++            right={0}
++            alignItems="center"
++            justifyContent="center"
++          >
++            <ActivityIndicator
++              testID={`${testID}-loading`}
++              size="small"
++              color={colors.primary}
++            />
++          </Box>
++        ) : null}
++      </ButtonContainer>
++    </Pressable>
++  );
++}
+diff --git a/mobile/src/components/StudentCard.tsx b/mobile/src/components/StudentCard.tsx
+new file mode 100644
+index 0000000..516e84c
+--- /dev/null
++++ b/mobile/src/components/StudentCard.tsx
+@@ -0,0 +1,76 @@
++import { Pressable } from 'react-native';
++import Animated, {
++  useAnimatedStyle,
++  useSharedValue,
++  withSpring,
++  withTiming,
++} from 'react-native-reanimated';
++
++import { strings } from '../constants/strings';
++import { Card, Text, useTheme } from '../theme';
++
++const AnimatedCard = Animated.createAnimatedComponent(Card);
++
++type StudentCardProps = {
++  fullName: string;
++  rm: number;
++  className: string;
++  period: string;
++  selected: boolean;
++  onPress: () => void;
++  testID: string;
++};
++
++/**
++ * Card da seleção de aluno (01-design.md, 2.12). O selecionado tem borda
++ * `primary`, que acende com `fast` (4.7); o outro tem borda transparente da
++ * mesma largura, sem pulo de layout. Pressionado: escala 0,98.
++ */
++export function StudentCard({
++  fullName,
++  rm,
++  className,
++  period,
++  selected,
++  onPress,
++  testID,
++}: StudentCardProps) {
++  const { colors, motion } = useTheme();
++  const scale = useSharedValue(1);
++  const borderColor = selected ? colors.primary : colors.transparent;
++
++  const animatedStyle = useAnimatedStyle(() => ({
++    borderColor: withTiming(borderColor, { duration: motion.fast }),
++    transform: [{ scale: scale.get() }],
++  }));
++
++  return (
++    <Pressable
++      testID={testID}
++      accessibilityRole="button"
++      accessibilityLabel={strings.selectStudent.cardAccessibilityLabel(
++        fullName,
++        className,
++        rm,
++        period,
++      )}
++      accessibilityState={{ selected }}
++      onPress={onPress}
++      onPressIn={() => scale.set(withSpring(motion.pressScale, motion.press))}
++      onPressOut={() => scale.set(withSpring(1, motion.press))}
++    >
++      <AnimatedCard
++        testID={`${testID}-box`}
++        variant="student"
++        style={animatedStyle}
++      >
++        <Text variant="bodyMedium" textTransform="uppercase" numberOfLines={1}>
++          {fullName}
++        </Text>
++        <Text variant="body">
++          {strings.selectStudent.studentInfo(className, rm, period)}
++        </Text>
++      </AnimatedCard>
++    </Pressable>
++  );
++}
+diff --git a/mobile/src/components/TabBar.tsx b/mobile/src/components/TabBar.tsx
+new file mode 100644
+index 0000000..957c3b9
+--- /dev/null
++++ b/mobile/src/components/TabBar.tsx
+@@ -0,0 +1,179 @@
++import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
++import { useEffect, useRef, type ReactNode } from 'react';
++import { Pressable, StyleSheet } from 'react-native';
++import Animated, {
++  Easing,
++  useAnimatedStyle,
++  useReducedMotion,
++  useSharedValue,
++  withSequence,
++  withTiming,
++} from 'react-native-reanimated';
++
++import { Box, Text, useTheme } from '../theme';
++
++type TabItemProps = {
++  label: string;
++  accessibilityLabel?: string;
++  testID?: string;
++  focused: boolean;
++  renderIcon: (color: string) => ReactNode;
++  onPress: () => void;
++};
++
++/**
++ * Um item da tab bar. Ícone e rótulo existem em duas camadas sobrepostas
++ * (`text` e `primary`) e a ativa aparece por crossfade de opacidade (4.4):
++ * assim não se anima a cor do SVG, que não roda na UI thread. O ícone que
++ * acabou de ficar ativo faz 1 → 1,12 → 1.
++ */
++function TabItem({
++  label,
++  accessibilityLabel,
++  testID,
++  focused,
++  renderIcon,
++  onPress,
++}: TabItemProps) {
++  const { colors, motion, sizes } = useTheme();
++  const reducedMotion = useReducedMotion();
++  const active = useSharedValue(focused ? 1 : 0);
++  const iconScale = useSharedValue(1);
++  const wasFocused = useRef(focused);
++
++  useEffect(() => {
++    const target = focused ? 1 : 0;
++    if (reducedMotion) {
++      active.set(target);
++    } else {
++      active.set(
++        withTiming(target, { duration: motion.base, easing: motion.easeOut }),
++      );
++      if (focused && !wasFocused.current) {
++        iconScale.set(
++          withSequence(
++            withTiming(motion.tabIconPop, {
++              duration: motion.fast,
++              easing: Easing.out(Easing.cubic),
++            }),
++            withTiming(1, { duration: motion.fast }),
++          ),
++        );
++      }
++    }
++    wasFocused.current = focused;
++  }, [focused, reducedMotion, active, iconScale, motion]);
++
++  const activeLayer = useAnimatedStyle(() => ({ opacity: active.get() }));
++  const inactiveLayer = useAnimatedStyle(() => ({
++    opacity: 1 - active.get(),
++  }));
++  const iconStyle = useAnimatedStyle(() => ({
++    transform: [{ scale: iconScale.get() }],
++  }));
++
++  const layer = (color: string, colorName: 'text' | 'primary') => (
++    <Box alignItems="center" gap="xs">
++      <Box height={sizes.icon} justifyContent="center">
++        {renderIcon(color)}
++      </Box>
++      <Text
++        variant="tabLabel"
++        color={colorName}
++        maxFontSizeMultiplier={sizes.fixedHeightFontScale}
++      >
++        {label}
++      </Text>
++    </Box>
++  );
++
++  return (
++    <Pressable
++      testID={testID}
++      accessibilityRole="tab"
++      accessibilityLabel={accessibilityLabel}
++      accessibilityState={{ selected: focused }}
++      onPress={onPress}
++      style={styles.item}
++    >
++      <Box paddingTop="sm" alignItems="center">
++        <Animated.View style={iconStyle}>
++          <Animated.View style={inactiveLayer}>
++            {layer(colors.text, 'text')}
++          </Animated.View>
++          <Animated.View
++            testID={testID ? `${testID}-active-layer` : undefined}
++            style={[StyleSheet.absoluteFill, activeLayer]}
++          >
++            {layer(colors.primary, 'primary')}
++          </Animated.View>
++        </Animated.View>
++      </Box>
++    </Pressable>
++  );
++}
++
++/**
++ * Tab bar do Figma (01-design.md, 2.4): fundo `surface`, altura
++ * `sizes.tabBar` + inset de baixo, duas colunas iguais; aba ativa em
++ * `primary`. Ícone e rótulo vêm das options de cada aba.
++ */
++export function TabBar({
++  state,
++  descriptors,
++  navigation,
++  insets,
++}: BottomTabBarProps) {
++  const { sizes } = useTheme();
++
++  return (
++    <Box
++      testID="tab-bar"
++      accessibilityRole="tablist"
++      flexDirection="row"
++      backgroundColor="surface"
++      style={{
++        height: sizes.tabBar + insets.bottom,
++        paddingBottom: insets.bottom,
++      }}
++    >
++      {state.routes.map((route, index) => {
++        const { options } = descriptors[route.key];
++        const focused = state.index === index;
++        const label =
++          typeof options.tabBarLabel === 'string'
++            ? options.tabBarLabel
++            : options.title ?? route.name;
++
++        const onPress = () => {
++          const event = navigation.emit({
++            type: 'tabPress',
++            target: route.key,
++            canPreventDefault: true,
++          });
++          if (!focused && !event.defaultPrevented) {
++            navigation.navigate(route.name, route.params);
++          }
++        };
++
++        return (
++          <TabItem
++            key={route.key}
++            label={label}
++            accessibilityLabel={options.tabBarAccessibilityLabel}
++            testID={options.tabBarButtonTestID}
++            focused={focused}
++            onPress={onPress}
++            renderIcon={color =>
++              options.tabBarIcon?.({ focused, color, size: sizes.icon })
++            }
++          />
++        );
++      })}
++    </Box>
++  );
++}
++
++const styles = StyleSheet.create({
++  item: { flex: 1 },
++});
+diff --git a/mobile/src/components/__tests__/EmptyState.test.tsx b/mobile/src/components/__tests__/EmptyState.test.tsx
+new file mode 100644
+index 0000000..161f636
+--- /dev/null
++++ b/mobile/src/components/__tests__/EmptyState.test.tsx
+@@ -0,0 +1,41 @@
++import { screen } from '@testing-library/react-native';
++import { Text } from 'react-native';
++
++import { renderWithTheme } from '../../test/renderWithTheme';
++import { theme } from '../../theme';
++import { EmptyState } from '../EmptyState';
++
++describe('EmptyState', () => {
++  it('ilustração decorativa no tamanho do tema, título, descrição e ação', async () => {
++    await renderWithTheme(
++      <EmptyState
++        testID="vazio"
++        title="Nenhum aluno vinculado"
++        description="Fale com a secretaria."
++        action={<Text>ação</Text>}
++      />,
++    );
++
++    expect(screen.getByTestId('vazio')).toBeOnTheScreen();
++    expect(screen.getByText('Nenhum aluno vinculado')).toBeOnTheScreen();
++    expect(screen.getByText('Fale com a secretaria.')).toBeOnTheScreen();
++    expect(screen.getByText('ação')).toBeOnTheScreen();
++    const illustration = screen.getByTestId('vazio-illustration', {
++      includeHiddenElements: true,
++    });
++    expect(illustration).toHaveStyle(theme.sizes.illustration);
++    expect(illustration).toHaveProp('accessible', false);
++  });
++
++  it('sem ilustração quando pedido', async () => {
++    await renderWithTheme(
++      <EmptyState testID="vazio" title="Sem aulas" illustration={false} />,
++    );
++
++    expect(
++      screen.queryByTestId('vazio-illustration', {
++        includeHiddenElements: true,
++      }),
++    ).toBeNull();
++  });
++});
+diff --git a/mobile/src/components/__tests__/ErrorState.test.tsx b/mobile/src/components/__tests__/ErrorState.test.tsx
+new file mode 100644
+index 0000000..dfaed88
+--- /dev/null
++++ b/mobile/src/components/__tests__/ErrorState.test.tsx
+@@ -0,0 +1,53 @@
++import { fireEvent, screen } from '@testing-library/react-native';
++
++import { renderWithTheme } from '../../test/renderWithTheme';
++import { ErrorState } from '../ErrorState';
++
++describe('ErrorState', () => {
++  const base = {
++    title: 'Não conseguimos conectar.',
++    description: 'Confira sua conexão e tente de novo.',
++    testID: 'boot-error',
++  };
++
++  it('título, descrição e TENTAR DE NOVO com o testID derivado', async () => {
++    const onRetry = jest.fn();
++    await renderWithTheme(
++      <ErrorState {...base} onRetry={onRetry} retrying={false} />,
++    );
++
++    expect(screen.getByText('Não conseguimos conectar.')).toBeOnTheScreen();
++    expect(
++      screen.getByText('Confira sua conexão e tente de novo.'),
++    ).toBeOnTheScreen();
++    const retry = screen.getByTestId('boot-error-retry');
++    expect(retry).toHaveTextContent('TENTAR DE NOVO');
++    expect(retry).toHaveAccessibleName('Tentar de novo');
++    await fireEvent.press(retry);
++    expect(onRetry).toHaveBeenCalledTimes(1);
++  });
++
++  it('retryTestID explícito vence o derivado', async () => {
++    await renderWithTheme(
++      <ErrorState
++        {...base}
++        retryTestID="boot-error-retry-x"
++        onRetry={jest.fn()}
++        retrying={false}
++      />,
++    );
++
++    expect(screen.getByTestId('boot-error-retry-x')).toBeOnTheScreen();
++  });
++
++  it('tentando: spinner no botão, busy e sem novo toque', async () => {
++    const onRetry = jest.fn();
++    await renderWithTheme(<ErrorState {...base} onRetry={onRetry} retrying />);
++
++    const retry = screen.getByTestId('boot-error-retry');
++    expect(retry).toBeBusy();
++    expect(screen.getByTestId('boot-error-retry-loading')).toBeOnTheScreen();
++    await fireEvent.press(retry);
++    expect(onRetry).not.toHaveBeenCalled();
++  });
++});
+diff --git a/mobile/src/components/__tests__/Header.test.tsx b/mobile/src/components/__tests__/Header.test.tsx
+new file mode 100644
+index 0000000..16beec3
+--- /dev/null
++++ b/mobile/src/components/__tests__/Header.test.tsx
+@@ -0,0 +1,152 @@
++import { fireEvent, screen } from '@testing-library/react-native';
++
++import { renderWithTheme } from '../../test/renderWithTheme';
++import { theme } from '../../theme';
++import { Header } from '../Header';
++
++const rafael = {
++  id: 's1',
++  firstName: 'Rafael',
++  rm: 12567,
++  className: '7EF',
++  period: 'Matutino',
++};
++
++describe('Header', () => {
++  const onSwitchStudent = jest.fn();
++  const onLogout = jest.fn();
++
++  beforeEach(() => {
++    onSwitchStudent.mockClear();
++    onLogout.mockClear();
++  });
++
++  it('com mais de um aluno: saudação, aluno, TROCAR PERFIL e SAIR', async () => {
++    await renderWithTheme(
++      <Header
++        guardianFirstName="Gustavo"
++        student={rafael}
++        canSwitchStudent
++        onSwitchStudent={onSwitchStudent}
++        onLogout={onLogout}
++      />,
++    );
++
++    expect(screen.getByTestId('header')).toBeOnTheScreen();
++    expect(screen.getByTestId('header-greeting')).toHaveTextContent(
++      'Olá, Gustavo',
++    );
++    expect(screen.getByTestId('header-greeting')).toHaveAccessibleName(
++      'Olá, Gustavo',
++    );
++    expect(screen.getByTestId('header-student-name')).toHaveTextContent(
++      'Rafael',
++    );
++    expect(screen.getByTestId('header-student-info')).toHaveTextContent(
++      '7EF - RM 12567 - Matutino',
++    );
++    expect(
++      screen.getByLabelText(
++        'Aluno Rafael, turma 7EF, RM 12567, período Matutino',
++      ),
++    ).toBeOnTheScreen();
++
++    const switchButton = screen.getByTestId('header-switch-student-button');
++    expect(switchButton).toHaveTextContent('TROCAR PERFIL');
++    expect(switchButton).toHaveAccessibleName('Trocar aluno');
++    await fireEvent.press(switchButton);
++    expect(onSwitchStudent).toHaveBeenCalledTimes(1);
++
++    const logout = screen.getByTestId('header-logout-button');
++    expect(logout).toHaveAccessibleName('Sair da conta');
++    await fireEvent.press(logout);
++    expect(onLogout).toHaveBeenCalledTimes(1);
++  });
++
++  it('nome em maiúsculas pela variante, não pela string', async () => {
++    await renderWithTheme(
++      <Header
++        guardianFirstName="Gustavo"
++        student={rafael}
++        canSwitchStudent
++        onSwitchStudent={onSwitchStudent}
++        onLogout={onLogout}
++      />,
++    );
++
++    expect(screen.getByText('Gustavo')).toHaveStyle({
++      textTransform: 'uppercase',
++    });
++    expect(screen.getByTestId('header-student-name')).toHaveStyle({
++      textTransform: 'uppercase',
++    });
++  });
++
++  it('com um aluno só, não mostra TROCAR PERFIL', async () => {
++    await renderWithTheme(
++      <Header
++        guardianFirstName="Adelaide"
++        student={rafael}
++        canSwitchStudent={false}
++        onSwitchStudent={onSwitchStudent}
++        onLogout={onLogout}
++      />,
++    );
++
++    expect(screen.queryByTestId('header-switch-student-button')).toBeNull();
++    expect(screen.getByTestId('header-logout-button')).toBeOnTheScreen();
++  });
++
++  it('sem aluno (NoStudent), só a saudação, e o conteúdo vem abaixo', async () => {
++    const { Text } = jest.requireActual('react-native');
++    await renderWithTheme(
++      <Header
++        guardianFirstName="Carlos"
++        canSwitchStudent={false}
++        onSwitchStudent={onSwitchStudent}
++        onLogout={onLogout}
++      >
++        <Text testID="conteudo">conteúdo</Text>
++      </Header>,
++    );
++
++    expect(screen.getByTestId('header-greeting')).toHaveTextContent(
++      'Olá, Carlos',
++    );
++    expect(screen.queryByTestId('header-student-name')).toBeNull();
++    expect(screen.getByTestId('conteudo')).toBeOnTheScreen();
++  });
++
++  it('SAIR desabilitado enquanto a sessão sai', async () => {
++    await renderWithTheme(
++      <Header
++        guardianFirstName="Gustavo"
++        student={rafael}
++        canSwitchStudent
++        onSwitchStudent={onSwitchStudent}
++        onLogout={onLogout}
++        logoutDisabled
++      />,
++    );
++
++    const logout = screen.getByTestId('header-logout-button');
++    expect(logout).toBeDisabled();
++    await fireEvent.press(logout);
++    expect(onLogout).not.toHaveBeenCalled();
++  });
++
++  it('barra de ações com a altura do tema', async () => {
++    await renderWithTheme(
++      <Header
++        guardianFirstName="Gustavo"
++        canSwitchStudent={false}
++        onSwitchStudent={onSwitchStudent}
++        onLogout={onLogout}
++      />,
++    );
++
++    expect(screen.getByTestId('header-action-bar')).toHaveStyle({
++      height: theme.sizes.actionBar,
++    });
++  });
++});
+diff --git a/mobile/src/components/__tests__/StudentCard.test.tsx b/mobile/src/components/__tests__/StudentCard.test.tsx
+new file mode 100644
+index 0000000..8827dbd
+--- /dev/null
++++ b/mobile/src/components/__tests__/StudentCard.test.tsx
+@@ -0,0 +1,64 @@
++import { fireEvent, screen } from '@testing-library/react-native';
++
++import { renderWithTheme } from '../../test/renderWithTheme';
++import { theme } from '../../theme';
++import { StudentCard } from '../StudentCard';
++
++const props = {
++  fullName: 'Rafael da Silva',
++  rm: 12567,
++  className: '7EF',
++  period: 'Matutino',
++  testID: 'select-student-card-12567',
++};
++
++describe('StudentCard', () => {
++  it('mostra nome completo e a linha turma - RM - período', async () => {
++    await renderWithTheme(
++      <StudentCard {...props} selected={false} onPress={jest.fn()} />,
++    );
++
++    expect(screen.getByText('Rafael da Silva')).toHaveStyle({
++      textTransform: 'uppercase',
++    });
++    expect(screen.getByText('7EF - RM 12567 - Matutino')).toBeOnTheScreen();
++    expect(
++      screen.getByTestId('select-student-card-12567'),
++    ).toHaveAccessibleName('Rafael da Silva, turma 7EF, RM 12567, Matutino');
++  });
++
++  it('selecionado: borda primary e estado selected para o leitor', async () => {
++    await renderWithTheme(
++      <StudentCard {...props} selected onPress={jest.fn()} />,
++    );
++
++    const card = screen.getByTestId('select-student-card-12567');
++    expect(card).toBeSelected();
++    expect(screen.getByTestId('select-student-card-12567-box')).toHaveStyle({
++      borderColor: theme.colors.primary,
++      borderWidth: 1,
++    });
++  });
++
++  it('não selecionado: borda transparente (sem pulo de layout)', async () => {
++    await renderWithTheme(
++      <StudentCard {...props} selected={false} onPress={jest.fn()} />,
++    );
++
++    expect(screen.getByTestId('select-student-card-12567')).not.toBeSelected();
++    expect(screen.getByTestId('select-student-card-12567-box')).toHaveStyle({
++      borderColor: 'transparent',
++      borderWidth: 1,
++    });
++  });
++
++  it('toque chama onPress', async () => {
++    const onPress = jest.fn();
++    await renderWithTheme(
++      <StudentCard {...props} selected={false} onPress={onPress} />,
++    );
++
++    await fireEvent.press(screen.getByTestId('select-student-card-12567'));
++    expect(onPress).toHaveBeenCalledTimes(1);
++  });
++});
+diff --git a/mobile/src/components/__tests__/TabBar.test.tsx b/mobile/src/components/__tests__/TabBar.test.tsx
+new file mode 100644
+index 0000000..0a6a3b2
+--- /dev/null
++++ b/mobile/src/components/__tests__/TabBar.test.tsx
+@@ -0,0 +1,109 @@
++import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
++import { fireEvent, screen } from '@testing-library/react-native';
++
++import { renderWithTheme } from '../../test/renderWithTheme';
++import { theme } from '../../theme';
++import { TabBar } from '../TabBar';
++
++const routes = [
++  { key: 'agenda-1', name: 'Agenda' },
++  { key: 'boletim-1', name: 'Boletim' },
++];
++
++function tabBarProps(index: number) {
++  const navigation = {
++    emit: jest.fn(() => ({ defaultPrevented: false })),
++    navigate: jest.fn(),
++  };
++  const icon = () => null;
++  const descriptors = {
++    'agenda-1': {
++      options: {
++        title: 'AGENDA',
++        tabBarAccessibilityLabel: 'Agenda',
++        tabBarButtonTestID: 'tab-agenda',
++        tabBarIcon: icon,
++      },
++    },
++    'boletim-1': {
++      options: {
++        title: 'BOLETIM',
++        tabBarAccessibilityLabel: 'Boletim',
++        tabBarButtonTestID: 'tab-boletim',
++        tabBarIcon: icon,
++      },
++    },
++  };
++  const props = {
++    state: { index, routes, key: 'tabs', routeNames: ['Agenda', 'Boletim'] },
++    descriptors,
++    navigation,
++    insets: { top: 0, bottom: 0, left: 0, right: 0 },
++  } as unknown as BottomTabBarProps;
++  return { props, navigation };
++}
++
++describe('TabBar', () => {
++  it('lista de abas com a ativa selecionada e os rótulos', async () => {
++    const { props } = tabBarProps(0);
++    await renderWithTheme(<TabBar {...props} />);
++
++    expect(screen.getByTestId('tab-bar')).toHaveProp(
++      'accessibilityRole',
++      'tablist',
++    );
++    const agenda = screen.getByTestId('tab-agenda');
++    expect(agenda).toHaveProp('accessibilityRole', 'tab');
++    expect(agenda).toBeSelected();
++    expect(agenda).toHaveAccessibleName('Agenda');
++    expect(screen.getByTestId('tab-boletim')).not.toBeSelected();
++    expect(screen.getAllByText('AGENDA').length).toBeGreaterThan(0);
++  });
++
++  it('aba ativa mostra a camada primary; a inativa, a camada text', async () => {
++    const { props } = tabBarProps(1);
++    await renderWithTheme(<TabBar {...props} />);
++
++    expect(screen.getByTestId('tab-boletim-active-layer')).toHaveStyle({
++      opacity: 1,
++    });
++    expect(screen.getByTestId('tab-agenda-active-layer')).toHaveStyle({
++      opacity: 0,
++    });
++    expect(
++      screen.getAllByText('BOLETIM').map(node => node.props.style),
++    ).toEqual(
++      expect.arrayContaining([
++        expect.arrayContaining([
++          expect.objectContaining({ color: theme.colors.primary }),
++        ]),
++      ]),
++    );
++  });
++
++  it('tocar na aba inativa navega; na ativa, não', async () => {
++    const { props, navigation } = tabBarProps(0);
++    await renderWithTheme(<TabBar {...props} />);
++
++    await fireEvent.press(screen.getByTestId('tab-agenda'));
++    expect(navigation.navigate).not.toHaveBeenCalled();
++
++    await fireEvent.press(screen.getByTestId('tab-boletim'));
++    expect(navigation.emit).toHaveBeenCalledWith(
++      expect.objectContaining({ type: 'tabPress', target: 'boletim-1' }),
++    );
++    expect(navigation.navigate).toHaveBeenCalledWith('Boletim', undefined);
++  });
++
++  it('altura da tab bar = tabBar + inset de baixo', async () => {
++    const { props } = tabBarProps(0);
++    await renderWithTheme(
++      <TabBar {...props} insets={{ top: 0, left: 0, right: 0, bottom: 34 }} />,
++    );
++
++    expect(screen.getByTestId('tab-bar')).toHaveStyle({
++      height: theme.sizes.tabBar + 34,
++      paddingBottom: 34,
++    });
++  });
++});
+diff --git a/mobile/src/components/icons/AgendaIcon.tsx b/mobile/src/components/icons/AgendaIcon.tsx
+new file mode 100644
+index 0000000..800e3a5
+--- /dev/null
++++ b/mobile/src/components/icons/AgendaIcon.tsx
+@@ -0,0 +1,55 @@
++import Svg, { Path } from 'react-native-svg';
++
++type IconProps = { color: string; size: number };
++
++/** Ícone da aba Agenda (docs/figma/assets/tab-agenda-active.svg), 21,4 × 24. */
++export function AgendaIcon({ color, size }: IconProps) {
++  return (
++    <Svg width={(size * 21.4311) / 24} height={size} viewBox="0 0 21.4311 24">
++      <Path
++        d="M4.98949 0H4.38678C4.30987 0 4.23693 0.0161599 4.16628 0.039122C3.81324 0.153618 3.55228 0.530526 3.55228 0.982651V1.39754V2.4595V3.012C3.55228 3.11466 3.56938 3.21166 3.59419 3.30453C3.70043 3.70346 4.01305 3.99465 4.38678 3.99465H4.98949C5.45046 3.99465 5.82399 3.55476 5.82399 3.012V2.4595V1.39754V0.982651C5.82399 0.439897 5.45046 0 4.98949 0Z"
++        fill={color}
++      />
++      <Path
++        d="M16.8527 0H16.25C15.7891 0 15.4155 0.439897 15.4155 0.982651V1.39754V2.4595V3.012C15.4155 3.55476 15.7891 3.99465 16.25 3.99465H16.8527C17.3137 3.99465 17.6872 3.55476 17.6872 3.012V2.4595V1.39754V0.982651C17.687 0.439897 17.3135 0 16.8527 0Z"
++        fill={color}
++      />
++      <Path
++        d="M19.9313 2.4595H18.439V3.012C18.439 3.96851 17.7273 4.74662 16.8525 4.74662H16.2498C15.3751 4.74662 14.6634 3.96851 14.6634 3.012V2.4595H6.57596V3.012C6.57596 3.96851 5.86421 4.74662 4.98949 4.74662H4.38678C3.51202 4.74662 2.80031 3.96851 2.80031 3.012V2.4595H1.50001C0.671719 2.4595 0 3.08926 0 3.86569V22.5939C0 23.3717 0.67168 24 1.50001 24H19.9311C20.7601 24 21.4311 23.3716 21.4311 22.5939V3.86588C21.4313 3.08946 20.7603 2.4595 19.9313 2.4595ZM19.4662 21.9359L1.91037 21.9291V6.83031H19.4662V21.9359Z"
++        fill={color}
++      />
++      <Path
++        d="M12.5957 10.4689H17.2128C17.6136 10.4689 17.9377 10.0687 17.9377 9.57404C17.9377 9.07941 17.6134 8.67919 17.2128 8.67919H12.5957C12.1949 8.67919 11.8708 9.07941 11.8708 9.57404C11.8708 10.0685 12.1949 10.4689 12.5957 10.4689Z"
++        fill={color}
++      />
++      <Path
++        d="M12.5957 13.7012H17.2128C17.6136 13.7012 17.9377 13.301 17.9377 12.8064C17.9377 12.3118 17.6134 11.9116 17.2128 11.9116H12.5957C12.1949 11.9116 11.8708 12.3118 11.8708 12.8064C11.8708 13.301 12.1949 13.7012 12.5957 13.7012Z"
++        fill={color}
++      />
++      <Path
++        d="M12.5957 16.9336H17.2128C17.6136 16.9336 17.9377 16.5333 17.9377 16.0387C17.9377 15.5441 17.6134 15.1439 17.2128 15.1439H12.5957C12.1949 15.1439 11.8708 15.5441 11.8708 16.0387C11.8708 16.5333 12.1949 16.9336 12.5957 16.9336Z"
++        fill={color}
++      />
++      <Path
++        d="M12.5957 20.1661H17.2128C17.6136 20.1661 17.9377 19.7659 17.9377 19.2713C17.9377 18.7766 17.6134 18.3764 17.2128 18.3764H12.5957C12.1949 18.3764 11.8708 18.7766 11.8708 19.2713C11.8708 19.7659 12.1949 20.1661 12.5957 20.1661Z"
++        fill={color}
++      />
++      <Path
++        d="M4.418 10.4689H9.0351C9.43588 10.4689 9.75998 10.0687 9.75998 9.57404C9.75998 9.07941 9.43568 8.67919 9.0351 8.67919H4.418C4.01718 8.67919 3.69308 9.07941 3.69308 9.57404C3.69312 10.0685 4.01718 10.4689 4.418 10.4689Z"
++        fill={color}
++      />
++      <Path
++        d="M4.418 13.7012H9.0351C9.43588 13.7012 9.75998 13.301 9.75998 12.8064C9.75998 12.3118 9.43568 11.9116 9.0351 11.9116H4.418C4.01718 11.9116 3.69308 12.3118 3.69308 12.8064C3.69312 13.301 4.01718 13.7012 4.418 13.7012Z"
++        fill={color}
++      />
++      <Path
++        d="M4.418 16.9336H9.0351C9.43588 16.9336 9.75998 16.5333 9.75998 16.0387C9.75998 15.5441 9.43568 15.1439 9.0351 15.1439H4.418C4.01718 15.1439 3.69308 15.5441 3.69308 16.0387C3.69308 16.5333 4.01718 16.9336 4.418 16.9336Z"
++        fill={color}
++      />
++      <Path
++        d="M4.418 20.1661H9.0351C9.43588 20.1661 9.75998 19.7659 9.75998 19.2713C9.75998 18.7766 9.43568 18.3764 9.0351 18.3764H4.418C4.01718 18.3764 3.69308 18.7766 3.69308 19.2713C3.69312 19.7659 4.01718 20.1661 4.418 20.1661Z"
++        fill={color}
++      />
++    </Svg>
++  );
++}
+diff --git a/mobile/src/components/icons/BoletimIcon.tsx b/mobile/src/components/icons/BoletimIcon.tsx
+new file mode 100644
+index 0000000..dd27872
+--- /dev/null
++++ b/mobile/src/components/icons/BoletimIcon.tsx
+@@ -0,0 +1,17 @@
++import Svg, { Path } from 'react-native-svg';
++
++type IconProps = { color: string; size: number };
++
++/** Ícone da aba Boletim (docs/figma/assets/tab-boletim-active.svg), 24 × 24. */
++export function BoletimIcon({ color, size }: IconProps) {
++  return (
++    <Svg width={size} height={size} viewBox="0 0 24 24">
++      <Path
++        d="M10 1C9.73478 1 9.48043 1.10536 9.29289 1.29289L3.29289 7.29289C3.10536 7.48043 3 7.73478 3 8V20C3 21.6569 4.34315 23 6 23H18C19.6569 23 21 21.6569 21 20V4C21 2.34315 19.6569 1 18 1H10ZM11 3H18C18.5523 3 19 3.44772 19 4V20C19 20.5523 18.5523 21 18 21H6C5.44772 21 5 20.5523 5 20V9H10C10.5523 9 11 8.55228 11 8V3ZM9 7H6.41421L9 4.41421V7ZM16.7682 12.6402C17.1218 12.2159 17.0645 11.5853 16.6402 11.2318C16.2159 10.8782 15.5853 10.9355 15.2318 11.3598L10.9328 16.5186L8.70711 14.2929C8.31658 13.9024 7.68342 13.9024 7.29289 14.2929C6.90237 14.6834 6.90237 15.3166 7.29289 15.7071L10.2929 18.7071C10.4916 18.9058 10.7646 19.0117 11.0453 18.999C11.326 18.9862 11.5884 18.856 11.7682 18.6402L16.7682 12.6402Z"
++        fillRule="evenodd"
++        clipRule="evenodd"
++        fill={color}
++      />
++    </Svg>
++  );
++}
+diff --git a/mobile/src/components/icons/CloseIcon.tsx b/mobile/src/components/icons/CloseIcon.tsx
+new file mode 100644
+index 0000000..2c3f8d2
+--- /dev/null
++++ b/mobile/src/components/icons/CloseIcon.tsx
+@@ -0,0 +1,15 @@
++import Svg, { Path } from 'react-native-svg';
++
++type IconProps = { color: string; size: number };
++
++/** Ícone do FECHAR (docs/figma/assets/close.svg), 24 × 24. */
++export function CloseIcon({ color, size }: IconProps) {
++  return (
++    <Svg width={size} height={size} viewBox="0 0 24 24">
++      <Path
++        d="M20.7457 3.32851C20.3552 2.93798 19.722 2.93798 19.3315 3.32851L12.0371 10.6229L4.74275 3.32851C4.35223 2.93798 3.71906 2.93798 3.32854 3.32851C2.93801 3.71903 2.93801 4.3522 3.32854 4.74272L10.6229 12.0371L3.32856 19.3314C2.93803 19.722 2.93803 20.3551 3.32856 20.7457C3.71908 21.1362 4.35225 21.1362 4.74277 20.7457L12.0371 13.4513L19.3315 20.7457C19.722 21.1362 20.3552 21.1362 20.7457 20.7457C21.1362 20.3551 21.1362 19.722 20.7457 19.3315L13.4513 12.0371L20.7457 4.74272C21.1362 4.3522 21.1362 3.71903 20.7457 3.32851Z"
++        fill={color}
++      />
++    </Svg>
++  );
++}
+diff --git a/mobile/src/components/icons/LogoutIcon.tsx b/mobile/src/components/icons/LogoutIcon.tsx
+new file mode 100644
+index 0000000..609e3e1
+--- /dev/null
++++ b/mobile/src/components/icons/LogoutIcon.tsx
+@@ -0,0 +1,19 @@
++import Svg, { Path } from 'react-native-svg';
++
++type IconProps = { color: string; size: number };
++
++/** Ícone do SAIR (docs/figma/assets/logout.svg), 10 × 10. */
++export function LogoutIcon({ color, size }: IconProps) {
++  return (
++    <Svg width={size} height={size} viewBox="0 0 10 9.99995">
++      <Path
++        d="M4.6875 9.37497H0.625008V0.624982H4.6875C4.86 0.624982 4.99999 0.484972 4.99999 0.312491C4.99999 0.140011 4.85998 0 4.6875 0H0.312491C0.140011 0 0 0.139985 0 0.312491V9.68746C0 9.85996 0.140011 9.99995 0.312491 9.99995H4.68747C4.85998 9.99995 4.99996 9.85994 4.99996 9.68746C4.99999 9.51495 4.85998 9.37497 4.6875 9.37497Z"
++        fill={color}
++      />
++      <Path
++        d="M9.90934 4.78176L7.7531 2.59458C7.63091 2.47115 7.4331 2.47146 7.31123 2.59458C7.18903 2.71771 7.18903 2.9177 7.31123 3.04083L8.93623 4.68926H2.50094C2.32843 4.68926 2.18845 4.83052 2.18845 5.00489C2.18845 5.17927 2.32846 5.32053 2.50094 5.32053H8.93623L7.31123 6.96896C7.18903 7.0924 7.18903 7.29208 7.31123 7.41521C7.43342 7.53864 7.63122 7.53864 7.7531 7.41521L9.90903 5.22803C10.0297 5.10646 10.0309 4.90302 9.90934 4.78176Z"
++        fill={color}
++      />
++    </Svg>
++  );
++}
+diff --git a/mobile/src/constants/strings.ts b/mobile/src/constants/strings.ts
+index 27fee02..a6b2ca2 100644
+--- a/mobile/src/constants/strings.ts
++++ b/mobile/src/constants/strings.ts
+@@ -16,11 +16,62 @@ export const strings = {
+       invalid: 'Usuário ou senha inválida.\nPode tentar novamente?',
+       cpf: 'Confira o CPF digitado.',
+       network:
+         'Não conseguimos falar com o servidor.\nConfira sua conexão e tente de novo.',
+       tooMany:
+         'Muitas tentativas seguidas.\nAguarde um minuto e tente de novo.',
+       server: 'Algo deu errado do nosso lado.\nTente de novo em instantes.',
+       sessionExpired: 'Sua sessão expirou. Entre de novo.',
+     },
+   },
++  header: {
++    logoLabel: 'FIAP School',
++    /** Seguido do primeiro nome em `greetingName` (maiúsculo pela variante). */
++    greeting: 'Olá, ',
++    greetingAccessibilityLabel: (name: string) => `Olá, ${name}`,
++    studentInfo: (className: string, rm: number, period: string) =>
++      `${className} - RM ${rm} - ${period}`,
++    studentAccessibilityLabel: (
++      name: string,
++      className: string,
++      rm: number,
++      period: string,
++    ) => `Aluno ${name}, turma ${className}, RM ${rm}, período ${period}`,
++    switchStudent: 'TROCAR PERFIL',
++    switchStudentAccessibilityLabel: 'Trocar aluno',
++    switchStudentHint: 'Abre a lista de alunos',
++    logout: 'SAIR',
++    logoutAccessibilityLabel: 'Sair da conta',
++  },
++  tabs: {
++    agenda: 'AGENDA',
++    agendaAccessibilityLabel: 'Agenda',
++    boletim: 'BOLETIM',
++    boletimAccessibilityLabel: 'Boletim',
++  },
++  selectStudent: {
++    close: 'FECHAR',
++    closeAccessibilityLabel: 'Fechar',
++    title: 'Escolha o perfil\nque você quer visualizar',
++    studentInfo: (className: string, rm: number, period: string) =>
++      `${className} - RM ${rm} - ${period}`,
++    cardAccessibilityLabel: (
++      fullName: string,
++      className: string,
++      rm: number,
++      period: string,
++    ) => `${fullName}, turma ${className}, RM ${rm}, ${period}`,
++  },
++  noStudent: {
++    title: 'Nenhum aluno vinculado',
++    description:
++      'Não encontramos alunos ligados ao seu CPF. Fale com a secretaria da FIAP School para fazer o vínculo.',
++  },
++  boot: {
++    error: { title: 'Não conseguimos conectar.' },
++  },
++  common: {
++    error: { description: 'Confira sua conexão e tente de novo.' },
++    retry: 'TENTAR DE NOVO',
++    retryAccessibilityLabel: 'Tentar de novo',
++  },
+ } as const;
+diff --git a/mobile/src/features/auth/__tests__/useLogout.test.tsx b/mobile/src/features/auth/__tests__/useLogout.test.tsx
+new file mode 100644
+index 0000000..514cd5d
+--- /dev/null
++++ b/mobile/src/features/auth/__tests__/useLogout.test.tsx
+@@ -0,0 +1,51 @@
++import { act, renderHook } from '@testing-library/react-native';
++
++import { queryClient, queryKeys } from '../../../app/queryClient';
++import { createSecureStorage } from '../../../services/storage/secureStorage';
++import { useSessionStore } from '../../../stores/session.store';
++import { meResponse } from '../../../test/fixtures';
++import { useLogout } from '../useLogout';
++
++describe('useLogout', () => {
++  beforeEach(async () => {
++    await createSecureStorage().setToken('jwt-salvo');
++    useSessionStore.setState({
++      status: 'signedIn',
++      selectedStudentId: 's2',
++      signOutReason: null,
++    });
++    queryClient.setQueryData(queryKeys.me(), meResponse);
++  });
++
++  it('apaga o token, o aluno salvo e o cache, com motivo manual', async () => {
++    const { result } = await renderHook(() => useLogout());
++
++    await act(() => result.current.logout());
++
++    expect(await createSecureStorage().getToken()).toBeNull();
++    expect(queryClient.getQueryData(queryKeys.me())).toBeUndefined();
++    expect(useSessionStore.getState()).toMatchObject({
++      status: 'signedOut',
++      selectedStudentId: null,
++      signOutReason: 'manual',
++    });
++  });
++
++  it('fica desabilitado enquanto sai e não sai duas vezes', async () => {
++    const signOut = jest.fn(() => new Promise<void>(() => {}));
++    useSessionStore.setState({ signOut });
++    const { result } = await renderHook(() => useLogout());
++
++    expect(result.current.loggingOut).toBe(false);
++    await act(async () => {
++      result.current.logout();
++    });
++    expect(result.current.loggingOut).toBe(true);
++    await act(async () => {
++      result.current.logout();
++    });
++
++    expect(signOut).toHaveBeenCalledTimes(1);
++    expect(signOut).toHaveBeenCalledWith('manual');
++  });
++});
+diff --git a/mobile/src/features/auth/api/__tests__/useLoginMutation.test.tsx b/mobile/src/features/auth/api/__tests__/useLoginMutation.test.tsx
+index 0997ee9..7d4a5ba 100644
+--- a/mobile/src/features/auth/api/__tests__/useLoginMutation.test.tsx
++++ b/mobile/src/features/auth/api/__tests__/useLoginMutation.test.tsx
+@@ -1,18 +1,18 @@
+ import { act, renderHook, waitFor } from '@testing-library/react-native';
+ import * as Keychain from 'react-native-keychain';
+ import { http, HttpResponse } from 'msw';
+ 
+-import { queryClient } from '../../../../app/queryClient';
++import { queryClient, queryKeys } from '../../../../app/queryClient';
+ import { createSecureStorage } from '../../../../services/storage/secureStorage';
+ import { useSessionStore } from '../../../../stores/session.store';
+-import { API_URL, loginResponse } from '../../../../test/fixtures';
++import { API_URL, loginResponse, meResponse } from '../../../../test/fixtures';
+ import { server } from '../../../../test/msw/server';
+ import { QueryWrapper } from '../../../../test/queryWrapper';
+ import { useLoginMutation } from '../useLoginMutation';
+ 
+ describe('useLoginMutation', () => {
+   beforeEach(async () => {
+     await useSessionStore.getState().signOut();
+     queryClient.clear();
+   });
+ 
+@@ -85,20 +85,21 @@ describe('useLoginMutation', () => {
+     await act(async () => {
+       result.current.mutate({ cpf: '969.294.560-04', password: '123456' });
+     });
+ 
+     await waitFor(() => expect(result.current.isError).toBe(true));
+     expect(result.current.error?.kind).toBe('storage');
+     expect(result.current.error?.message).toBe(
+       'Não foi possível salvar o acesso neste aparelho. Tente de novo.',
+     );
+     expect(useSessionStore.getState().status).toBe('signedOut');
++    expect(queryClient.getQueryData(queryKeys.me())).toBeUndefined();
+   });
+ 
+   it('resposta sem token é tratada como invalidResponse e não abre sessão', async () => {
+     jest.spyOn(console, 'error').mockImplementation(() => {});
+     server.use(
+       http.post(`${API_URL}/auth/login`, () =>
+         HttpResponse.json({ guardian: loginResponse.guardian }),
+       ),
+     );
+     const { result } = await renderHook(() => useLoginMutation(), {
+@@ -106,11 +107,54 @@ describe('useLoginMutation', () => {
+     });
+ 
+     await act(async () => {
+       result.current.mutate({ cpf: '969.294.560-04', password: '123456' });
+     });
+ 
+     await waitFor(() => expect(result.current.isError).toBe(true));
+     expect(result.current.error?.kind).toBe('invalidResponse');
+     expect(useSessionStore.getState().status).toBe('signedOut');
+   });
++
++  it('busca o /me com o token novo e guarda no cache antes de abrir a sessão', async () => {
++    let authorization: string | null = null;
++    server.use(
++      http.get(`${API_URL}/me`, ({ request }) => {
++        authorization = request.headers.get('authorization');
++        return HttpResponse.json(meResponse);
++      }),
++    );
++    let meWhenSignedIn: unknown;
++    const unsubscribe = useSessionStore.subscribe(state => {
++      if (state.status === 'signedIn' && meWhenSignedIn === undefined) {
++        meWhenSignedIn = queryClient.getQueryData(queryKeys.me());
++      }
++    });
++    const { result } = await renderHook(() => useLoginMutation(), {
++      wrapper: QueryWrapper,
++    });
++
++    await act(() =>
++      result.current.mutateAsync({ cpf: '969.294.560-04', password: '123456' }),
++    );
++    unsubscribe();
++
++    expect(authorization).toBe('Bearer jwt-gustavo');
++    expect(meWhenSignedIn).toEqual(meResponse);
++  });
++
++  it('/me que falha depois do login: erro de rede, sem sessão e sem token', async () => {
++    server.use(http.get(`${API_URL}/me`, () => HttpResponse.error()));
++    const { result } = await renderHook(() => useLoginMutation(), {
++      wrapper: QueryWrapper,
++    });
++
++    await act(async () => {
++      result.current.mutate({ cpf: '969.294.560-04', password: '123456' });
++    });
++
++    await waitFor(() => expect(result.current.isError).toBe(true));
++    expect(result.current.error?.kind).toBe('network');
++    expect(useSessionStore.getState().status).toBe('signedOut');
++    expect(await createSecureStorage().getToken()).toBeNull();
++  });
+ });
+diff --git a/mobile/src/features/auth/api/useLoginMutation.ts b/mobile/src/features/auth/api/useLoginMutation.ts
+index d9e75a5..0011f3b 100644
+--- a/mobile/src/features/auth/api/useLoginMutation.ts
++++ b/mobile/src/features/auth/api/useLoginMutation.ts
+@@ -1,34 +1,42 @@
+ import { useMutation } from '@tanstack/react-query';
+ 
++import { queryClient, queryKeys } from '../../../app/queryClient';
+ import { ApiError } from '../../../services/http/errors';
+ import { useSessionStore } from '../../../stores/session.store';
+-import { login, type LoginInput } from '../services/auth.service';
++import { getMe, login, type LoginInput } from '../services/auth.service';
+ 
+ const STORAGE_ERROR_MESSAGE =
+   'Não foi possível salvar o acesso neste aparelho. Tente de novo.';
+ 
+ /**
+- * Login: valida as credenciais na API e grava o token no keychain. Se o
+- * keychain falhar, o erro sai como `ApiError('storage')`, para o ViewModel
+- * ter sempre um `kind`.
++ * Login: valida as credenciais na API, carrega o `/me` com o token novo e
++ * grava o token no keychain. Se o `/me` falhar, o login falha junto (nada é
++ * gravado). Se o keychain falhar, o erro sai como `ApiError('storage')`,
++ * para o ViewModel ter sempre um `kind`.
+  */
+ export function useLoginMutation() {
+   const signIn = useSessionStore(state => state.signIn);
+ 
+   return useMutation({
+     // As variáveis (CPF e senha) saem do cache assim que o Login desmonta.
+     gcTime: 0,
+     mutationFn: async (input: LoginInput) => {
+       const { accessToken, guardian } = await login(input);
++      // O /me vem antes de abrir a sessão: com ele no cache, o RootStack já
++      // abre no destino certo (abas ou sem aluno) e o Header não espera.
++      const me = await getMe(undefined, { token: accessToken });
++      queryClient.setQueryData(queryKeys.me(), me);
+       try {
+         await signIn(accessToken, guardian);
+       } catch (cause) {
++        // Sem sessão, os dados do responsável não ficam no cache.
++        queryClient.removeQueries({ queryKey: queryKeys.me() });
+         throw new ApiError('storage', {
+           message: STORAGE_ERROR_MESSAGE,
+           cause,
+         });
+       }
+       return guardian;
+     },
+   });
+ }
+diff --git a/mobile/src/features/auth/services/auth.service.ts b/mobile/src/features/auth/services/auth.service.ts
+index 9d35c15..471c762 100644
+--- a/mobile/src/features/auth/services/auth.service.ts
++++ b/mobile/src/features/auth/services/auth.service.ts
+@@ -17,19 +17,25 @@ export async function login({
+   const { data } = await http.post('/auth/login', {
+     cpf: onlyDigits(cpf),
+     password,
+   });
+   return parseResponse(loginResponseSchema, data, 'POST /auth/login');
+ }
+ 
+ export type GetMeOptions = {
+   /** Sobrescreve o timeout padrão do client (a splash usa um menor). */
+   timeoutMs?: number;
++  /** Token recém-emitido pelo login, antes de a sessão abrir. */
++  token?: string;
+ };
+ 
+ export async function getMe(
+   signal?: AbortSignal,
+-  { timeoutMs }: GetMeOptions = {},
++  { timeoutMs, token }: GetMeOptions = {},
+ ): Promise<Me> {
+-  const { data } = await http.get('/me', { signal, timeout: timeoutMs });
++  const { data } = await http.get('/me', {
++    signal,
++    timeout: timeoutMs,
++    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
++  });
+   return parseResponse(meSchema, data, 'GET /me');
+ }
+diff --git a/mobile/src/features/auth/useLogout.ts b/mobile/src/features/auth/useLogout.ts
+new file mode 100644
+index 0000000..f521532
+--- /dev/null
++++ b/mobile/src/features/auth/useLogout.ts
+@@ -0,0 +1,22 @@
++import { useState } from 'react';
++
++import { useSessionStore } from '../../stores/session.store';
++
++/**
++ * Logout (M2, 01-design.md 3.9): sem confirmação. O `signOut` apaga o token
++ * do keychain, o aluno salvo e o cache do React Query; com a sessão fechada o
++ * RootStack troca para o Login. O botão fica desabilitado até lá, e um 2º
++ * toque não sai de novo. Funciona offline (só estado local).
++ */
++export function useLogout() {
++  const signOut = useSessionStore(state => state.signOut);
++  const [loggingOut, setLoggingOut] = useState(false);
++
++  const logout = async () => {
++    if (loggingOut) return;
++    setLoggingOut(true);
++    await signOut('manual');
++  };
++
++  return { logout, loggingOut };
++}
+diff --git a/mobile/src/features/header/AppHeader.tsx b/mobile/src/features/header/AppHeader.tsx
+new file mode 100644
+index 0000000..1e0b765
+--- /dev/null
++++ b/mobile/src/features/header/AppHeader.tsx
+@@ -0,0 +1,27 @@
++import { useNavigation } from '@react-navigation/native';
++import type { ReactNode } from 'react';
++
++import { Header } from '../../components/Header';
++import { useHeaderViewModel } from './useHeaderViewModel';
++
++/**
++ * Header das abas Agenda e Boletim, ligado ao ViewModel. A tela passa o
++ * conteúdo dela como `children` (rola junto com a saudação).
++ */
++export function AppHeader({ children }: { children?: ReactNode }) {
++  const navigation = useNavigation();
++  const vm = useHeaderViewModel(navigation);
++
++  return (
++    <Header
++      guardianFirstName={vm.guardianFirstName}
++      student={vm.student}
++      canSwitchStudent={vm.canSwitchStudent}
++      onSwitchStudent={vm.onSwitchStudent}
++      onLogout={vm.onLogout}
++      logoutDisabled={vm.logoutDisabled}
++    >
++      {children}
++    </Header>
++  );
++}
+diff --git a/mobile/src/features/header/__tests__/useHeaderViewModel.test.tsx b/mobile/src/features/header/__tests__/useHeaderViewModel.test.tsx
+new file mode 100644
+index 0000000..8e70e55
+--- /dev/null
++++ b/mobile/src/features/header/__tests__/useHeaderViewModel.test.tsx
+@@ -0,0 +1,80 @@
++import { act, renderHook, waitFor } from '@testing-library/react-native';
++
++import { queryClient, queryKeys } from '../../../app/queryClient';
++import { createSecureStorage } from '../../../services/storage/secureStorage';
++import { useSessionStore } from '../../../stores/session.store';
++import { meResponse } from '../../../test/fixtures';
++import { QueryWrapper } from '../../../test/queryWrapper';
++import { useHeaderViewModel } from '../useHeaderViewModel';
++
++const meWithOneStudent = {
++  ...meResponse,
++  firstName: 'Adelaide',
++  students: [meResponse.students[0]],
++};
++
++describe('useHeaderViewModel', () => {
++  const navigate = jest.fn();
++
++  beforeEach(async () => {
++    navigate.mockClear();
++    await useSessionStore.getState().signOut();
++    await createSecureStorage().setToken('jwt-salvo');
++    useSessionStore.setState({ status: 'signedIn', signOutReason: null });
++    queryClient.clear();
++  });
++
++  const renderHeader = () =>
++    renderHook(() => useHeaderViewModel({ navigate }), {
++      wrapper: QueryWrapper,
++    });
++
++  it('mostra o primeiro nome do responsável e o aluno em uso', async () => {
++    queryClient.setQueryData(queryKeys.me(), meResponse);
++    useSessionStore.setState({ selectedStudentId: 's2' });
++
++    const { result } = await renderHeader();
++
++    expect(result.current.guardianFirstName).toBe('Gustavo');
++    expect(result.current.student).toEqual({
++      id: 's2',
++      firstName: 'Marina',
++      rm: 12568,
++      className: '3EF',
++      period: 'Vespertino',
++    });
++  });
++
++  it('com mais de um aluno, pode trocar e TROCAR PERFIL abre a seleção', async () => {
++    queryClient.setQueryData(queryKeys.me(), meResponse);
++    const { result } = await renderHeader();
++
++    expect(result.current.canSwitchStudent).toBe(true);
++    await act(async () => result.current.onSwitchStudent());
++
++    expect(navigate).toHaveBeenCalledWith('SelectStudent');
++  });
++
++  it('com um aluno só, não pode trocar e TROCAR PERFIL não navega', async () => {
++    queryClient.setQueryData(queryKeys.me(), meWithOneStudent);
++    const { result } = await renderHeader();
++
++    expect(result.current.canSwitchStudent).toBe(false);
++    await act(async () => result.current.onSwitchStudent());
++
++    expect(navigate).not.toHaveBeenCalled();
++  });
++
++  it('SAIR encerra a sessão e desabilita o botão enquanto sai', async () => {
++    queryClient.setQueryData(queryKeys.me(), meResponse);
++    const { result } = await renderHeader();
++
++    expect(result.current.logoutDisabled).toBe(false);
++    await act(() => result.current.onLogout());
++
++    await waitFor(() =>
++      expect(useSessionStore.getState().status).toBe('signedOut'),
++    );
++    expect(await createSecureStorage().getToken()).toBeNull();
++  });
++});
+diff --git a/mobile/src/features/header/useHeaderViewModel.ts b/mobile/src/features/header/useHeaderViewModel.ts
+new file mode 100644
+index 0000000..f8370c9
+--- /dev/null
++++ b/mobile/src/features/header/useHeaderViewModel.ts
+@@ -0,0 +1,39 @@
++import type { RootStackScreenProps } from '../../navigation/types';
++import { useLogout } from '../auth/useLogout';
++import { useSessionStudent } from '../students/useSessionStudent';
++
++type HeaderNavigation = Pick<
++  RootStackScreenProps<'App'>['navigation'],
++  'navigate'
++>;
++
++/**
++ * Header das abas (R5, M3): primeiro nome do responsável, aluno em uso,
++ * TROCAR PERFIL só com mais de um aluno e SAIR sempre.
++ */
++export function useHeaderViewModel(navigation: HeaderNavigation) {
++  const { guardianFirstName, students, student } = useSessionStudent();
++  const { logout, loggingOut } = useLogout();
++  const canSwitchStudent = students.length > 1;
++
++  const onSwitchStudent = () => {
++    if (canSwitchStudent) navigation.navigate('SelectStudent');
++  };
++
++  return {
++    guardianFirstName,
++    student: student
++      ? {
++          id: student.id,
++          firstName: student.firstName,
++          rm: student.rm,
++          className: student.className,
++          period: student.period,
++        }
++      : null,
++    canSwitchStudent,
++    onSwitchStudent,
++    onLogout: logout,
++    logoutDisabled: loggingOut,
++  };
++}
+diff --git a/mobile/src/features/lessons/LessonsScreen.tsx b/mobile/src/features/lessons/LessonsScreen.tsx
+index 679e86a..180985c 100644
+--- a/mobile/src/features/lessons/LessonsScreen.tsx
++++ b/mobile/src/features/lessons/LessonsScreen.tsx
+@@ -1,20 +1,18 @@
+-import { PlaceholderScreen } from '../../components/PlaceholderScreen';
+-import type { AppTabsScreenProps } from '../../navigation/types';
++import { Screen } from '../../components/Screen';
++import { Box, Text } from '../../theme';
++import { AppHeader } from '../header/AppHeader';
+ 
+-/** Placeholder. A Agenda real (M4) é a Tarefa 11. */
+-export function LessonsScreen({ navigation }: AppTabsScreenProps<'Agenda'>) {
++/** Agenda. O Header é real; o conteúdo (M4) é a Tarefa 11. */
++export function LessonsScreen() {
+   return (
+-    <PlaceholderScreen
+-      testID="agenda-screen"
+-      title="Agenda"
+-      description="As aulas do dia entram aqui."
+-      actions={[
+-        {
+-          label: 'TROCAR PERFIL',
+-          testID: 'header-switch-student-button',
+-          onPress: () => navigation.navigate('SelectStudent'),
+-        },
+-      ]}
+-    />
++    <Screen testID="agenda-screen">
++      <AppHeader>
++        <Box padding="xxxl" alignItems="center">
++          <Text variant="body" textAlign="center">
++            As aulas do dia entram aqui.
++          </Text>
++        </Box>
++      </AppHeader>
++    </Screen>
+   );
+ }
+diff --git a/mobile/src/features/report-card/ReportCardScreen.tsx b/mobile/src/features/report-card/ReportCardScreen.tsx
+index ac57668..cdf0cd7 100644
+--- a/mobile/src/features/report-card/ReportCardScreen.tsx
++++ b/mobile/src/features/report-card/ReportCardScreen.tsx
+@@ -1,25 +1,18 @@
+-import { PlaceholderScreen } from '../../components/PlaceholderScreen';
+-import { useSessionStore } from '../../stores/session.store';
++import { Screen } from '../../components/Screen';
++import { Box, Text } from '../../theme';
++import { AppHeader } from '../header/AppHeader';
+ 
+-/**
+- * Placeholder. O Boletim real (M5) é a Tarefa 12, e o SAIR de verdade fica no
+- * Header (Tarefa 10), por um ViewModel.
+- */
++/** Boletim. O Header é real; o conteúdo (M5) é a Tarefa 12. */
+ export function ReportCardScreen() {
+-  const signOut = useSessionStore(state => state.signOut);
+-
+   return (
+-    <PlaceholderScreen
+-      testID="boletim-screen"
+-      title="Boletim"
+-      description="Notas e faltas por trimestre entram aqui."
+-      actions={[
+-        {
+-          label: 'SAIR',
+-          testID: 'header-logout-button',
+-          onPress: () => signOut(),
+-        },
+-      ]}
+-    />
++    <Screen testID="boletim-screen">
++      <AppHeader>
++        <Box padding="xxxl" alignItems="center">
++          <Text variant="body" textAlign="center">
++            Notas e faltas por trimestre entram aqui.
++          </Text>
++        </Box>
++      </AppHeader>
++    </Screen>
+   );
+ }
+diff --git a/mobile/src/features/splash/BootErrorScreen.tsx b/mobile/src/features/splash/BootErrorScreen.tsx
+index 65c2c82..62add6f 100644
+--- a/mobile/src/features/splash/BootErrorScreen.tsx
++++ b/mobile/src/features/splash/BootErrorScreen.tsx
+@@ -1,26 +1,34 @@
+-import { PlaceholderScreen } from '../../components/PlaceholderScreen';
+-import { useSessionStore } from '../../stores/session.store';
++import { ActionBar } from '../../components/ActionBar';
++import { ErrorState } from '../../components/ErrorState';
++import { Screen } from '../../components/Screen';
++import { strings } from '../../constants/strings';
++import type { RootStackScreenProps } from '../../navigation/types';
++import { useBootErrorViewModel } from './useBootErrorViewModel';
+ 
+ /**
+- * Placeholder. A tela real (01-design.md, 3.7: ErrorState com TENTAR DE NOVO,
+- * que refaz o `/me`) é das Tarefas 10/13. A rota já existe porque a splash
+- * decide por ela.
++ * Erro de rede na abertura (01-design.md, 3.7): barra só com SAIR, sem
++ * saudação (o `/me` falhou), e o ErrorState com TENTAR DE NOVO.
+  */
+-export function BootErrorScreen() {
+-  const signOut = useSessionStore(state => state.signOut);
++export function BootErrorScreen({
++  navigation,
++}: RootStackScreenProps<'BootError'>) {
++  const vm = useBootErrorViewModel(navigation);
+ 
+   return (
+-    <PlaceholderScreen
+-      testID="boot-error-screen"
+-      title="Não conseguimos conectar."
+-      description="Confira sua conexão e tente de novo."
+-      actions={[
+-        {
+-          label: 'SAIR',
+-          testID: 'header-logout-button',
+-          onPress: () => signOut(),
+-        },
+-      ]}
+-    />
++    <Screen testID="boot-error-screen">
++      <ActionBar
++        canSwitchStudent={false}
++        onLogout={vm.onLogout}
++        logoutDisabled={vm.logoutDisabled}
++      />
++      <ErrorState
++        testID="boot-error"
++        title={strings.boot.error.title}
++        description={strings.common.error.description}
++        onRetry={vm.onRetry}
++        retrying={vm.retrying}
++        shakeKey={vm.shakeKey}
++      />
++    </Screen>
+   );
+ }
+diff --git a/mobile/src/features/splash/__tests__/useBootErrorViewModel.test.tsx b/mobile/src/features/splash/__tests__/useBootErrorViewModel.test.tsx
+new file mode 100644
+index 0000000..8725b97
+--- /dev/null
++++ b/mobile/src/features/splash/__tests__/useBootErrorViewModel.test.tsx
+@@ -0,0 +1,156 @@
++import { act, renderHook, waitFor } from '@testing-library/react-native';
++import { http, HttpResponse } from 'msw';
++
++import { queryClient, queryKeys } from '../../../app/queryClient';
++import {
++  createSecureStorage,
++  secureStorage,
++} from '../../../services/storage/secureStorage';
++import { useSessionStore } from '../../../stores/session.store';
++import { API_URL, meResponse, meWithoutStudents } from '../../../test/fixtures';
++import { server } from '../../../test/msw/server';
++import { QueryWrapper } from '../../../test/queryWrapper';
++import { useBootErrorViewModel } from '../useBootErrorViewModel';
++
++describe('useBootErrorViewModel', () => {
++  const reset = jest.fn();
++
++  beforeEach(async () => {
++    reset.mockClear();
++    await useSessionStore.getState().signOut();
++    // O mesmo storage do client http: o request sai com este token.
++    await secureStorage.setToken('jwt-salvo');
++    useSessionStore.setState({ status: 'signedIn', signOutReason: null });
++    queryClient.clear();
++  });
++
++  const renderBootError = () =>
++    renderHook(() => useBootErrorViewModel({ reset }), {
++      wrapper: QueryWrapper,
++    });
++
++  it('TENTAR DE NOVO com aluno: refaz o /me, guarda no cache e vai às abas', async () => {
++    const { result } = await renderBootError();
++
++    await act(() => result.current.onRetry());
++
++    expect(reset).toHaveBeenCalledWith({
++      index: 0,
++      routes: [{ name: 'App', params: { screen: 'Agenda' } }],
++    });
++    expect(queryClient.getQueryData(queryKeys.me())).toEqual(meResponse);
++  });
++
++  it('TENTAR DE NOVO sem aluno vai para o NoStudent', async () => {
++    server.use(
++      http.get(`${API_URL}/me`, () => HttpResponse.json(meWithoutStudents)),
++    );
++    const { result } = await renderBootError();
++
++    await act(() => result.current.onRetry());
++
++    expect(reset).toHaveBeenCalledWith({
++      index: 0,
++      routes: [{ name: 'NoStudent' }],
++    });
++  });
++
++  it('fica carregando durante o request e ignora um 2º toque', async () => {
++    let calls = 0;
++    let respond: () => void = () => {};
++    server.use(
++      http.get(`${API_URL}/me`, async () => {
++        calls += 1;
++        await new Promise<void>(resolve => {
++          respond = resolve;
++        });
++        return HttpResponse.json(meResponse);
++      }),
++    );
++    const { result } = await renderBootError();
++
++    expect(result.current.retrying).toBe(false);
++    let first: Promise<void> = Promise.resolve();
++    await act(async () => {
++      first = result.current.onRetry();
++    });
++    expect(result.current.retrying).toBe(true);
++    await act(async () => {
++      result.current.onRetry();
++    });
++    await waitFor(() => expect(calls).toBe(1));
++
++    await act(async () => {
++      respond();
++      await first;
++    });
++    expect(calls).toBe(1);
++    expect(reset).toHaveBeenCalledTimes(1);
++  });
++
++  it('falhou de novo: fica na tela, para de carregar e dispara o shake', async () => {
++    server.use(http.get(`${API_URL}/me`, () => HttpResponse.error()));
++    const { result } = await renderBootError();
++    expect(result.current.shakeKey).toBe(0);
++
++    await act(() => result.current.onRetry());
++
++    expect(reset).not.toHaveBeenCalled();
++    expect(result.current.retrying).toBe(false);
++    expect(result.current.shakeKey).toBe(1);
++
++    await act(() => result.current.onRetry());
++    expect(result.current.shakeKey).toBe(2);
++  });
++
++  it('401 no retry: a sessão expira (o RootStack leva ao Login) e não navega daqui', async () => {
++    server.use(
++      http.get(`${API_URL}/me`, () =>
++        HttpResponse.json(
++          { statusCode: 401, message: 'Unauthorized' },
++          { status: 401 },
++        ),
++      ),
++    );
++    const { result } = await renderBootError();
++
++    await act(() => result.current.onRetry());
++
++    expect(reset).not.toHaveBeenCalled();
++    expect(useSessionStore.getState()).toMatchObject({
++      status: 'signedOut',
++      signOutReason: 'expired',
++    });
++  });
++
++  it('SAIR encerra a sessão mesmo offline', async () => {
++    server.use(http.get(`${API_URL}/me`, () => HttpResponse.error()));
++    const { result } = await renderBootError();
++
++    await act(() => result.current.onLogout());
++
++    expect(useSessionStore.getState().status).toBe('signedOut');
++    expect(await createSecureStorage().getToken()).toBeNull();
++  });
++
++  it('sair da tela no meio do retry cancela o request e não navega', async () => {
++    server.use(
++      http.get(`${API_URL}/me`, async () => {
++        await new Promise<void>(resolve => {
++          setTimeout(resolve, 50);
++        });
++        return HttpResponse.json(meResponse);
++      }),
++    );
++    const { result, unmount } = await renderBootError();
++
++    let pending: Promise<void> = Promise.resolve();
++    await act(async () => {
++      pending = result.current.onRetry();
++    });
++    await unmount();
++    await pending;
++
++    expect(reset).not.toHaveBeenCalled();
++  });
++});
+diff --git a/mobile/src/features/splash/useBootErrorViewModel.ts b/mobile/src/features/splash/useBootErrorViewModel.ts
+new file mode 100644
+index 0000000..c7fc655
+--- /dev/null
++++ b/mobile/src/features/splash/useBootErrorViewModel.ts
+@@ -0,0 +1,65 @@
++import { useEffect, useRef, useState } from 'react';
++
++import type { RootStackScreenProps } from '../../navigation/types';
++import { ApiError } from '../../services/http/errors';
++import { motion } from '../../theme';
++import { loadMeOnBoot } from '../auth/api/loadMeOnBoot';
++import { useLogout } from '../auth/useLogout';
++
++type BootErrorNavigation = Pick<
++  RootStackScreenProps<'BootError'>['navigation'],
++  'reset'
++>;
++
++/**
++ * Erro de rede na abertura (01-design.md, 3.7). TENTAR DE NOVO refaz o `/me`
++ * como a splash (sem retry, com o timeout dela) e decide o destino: abas ou
++ * sem aluno. Falhou de novo: fica aqui e treme (4.8). 401: o interceptor
++ * encerra a sessão e o RootStack leva ao Login. SAIR funciona offline.
++ */
++export function useBootErrorViewModel(navigation: BootErrorNavigation) {
++  const { logout, loggingOut } = useLogout();
++  const [retrying, setRetrying] = useState(false);
++  const [failures, setFailures] = useState(0);
++  const inFlight = useRef<AbortController | null>(null);
++
++  useEffect(() => () => inFlight.current?.abort(), []);
++
++  const onRetry = async () => {
++    if (inFlight.current) return;
++    const controller = new AbortController();
++    inFlight.current = controller;
++    setRetrying(true);
++    try {
++      const me = await loadMeOnBoot({
++        timeoutMs: motion.splash.meTimeout,
++        signal: controller.signal,
++      });
++      if (controller.signal.aborted) return;
++      navigation.reset({
++        index: 0,
++        routes: [
++          me.students.length > 0
++            ? { name: 'App', params: { screen: 'Agenda' } }
++            : { name: 'NoStudent' },
++        ],
++      });
++    } catch (error) {
++      const kind = error instanceof ApiError ? error.kind : 'unknown';
++      if (kind === 'canceled' || kind === 'unauthorized') return;
++      setRetrying(false);
++      setFailures(count => count + 1);
++    } finally {
++      if (inFlight.current === controller) inFlight.current = null;
++    }
++  };
++
++  return {
++    onRetry,
++    retrying,
++    /** Muda a cada retry que falha: dispara o shake do ErrorState. */
++    shakeKey: failures,
++    onLogout: logout,
++    logoutDisabled: loggingOut,
++  };
++}
+diff --git a/mobile/src/features/students/NoStudentScreen.tsx b/mobile/src/features/students/NoStudentScreen.tsx
+index f5c5ff1..a0c2907 100644
+--- a/mobile/src/features/students/NoStudentScreen.tsx
++++ b/mobile/src/features/students/NoStudentScreen.tsx
+@@ -1,25 +1,34 @@
+-import { PlaceholderScreen } from '../../components/PlaceholderScreen';
+-import { useSessionStore } from '../../stores/session.store';
++import { EmptyState } from '../../components/EmptyState';
++import { Header } from '../../components/Header';
++import { Screen } from '../../components/Screen';
++import { strings } from '../../constants/strings';
++import { Box } from '../../theme';
++import { useNoStudentViewModel } from './useNoStudentViewModel';
+ 
+ /**
+- * Placeholder. A tela real (01-design.md, 3.6: barra com SAIR, saudação e
+- * EmptyState) é a Tarefa 10. A rota já existe porque a splash decide por ela.
++ * Responsável sem aluno vinculado (M7, 01-design.md 3.6): barra só com SAIR,
++ * saudação e o estado vazio com a ilustração do "sem aulas". Sem tab bar.
+  */
+ export function NoStudentScreen() {
+-  const signOut = useSessionStore(state => state.signOut);
++  const vm = useNoStudentViewModel();
+ 
+   return (
+-    <PlaceholderScreen
+-      testID="no-student-screen"
+-      title="Nenhum aluno vinculado"
+-      description="Não encontramos alunos ligados ao seu CPF. Fale com a secretaria da FIAP School para fazer o vínculo."
+-      actions={[
+-        {
+-          label: 'SAIR',
+-          testID: 'header-logout-button',
+-          onPress: () => signOut(),
+-        },
+-      ]}
+-    />
++    <Screen testID="no-student-screen">
++      <Header
++        guardianFirstName={vm.guardianFirstName}
++        canSwitchStudent={false}
++        onSwitchStudent={() => {}}
++        onLogout={vm.onLogout}
++        logoutDisabled={vm.logoutDisabled}
++      >
++        <Box marginTop="section" paddingBottom="xxl">
++          <EmptyState
++            testID="no-student-empty"
++            title={strings.noStudent.title}
++            description={strings.noStudent.description}
++          />
++        </Box>
++      </Header>
++    </Screen>
+   );
+ }
+diff --git a/mobile/src/features/students/SelectStudentScreen.tsx b/mobile/src/features/students/SelectStudentScreen.tsx
+index 4c2d88f..dc121d5 100644
+--- a/mobile/src/features/students/SelectStudentScreen.tsx
++++ b/mobile/src/features/students/SelectStudentScreen.tsx
+@@ -1,22 +1,120 @@
+-import { PlaceholderScreen } from '../../components/PlaceholderScreen';
++import { Pressable, ScrollView, StyleSheet } from 'react-native';
++import Animated, {
++  FadeIn,
++  FadeInDown,
++  ReduceMotion,
++} from 'react-native-reanimated';
++import { useSafeAreaInsets } from 'react-native-safe-area-context';
++
++import { CloseIcon } from '../../components/icons/CloseIcon';
++import { Screen } from '../../components/Screen';
++import { StudentCard } from '../../components/StudentCard';
++import { strings } from '../../constants/strings';
+ import type { RootStackScreenProps } from '../../navigation/types';
++import { Box, Text, useTheme } from '../../theme';
++import { useSelectStudentViewModel } from './useSelectStudentViewModel';
++
++/** Teto do stagger (01-design.md, 1.8): do 7º card em diante, sem atraso. */
++const MAX_STAGGERED = 6;
+ 
+-/** Placeholder. A seleção de aluno real (M6) é a Tarefa 10. */
++/**
++ * Seleção de aluno (R9, M6, 01-design.md 3.5): modal de tela cheia, fora do
++ * rodapé. FECHAR no topo direito; título e cards num bloco centralizado na
++ * vertical, que rola quando há muitos alunos.
++ */
+ export function SelectStudentScreen({
+   navigation,
+ }: RootStackScreenProps<'SelectStudent'>) {
++  const { colors, motion, sizes, spacing } = useTheme();
++  const insets = useSafeAreaInsets();
++  const vm = useSelectStudentViewModel(navigation);
++  const enterDown = (delay: number) =>
++    FadeInDown.duration(motion.base)
++      .delay(delay)
++      .easing(motion.easeOut)
++      .withInitialValues({
++        transform: [{ translateY: motion.enterOffsetSmall }],
++      })
++      .reduceMotion(ReduceMotion.System);
++
+   return (
+-    <PlaceholderScreen
+-      testID="select-student-screen"
+-      title="Escolha o perfil"
+-      description="Os cards dos alunos entram aqui."
+-      actions={[
+-        {
+-          label: 'FECHAR',
+-          testID: 'select-student-close-button',
+-          onPress: () => navigation.goBack(),
+-        },
+-      ]}
+-    />
++    <Screen testID="select-student-screen">
++      <ScrollView
++        style={styles.fill}
++        contentContainerStyle={[
++          styles.center,
++          { paddingHorizontal: spacing.m, paddingVertical: spacing.section },
++        ]}
++        showsVerticalScrollIndicator={false}
++      >
++        <Animated.View entering={enterDown(0)}>
++          <Text variant="title" accessibilityRole="header">
++            {strings.selectStudent.title}
++          </Text>
++        </Animated.View>
++        <Box gap="m" style={{ marginTop: spacing.section }}>
++          {vm.students.map((student, index) => (
++            <Animated.View
++              key={student.id}
++              entering={enterDown(
++                motion.stagger +
++                  Math.min(index, MAX_STAGGERED - 1) * motion.cardStagger,
++              )}
++            >
++              <StudentCard
++                testID={`select-student-card-${student.rm}`}
++                fullName={student.fullName}
++                rm={student.rm}
++                className={student.className}
++                period={student.period}
++                selected={student.selected}
++                onPress={() => vm.onSelect(student.id)}
++              />
++            </Animated.View>
++          ))}
++        </Box>
++      </ScrollView>
++      <Animated.View
++        testID="select-student-close"
++        // A Screen aplica a área segura no conteúdo, não no que é absoluto.
++        style={[
++          styles.close,
++          { top: insets.top + spacing.m, right: spacing.m },
++        ]}
++        entering={FadeIn.duration(motion.base)
++          .delay(motion.stagger)
++          .reduceMotion(ReduceMotion.System)}
++      >
++        <Pressable
++          testID="select-student-close-button"
++          accessibilityRole="button"
++          accessibilityLabel={strings.selectStudent.closeAccessibilityLabel}
++          onPress={vm.onClose}
++          hitSlop={spacing.s}
++        >
++          <Box
++            flexDirection="row"
++            alignItems="center"
++            gap="s"
++            minHeight={sizes.touchTarget}
++          >
++            <Text
++              variant="bodyBold"
++              color="primary"
++              maxFontSizeMultiplier={sizes.fixedHeightFontScale}
++            >
++              {strings.selectStudent.close}
++            </Text>
++            <CloseIcon color={colors.primary} size={sizes.icon} />
++          </Box>
++        </Pressable>
++      </Animated.View>
++    </Screen>
+   );
+ }
++
++const styles = StyleSheet.create({
++  fill: { flex: 1 },
++  center: { flexGrow: 1, justifyContent: 'center' },
++  close: { position: 'absolute' },
++});
+diff --git a/mobile/src/features/students/__tests__/SelectStudentScreen.test.tsx b/mobile/src/features/students/__tests__/SelectStudentScreen.test.tsx
+new file mode 100644
+index 0000000..af94328
+--- /dev/null
++++ b/mobile/src/features/students/__tests__/SelectStudentScreen.test.tsx
+@@ -0,0 +1,65 @@
++import { ThemeProvider } from '@shopify/restyle';
++import { render, screen } from '@testing-library/react-native';
++
++import { queryClient, queryKeys } from '../../../app/queryClient';
++import type { RootStackScreenProps } from '../../../navigation/types';
++import { useSessionStore } from '../../../stores/session.store';
++import { meResponse } from '../../../test/fixtures';
++import { QueryWrapper } from '../../../test/queryWrapper';
++import { theme } from '../../../theme';
++import { SelectStudentScreen } from '../SelectStudentScreen';
++
++const TOP_INSET = 47;
++
++jest.mock('react-native-safe-area-context', () => {
++  const mock = jest.requireActual(
++    'react-native-safe-area-context/jest/mock',
++  ).default;
++  return {
++    ...mock,
++    useSafeAreaInsets: () => ({ top: 47, bottom: 34, left: 0, right: 0 }),
++  };
++});
++
++type Props = RootStackScreenProps<'SelectStudent'>;
++
++describe('SelectStudentScreen', () => {
++  beforeEach(() => {
++    queryClient.clear();
++    queryClient.setQueryData(queryKeys.me(), meResponse);
++    useSessionStore.setState({ status: 'signedIn', selectedStudentId: 's1' });
++  });
++
++  const renderScreen = () =>
++    render(
++      <QueryWrapper>
++        <ThemeProvider theme={theme}>
++          <SelectStudentScreen
++            {...({ navigation: { goBack: jest.fn() } } as unknown as Props)}
++          />
++        </ThemeProvider>
++      </QueryWrapper>,
++    );
++
++  it('FECHAR fica abaixo da área segura de cima (não sobre a status bar)', async () => {
++    await renderScreen();
++
++    expect(screen.getByTestId('select-student-close')).toHaveStyle({
++      top: TOP_INSET + theme.spacing.m,
++      right: theme.spacing.m,
++    });
++    expect(
++      screen.getByTestId('select-student-close-button'),
++    ).toHaveAccessibleName('Fechar');
++  });
++
++  it('título e um card por aluno, com o atual selecionado', async () => {
++    await renderScreen();
++
++    expect(
++      screen.getByText('Escolha o perfil\nque você quer visualizar'),
++    ).toBeOnTheScreen();
++    expect(screen.getByTestId('select-student-card-12567')).toBeSelected();
++    expect(screen.getByTestId('select-student-card-12568')).not.toBeSelected();
++  });
++});
+diff --git a/mobile/src/features/students/__tests__/useNoStudentViewModel.test.tsx b/mobile/src/features/students/__tests__/useNoStudentViewModel.test.tsx
+new file mode 100644
+index 0000000..5f56bd9
+--- /dev/null
++++ b/mobile/src/features/students/__tests__/useNoStudentViewModel.test.tsx
+@@ -0,0 +1,37 @@
++import { act, renderHook } from '@testing-library/react-native';
++
++import { queryClient, queryKeys } from '../../../app/queryClient';
++import { useSessionStore } from '../../../stores/session.store';
++import { meWithoutStudents } from '../../../test/fixtures';
++import { QueryWrapper } from '../../../test/queryWrapper';
++import { useNoStudentViewModel } from '../useNoStudentViewModel';
++
++describe('useNoStudentViewModel', () => {
++  beforeEach(() => {
++    queryClient.clear();
++    queryClient.setQueryData(queryKeys.me(), meWithoutStudents);
++    useSessionStore.setState({ status: 'signedIn', signOutReason: null });
++  });
++
++  it('saúda o responsável pelo primeiro nome do /me', async () => {
++    const { result } = await renderHook(() => useNoStudentViewModel(), {
++      wrapper: QueryWrapper,
++    });
++
++    expect(result.current.guardianFirstName).toBe('Carlos');
++  });
++
++  it('SAIR encerra a sessão e desabilita o botão', async () => {
++    const { result } = await renderHook(() => useNoStudentViewModel(), {
++      wrapper: QueryWrapper,
++    });
++
++    expect(result.current.logoutDisabled).toBe(false);
++    await act(() => result.current.onLogout());
++
++    expect(useSessionStore.getState()).toMatchObject({
++      status: 'signedOut',
++      signOutReason: 'manual',
++    });
++  });
++});
+diff --git a/mobile/src/features/students/__tests__/useSelectStudentViewModel.test.tsx b/mobile/src/features/students/__tests__/useSelectStudentViewModel.test.tsx
+new file mode 100644
+index 0000000..71ea385
+--- /dev/null
++++ b/mobile/src/features/students/__tests__/useSelectStudentViewModel.test.tsx
+@@ -0,0 +1,129 @@
++import { act, renderHook } from '@testing-library/react-native';
++
++import { queryClient, queryKeys } from '../../../app/queryClient';
++import { useSessionStore } from '../../../stores/session.store';
++import { motion } from '../../../theme';
++import { meResponse } from '../../../test/fixtures';
++import { QueryWrapper } from '../../../test/queryWrapper';
++import { useSelectStudentViewModel } from '../useSelectStudentViewModel';
++
++/** Borda acende (fast) e o modal fecha 120 ms depois (01-design.md, 4.7). */
++const BACK_DELAY = motion.fast + motion.selectStudentBackDelay;
++
++describe('useSelectStudentViewModel', () => {
++  const goBack = jest.fn();
++
++  beforeEach(() => {
++    jest.useFakeTimers();
++    goBack.mockClear();
++    queryClient.clear();
++    queryClient.setQueryData(queryKeys.me(), meResponse);
++    useSessionStore.setState({
++      status: 'signedIn',
++      selectedStudentId: 's1',
++    });
++  });
++
++  afterEach(() => {
++    jest.useRealTimers();
++  });
++
++  const renderSelect = () =>
++    renderHook(() => useSelectStudentViewModel({ goBack }), {
++      wrapper: QueryWrapper,
++    });
++
++  it('lista os alunos com nome completo, RM, turma e período, marcando o atual', async () => {
++    const { result } = await renderSelect();
++
++    expect(result.current.students).toEqual([
++      {
++        id: 's1',
++        fullName: 'Rafael da Silva',
++        rm: 12567,
++        className: '7EF',
++        period: 'Matutino',
++        selected: true,
++      },
++      {
++        id: 's2',
++        fullName: 'Marina da Silva',
++        rm: 12568,
++        className: '3EF',
++        period: 'Vespertino',
++        selected: false,
++      },
++    ]);
++  });
++
++  it('escolher outro aluno marca o card na hora, troca no store e volta depois do atraso', async () => {
++    const { result } = await renderSelect();
++
++    await act(async () => result.current.onSelect('s2'));
++
++    expect(result.current.students.map(s => s.selected)).toEqual([false, true]);
++    expect(goBack).not.toHaveBeenCalled();
++    expect(useSessionStore.getState().selectedStudentId).toBe('s1');
++
++    await act(async () => {
++      jest.advanceTimersByTime(BACK_DELAY - 1);
++    });
++    expect(goBack).not.toHaveBeenCalled();
++
++    await act(async () => {
++      jest.advanceTimersByTime(1);
++    });
++    expect(useSessionStore.getState().selectedStudentId).toBe('s2');
++    expect(goBack).toHaveBeenCalledTimes(1);
++  });
++
++  it('escolher o aluno atual só fecha, sem mexer no store', async () => {
++    const original = useSessionStore.getState().selectStudent;
++    const setSpy = jest.fn(original);
++    useSessionStore.setState({ selectStudent: setSpy });
++    const { result, unmount } = await renderSelect();
++
++    await act(async () => result.current.onSelect('s1'));
++    await act(async () => {
++      jest.advanceTimersByTime(BACK_DELAY);
++    });
++
++    expect(goBack).toHaveBeenCalledTimes(1);
++    expect(setSpy).not.toHaveBeenCalled();
++    await unmount();
++    useSessionStore.setState({ selectStudent: original });
++  });
++
++  it('um 2º toque durante o atraso é ignorado', async () => {
++    const { result } = await renderSelect();
++
++    await act(async () => result.current.onSelect('s2'));
++    await act(async () => result.current.onSelect('s1'));
++    await act(async () => {
++      jest.advanceTimersByTime(BACK_DELAY);
++    });
++
++    expect(useSessionStore.getState().selectedStudentId).toBe('s2');
++    expect(goBack).toHaveBeenCalledTimes(1);
++  });
++
++  it('FECHAR volta sem trocar o aluno', async () => {
++    const { result } = await renderSelect();
++
++    await act(async () => result.current.onClose());
++
++    expect(goBack).toHaveBeenCalledTimes(1);
++    expect(useSessionStore.getState().selectedStudentId).toBe('s1');
++  });
++
++  it('se o modal sai durante o atraso (voltar do Android), não troca nem navega', async () => {
++    const { result, unmount } = await renderSelect();
++
++    await act(async () => result.current.onSelect('s2'));
++    await unmount();
++    jest.advanceTimersByTime(BACK_DELAY);
++
++    expect(goBack).not.toHaveBeenCalled();
++    expect(useSessionStore.getState().selectedStudentId).toBe('s1');
++  });
++});
+diff --git a/mobile/src/features/students/__tests__/useSessionStudent.test.tsx b/mobile/src/features/students/__tests__/useSessionStudent.test.tsx
+new file mode 100644
+index 0000000..589ef5f
+--- /dev/null
++++ b/mobile/src/features/students/__tests__/useSessionStudent.test.tsx
+@@ -0,0 +1,109 @@
++import { renderHook, waitFor } from '@testing-library/react-native';
++import { http, HttpResponse } from 'msw';
++
++import { queryClient, queryKeys } from '../../../app/queryClient';
++import { createSecureStorage } from '../../../services/storage/secureStorage';
++import { useSessionStore } from '../../../stores/session.store';
++import { API_URL, meResponse, meWithoutStudents } from '../../../test/fixtures';
++import { server } from '../../../test/msw/server';
++import { QueryWrapper } from '../../../test/queryWrapper';
++import { resolveSelectedStudent } from '../selectedStudent';
++import { useSessionStudent } from '../useSessionStudent';
++
++const [rafael, marina] = meResponse.students;
++
++describe('resolveSelectedStudent', () => {
++  it('devolve o aluno salvo quando ele está na lista', () => {
++    expect(resolveSelectedStudent(meResponse.students, 's2')).toBe(marina);
++  });
++
++  it('sem aluno salvo, usa o primeiro da ordem do /me', () => {
++    expect(resolveSelectedStudent(meResponse.students, null)).toBe(rafael);
++  });
++
++  it('aluno salvo que não está mais no /me cai no primeiro', () => {
++    expect(resolveSelectedStudent(meResponse.students, 'sumiu')).toBe(rafael);
++  });
++
++  it('sem alunos, não há aluno', () => {
++    expect(resolveSelectedStudent([], 's1')).toBeNull();
++  });
++});
++
++describe('useSessionStudent', () => {
++  beforeEach(async () => {
++    await useSessionStore.getState().signOut();
++    await createSecureStorage().setToken('jwt-salvo');
++    useSessionStore.setState({ status: 'signedIn' });
++    queryClient.clear();
++  });
++
++  const renderSessionStudent = () =>
++    renderHook(() => useSessionStudent(), { wrapper: QueryWrapper });
++
++  it('usa o /me do cache: responsável, alunos e o aluno salvo', async () => {
++    queryClient.setQueryData(queryKeys.me(), meResponse);
++    useSessionStore.setState({ selectedStudentId: 's2' });
++
++    const { result } = await renderSessionStudent();
++
++    expect(result.current.guardianFirstName).toBe('Gustavo');
++    expect(result.current.students).toEqual(meResponse.students);
++    expect(result.current.student).toEqual(marina);
++  });
++
++  it('sem aluno salvo, mostra o primeiro e grava a escolha no store', async () => {
++    queryClient.setQueryData(queryKeys.me(), meResponse);
++
++    const { result } = await renderSessionStudent();
++
++    expect(result.current.student).toEqual(rafael);
++    await waitFor(() =>
++      expect(useSessionStore.getState().selectedStudentId).toBe('s1'),
++    );
++  });
++
++  it('aluno salvo inválido é trocado pelo primeiro no store', async () => {
++    queryClient.setQueryData(queryKeys.me(), meResponse);
++    useSessionStore.setState({ selectedStudentId: 'de-outro-responsavel' });
++
++    const { result } = await renderSessionStudent();
++
++    expect(result.current.student).toEqual(rafael);
++    await waitFor(() =>
++      expect(useSessionStore.getState().selectedStudentId).toBe('s1'),
++    );
++  });
++
++  it('sem cache, busca o /me', async () => {
++    const { result } = await renderSessionStudent();
++
++    await waitFor(() => expect(result.current.student).toEqual(rafael));
++    expect(result.current.guardianFirstName).toBe('Gustavo');
++  });
++
++  it('responsável sem aluno: student nulo e nada gravado', async () => {
++    server.use(
++      http.get(`${API_URL}/me`, () => HttpResponse.json(meWithoutStudents)),
++    );
++    const { result } = await renderSessionStudent();
++
++    await waitFor(() =>
++      expect(result.current.guardianFirstName).toBe('Carlos'),
++    );
++    expect(result.current.student).toBeNull();
++    expect(result.current.students).toEqual([]);
++    expect(useSessionStore.getState().selectedStudentId).toBeNull();
++  });
++
++  it('primeiro nome do responsável sem sobrenome nem espaços', async () => {
++    queryClient.setQueryData(queryKeys.me(), {
++      ...meResponse,
++      firstName: '  Gustavo Henrique ',
++    });
++
++    const { result } = await renderSessionStudent();
++
++    expect(result.current.guardianFirstName).toBe('Gustavo');
++  });
++});
+diff --git a/mobile/src/features/students/selectedStudent.ts b/mobile/src/features/students/selectedStudent.ts
+new file mode 100644
+index 0000000..8041982
+--- /dev/null
++++ b/mobile/src/features/students/selectedStudent.ts
+@@ -0,0 +1,14 @@
++import type { Student } from '../auth/schemas';
++
++/**
++ * Aluno que o app mostra: o salvo, se ele ainda estiver no `/me`; senão o
++ * primeiro, na ordem do `/me`. `null` só quando o responsável não tem aluno.
++ */
++export function resolveSelectedStudent(
++  students: readonly Student[],
++  selectedId: string | null,
++): Student | null {
++  return (
++    students.find(student => student.id === selectedId) ?? students[0] ?? null
++  );
++}
+diff --git a/mobile/src/features/students/useNoStudentViewModel.ts b/mobile/src/features/students/useNoStudentViewModel.ts
+new file mode 100644
+index 0000000..c86ae28
+--- /dev/null
++++ b/mobile/src/features/students/useNoStudentViewModel.ts
+@@ -0,0 +1,14 @@
++import { useLogout } from '../auth/useLogout';
++import { useSessionStudent } from './useSessionStudent';
++
++/** Sem aluno vinculado (M7, 01-design.md 3.6): saudação e SAIR. */
++export function useNoStudentViewModel() {
++  const { guardianFirstName } = useSessionStudent();
++  const { logout, loggingOut } = useLogout();
++
++  return {
++    guardianFirstName,
++    onLogout: logout,
++    logoutDisabled: loggingOut,
++  };
++}
+diff --git a/mobile/src/features/students/useSelectStudentViewModel.ts b/mobile/src/features/students/useSelectStudentViewModel.ts
+new file mode 100644
+index 0000000..60c4fda
+--- /dev/null
++++ b/mobile/src/features/students/useSelectStudentViewModel.ts
+@@ -0,0 +1,64 @@
++import { useEffect, useRef, useState } from 'react';
++
++import type { RootStackScreenProps } from '../../navigation/types';
++import { useSessionStore } from '../../stores/session.store';
++import { motion } from '../../theme';
++import { fullName } from '../../utils/names';
++import { useSessionStudent } from './useSessionStudent';
++
++type SelectStudentNavigation = Pick<
++  RootStackScreenProps<'SelectStudent'>['navigation'],
++  'goBack'
++>;
++
++/** A borda do card acende e o modal fecha logo depois (01-design.md, 4.7). */
++const BACK_DELAY = motion.fast + motion.selectStudentBackDelay;
++
++/**
++ * Seleção de aluno (R9, M6). Escolher outro aluno marca o card na hora e,
++ * depois do atraso, troca o aluno no store e volta para a aba de origem, que
++ * já lê as queries do aluno novo (as keys levam o id). O aluno atual e o
++ * FECHAR só voltam.
++ */
++export function useSelectStudentViewModel(navigation: SelectStudentNavigation) {
++  const { students, student } = useSessionStudent();
++  const selectStudent = useSessionStore(state => state.selectStudent);
++  const [chosenId, setChosenId] = useState<string | null>(null);
++  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
++
++  useEffect(
++    () => () => {
++      if (timer.current) clearTimeout(timer.current);
++    },
++    [],
++  );
++
++  const selectedId = chosenId ?? student?.id ?? null;
++
++  const onSelect = (id: string) => {
++    if (chosenId !== null) return;
++    if (id === student?.id) {
++      navigation.goBack();
++      return;
++    }
++    setChosenId(id);
++    timer.current = setTimeout(() => {
++      timer.current = null;
++      selectStudent(id);
++      navigation.goBack();
++    }, BACK_DELAY);
++  };
++
++  return {
++    students: students.map(item => ({
++      id: item.id,
++      fullName: fullName(item.firstName, item.lastName),
++      rm: item.rm,
++      className: item.className,
++      period: item.period,
++      selected: item.id === selectedId,
++    })),
++    onSelect,
++    onClose: () => navigation.goBack(),
++  };
++}
+diff --git a/mobile/src/features/students/useSessionStudent.ts b/mobile/src/features/students/useSessionStudent.ts
+new file mode 100644
+index 0000000..81544ef
+--- /dev/null
++++ b/mobile/src/features/students/useSessionStudent.ts
+@@ -0,0 +1,37 @@
++import { useEffect } from 'react';
++
++import { useSessionStore } from '../../stores/session.store';
++import { firstName } from '../../utils/names';
++import { useMeQuery } from '../auth/api/useMeQuery';
++import type { Student } from '../auth/schemas';
++import { resolveSelectedStudent } from './selectedStudent';
++
++const NO_STUDENTS: readonly Student[] = [];
++
++/**
++ * Responsável e aluno em uso, a partir do `/me` (já em cache depois da splash
++ * ou do login) e do `selectedStudentId` do store. Quando o aluno salvo falta
++ * ou não é mais deste responsável, mostra o primeiro e grava a troca, para
++ * as queries por aluno usarem o mesmo id.
++ */
++export function useSessionStudent() {
++  const { data: me } = useMeQuery();
++  const selectedId = useSessionStore(state => state.selectedStudentId);
++  const selectStudent = useSessionStore(state => state.selectStudent);
++
++  const students = me?.students ?? NO_STUDENTS;
++  const student = resolveSelectedStudent(students, selectedId);
++  const studentId = student?.id ?? null;
++
++  useEffect(() => {
++    if (studentId !== null && studentId !== selectedId) {
++      selectStudent(studentId);
++    }
++  }, [studentId, selectedId, selectStudent]);
++
++  return {
++    guardianFirstName: me ? firstName(me.firstName) : '',
++    students,
++    student,
++  };
++}
+diff --git a/mobile/src/hooks/useShakeStyle.ts b/mobile/src/hooks/useShakeStyle.ts
+index 3671451..e08f788 100644
+--- a/mobile/src/hooks/useShakeStyle.ts
++++ b/mobile/src/hooks/useShakeStyle.ts
+@@ -3,33 +3,38 @@ import {
+   useAnimatedStyle,
+   useReducedMotion,
+   useSharedValue,
+   withSequence,
+   withTiming,
+ } from 'react-native-reanimated';
+ 
+ import { useTheme } from '../theme';
+ 
+ /**
+- * Shake horizontal (01-design.md, 4.2). Dispara cada vez que `trigger` muda
++ * Shake horizontal: `form` é o do login (01-design.md, 4.2) e `short` o do
++ * estado de erro quando o retry falha de novo (4.8). Dispara cada vez que `trigger` muda
+  * para um valor maior que zero. Com reduzir movimento não treme: quem avisa
+  * do erro é a mensagem.
+  */
+-export function useShakeStyle(trigger: number) {
++export function useShakeStyle(
++  trigger: number,
++  pattern: 'form' | 'short' = 'form',
++) {
+   const { motion } = useTheme();
++  const shake = pattern === 'short' ? motion.shakeShort : motion.shake;
+   const reducedMotion = useReducedMotion();
+   const offsetX = useSharedValue(0);
+ 
+   useEffect(() => {
+     if (trigger === 0 || reducedMotion) return;
+-    const { offsets, step } = motion.shake;
++    const { offsets, step } = shake;
+     offsetX.set(
+       withSequence(
+         ...offsets.map(offset => withTiming(offset, { duration: step })),
+       ),
+     );
+-  }, [trigger, reducedMotion, motion.shake, offsetX]);
++  }, [trigger, reducedMotion, shake, offsetX]);
+ 
+   return useAnimatedStyle(() => ({
+     transform: [{ translateX: offsetX.get() }],
+   }));
+ }
+diff --git a/mobile/src/navigation/AppTabs.tsx b/mobile/src/navigation/AppTabs.tsx
+index 4a802f0..c82fad4 100644
+--- a/mobile/src/navigation/AppTabs.tsx
++++ b/mobile/src/navigation/AppTabs.tsx
+@@ -1,44 +1,56 @@
+-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
++import {
++  createBottomTabNavigator,
++  type BottomTabBarProps,
++} from '@react-navigation/bottom-tabs';
+ 
++import { AgendaIcon } from '../components/icons/AgendaIcon';
++import { BoletimIcon } from '../components/icons/BoletimIcon';
++import { TabBar } from '../components/TabBar';
++import { strings } from '../constants/strings';
+ import { LessonsScreen } from '../features/lessons/LessonsScreen';
+ import { ReportCardScreen } from '../features/report-card/ReportCardScreen';
+-import { useTheme } from '../theme';
+ import type { AppTabsParamList } from './types';
+ 
+ const Tab = createBottomTabNavigator<AppTabsParamList>();
+ 
+-/**
+- * Abas Agenda e Boletim. A tab bar customizada do Figma entra na Tarefa 10;
+- * aqui só as cores do tema na tab bar padrão.
+- */
+-export function AppTabs() {
+-  const { colors, sizes } = useTheme();
++const renderTabBar = (props: BottomTabBarProps) => <TabBar {...props} />;
++
++type TabIconProps = { color: string; size: number };
+ 
++const agendaIcon = ({ color, size }: TabIconProps) => (
++  <AgendaIcon color={color} size={size} />
++);
++const boletimIcon = ({ color, size }: TabIconProps) => (
++  <BoletimIcon color={color} size={size} />
++);
++
++/** Abas Agenda e Boletim com a tab bar do Figma (01-design.md, 2.4 e 4.4). */
++export function AppTabs() {
+   return (
+     <Tab.Navigator
+-      screenOptions={{
+-        headerShown: false,
+-        animation: 'fade',
+-        tabBarIcon: () => null,
+-        tabBarActiveTintColor: colors.primary,
+-        tabBarInactiveTintColor: colors.text,
+-        tabBarStyle: {
+-          backgroundColor: colors.surface,
+-          borderTopWidth: 0,
+-          minHeight: sizes.tabBar,
+-        },
+-      }}
++      tabBar={renderTabBar}
++      screenOptions={{ headerShown: false, animation: 'fade' }}
+     >
+       <Tab.Screen
+         name="Agenda"
+         component={LessonsScreen}
+-        options={{ tabBarButtonTestID: 'tab-agenda', title: 'AGENDA' }}
++        options={{
++          title: strings.tabs.agenda,
++          tabBarAccessibilityLabel: strings.tabs.agendaAccessibilityLabel,
++          tabBarButtonTestID: 'tab-agenda',
++          tabBarIcon: agendaIcon,
++        }}
+       />
+       <Tab.Screen
+         name="Boletim"
+         component={ReportCardScreen}
+-        options={{ tabBarButtonTestID: 'tab-boletim', title: 'BOLETIM' }}
++        options={{
++          title: strings.tabs.boletim,
++          tabBarAccessibilityLabel: strings.tabs.boletimAccessibilityLabel,
++          tabBarButtonTestID: 'tab-boletim',
++          tabBarIcon: boletimIcon,
++        }}
+       />
+     </Tab.Navigator>
+   );
+ }
+diff --git a/mobile/src/navigation/RootStack.tsx b/mobile/src/navigation/RootStack.tsx
+index 2d87e23..6e62889 100644
+--- a/mobile/src/navigation/RootStack.tsx
++++ b/mobile/src/navigation/RootStack.tsx
+@@ -1,83 +1,108 @@
++import { useQueryClient } from '@tanstack/react-query';
+ import {
+   createNativeStackNavigator,
+   type NativeStackNavigationOptions,
+ } from '@react-navigation/native-stack';
+ 
+ import { LoginScreen } from '../features/auth/LoginScreen';
+ import { BootErrorScreen } from '../features/splash/BootErrorScreen';
+ import { SplashScreen } from '../features/splash/SplashScreen';
+ import { NoStudentScreen } from '../features/students/NoStudentScreen';
+ import { SelectStudentScreen } from '../features/students/SelectStudentScreen';
++import { queryKeys } from '../app/queryClient';
++import type { Me } from '../features/auth/schemas';
+ import { useBootStore } from '../stores/boot.store';
+ import { useSessionStore } from '../stores/session.store';
+ import { useTheme } from '../theme';
+ import { AppTabs } from './AppTabs';
+ import type { RootStackParamList } from './types';
+ 
+ const Stack = createNativeStackNavigator<RootStackParamList>();
+ 
+ /** Quem vem do fim da splash entra sem a animação do stack (a splash já saiu). */
+ const fromSplashOptions = ({
+   route,
+ }: {
+   route: { params?: { fromSplash?: boolean } };
+ }): NativeStackNavigationOptions =>
+   route.params?.fromSplash ? { animation: 'none' } : {};
+ 
++/**
++ * Primeira tela do grupo autenticado quando a sessão abre pelo login: o
++ * `useLoginMutation` grava o `/me` no cache antes de abrir a sessão, então
++ * responsável sem aluno vai direto ao NoStudent (M7). Vindo da splash, quem
++ * decide é o `reset` dela.
++ */
++function useAuthenticatedLanding(): 'App' | 'NoStudent' {
++  const me = useQueryClient().getQueryData<Me>(queryKeys.me());
++  return me && me.students.length === 0 ? 'NoStudent' : 'App';
++}
++
+ /**
+  * Stack raiz. A splash é a primeira rota até entregar o app a outra tela
+  * (`reset`) e depois sai da lista. Fora isso, a sessão decide as telas: sem
+  * sessão só existe o Login; com sessão, as abas, a seleção de aluno e os
+  * estados de início. Quando o logout ou um 401 encerra a sessão, o React
+  * Navigation troca para o Login sozinho.
+  */
+ export function RootStack() {
+   const { colors } = useTheme();
+   const signedIn = useSessionStore(state => state.status === 'signedIn');
+   const splashDone = useBootStore(state => state.splashDone);
++  const landing = useAuthenticatedLanding();
++
++  const noStudent = (
++    <Stack.Screen
++      name="NoStudent"
++      component={NoStudentScreen}
++      options={fromSplashOptions}
++    />
++  );
+ 
+   return (
+     <Stack.Navigator
+       screenOptions={{
+         headerShown: false,
+         animation: 'fade',
+         contentStyle: { backgroundColor: colors.background },
+       }}
+     >
+       {splashDone ? null : (
+         <Stack.Screen
+           name="Splash"
+           component={SplashScreen}
+           options={{ animation: 'none' }}
+         />
+       )}
+       {signedIn ? (
+         <>
++          {/*
++           * Na troca Login → autenticado o stack recomeça na 1ª rota
++           * declarada (o router guarda o initialRouteName do 1º render, que é
++           * a splash). Por isso o destino vem primeiro.
++           */}
++          {landing === 'NoStudent' ? noStudent : null}
+           <Stack.Screen
+             name="App"
+             component={AppTabs}
+             options={fromSplashOptions}
+           />
+           <Stack.Screen
+             name="SelectStudent"
+             component={SelectStudentScreen}
+             options={{
+               presentation: 'fullScreenModal',
+               animation: 'slide_from_bottom',
+             }}
+           />
+-          <Stack.Screen
+-            name="NoStudent"
+-            component={NoStudentScreen}
+-            options={fromSplashOptions}
+-          />
++          {landing === 'NoStudent' ? null : noStudent}
+           <Stack.Screen
+             name="BootError"
+             component={BootErrorScreen}
+             options={fromSplashOptions}
+           />
+         </>
+       ) : (
+         <Stack.Screen
+           name="Login"
+           component={LoginScreen}
+diff --git a/mobile/src/services/http/__tests__/client.test.ts b/mobile/src/services/http/__tests__/client.test.ts
+index 573e8e1..9050038 100644
+--- a/mobile/src/services/http/__tests__/client.test.ts
++++ b/mobile/src/services/http/__tests__/client.test.ts
+@@ -35,20 +35,48 @@ describe('http client', () => {
+       mswHttp.get(`${API_URL}/me`, ({ request }) => {
+         authorization = request.headers.get('authorization');
+         return HttpResponse.json({});
+       }),
+     );
+ 
+     await http.get('/me');
+     expect(authorization).toBe('Bearer jwt-1');
+   });
+ 
++  it('Authorization explícito no request (token recém-emitido) não é trocado pelo da memória', async () => {
++    await signedIn('jwt-antigo');
++    let authorization: string | null = null;
++    server.use(
++      mswHttp.get(`${API_URL}/me`, ({ request }) => {
++        authorization = request.headers.get('authorization');
++        return HttpResponse.json({});
++      }),
++    );
++
++    await http.get('/me', { headers: { Authorization: 'Bearer jwt-novo' } });
++    expect(authorization).toBe('Bearer jwt-novo');
++  });
++
++  it('401 com token explícito diferente do da sessão não derruba a sessão', async () => {
++    await signedIn('jwt-1');
++    server.use(
++      mswHttp.get(`${API_URL}/me`, () =>
++        HttpResponse.json({ statusCode: 401 }, { status: 401 }),
++      ),
++    );
++
++    await expect(
++      http.get('/me', { headers: { Authorization: 'Bearer outro' } }),
++    ).rejects.toMatchObject({ kind: 'unauthorized' });
++    expect(useSessionStore.getState().status).toBe('signedIn');
++  });
++
+   it('sem token não manda Authorization', async () => {
+     let authorization: string | null = 'x';
+     server.use(
+       mswHttp.get(`${API_URL}/me`, ({ request }) => {
+         authorization = request.headers.get('authorization');
+         return HttpResponse.json({});
+       }),
+     );
+ 
+     await http.get('/me');
+diff --git a/mobile/src/services/http/interceptors.ts b/mobile/src/services/http/interceptors.ts
+index 4e174a2..39f6d93 100644
+--- a/mobile/src/services/http/interceptors.ts
++++ b/mobile/src/services/http/interceptors.ts
+@@ -57,21 +57,25 @@ export function attachInterceptors(
+     const url = config?.url ?? '';
+     const meta = config ? requestMeta.get(config) : undefined;
+     return {
+       method,
+       url,
+       durationMs: meta === undefined ? undefined : now() - meta.startedAt,
+     };
+   };
+ 
+   instance.interceptors.request.use(async config => {
+-    const token = isPublic(config) ? null : await getToken();
++    // Um Authorization explícito (o token recém-emitido no login, antes de a
++    // sessão abrir) vale mais que o da memória e não é da sessão atual: um
++    // 401 dele não encerra a sessão.
++    const explicit = config.headers.has('Authorization');
++    const token = isPublic(config) || explicit ? null : await getToken();
+     requestMeta.set(config, { startedAt: now(), token });
+     if (token) {
+       config.headers.set('Authorization', `Bearer ${token}`);
+     }
+     return config;
+   });
+ 
+   instance.interceptors.response.use(
+     (response: AxiosResponse) => {
+       const request = describe(response.config);
+diff --git a/mobile/src/theme/motion.ts b/mobile/src/theme/motion.ts
+index 3be99cf..b518f26 100644
+--- a/mobile/src/theme/motion.ts
++++ b/mobile/src/theme/motion.ts
+@@ -11,20 +11,28 @@ export const motion = {
+   easeOut: Easing.out(Easing.cubic),
+   easeIn: Easing.in(Easing.cubic),
+   press: { damping: 18, stiffness: 260, mass: 1 },
+   /** Escala do botão pressionado. */
+   pressScale: 0.98,
+   /** Deslocamento das entradas `FadeInDown` (campos do login e erro). */
+   enterOffset: 12,
+   enterOffsetSmall: 8,
+   /** Shake do formulário em erro (01-design.md, 4.2): 6 passos de 50 ms. */
+   shake: { offsets: [-10, 10, -8, 8, -4, 0], step: 50 },
++  /** Shake curto do estado de erro quando o retry falha de novo (4.8). */
++  shakeShort: { offsets: [-6, 6, -3, 0], step: 50 },
++  /** Seleção de aluno: o modal fecha 120 ms depois da borda acender (4.7). */
++  selectStudentBackDelay: 120,
++  /** Atraso entre cards da seleção de aluno (4.7). */
++  cardStagger: 60,
++  /** Ícone da aba que ficou ativa: 1 → 1.12 → 1 (4.4). */
++  tabIconPop: 1.12,
+   /** Splash animada (01-design.md, 3.1.3 a 3.1.6). */
+   splash: {
+     minDuration: 1200,
+     minDurationReduced: 600,
+     loopStartAt: 1500,
+     hardTimeout: 10_000,
+     meTimeout: 8000,
+     wipe: { delay: 80, duration: 600 },
+     wipeEasing: Easing.bezier(0.65, 0, 0.35, 1),
+     scanFadeIn: 80,

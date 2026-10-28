@@ -1,0 +1,265 @@
+b3c9dc0 chore(deps): atualiza yarn.lock para husky ^9.1.7
+7e73352 chore(ci): fixa packageManager yarn 1 e documenta troubleshooting
+45dcc6f chore(ci): husky, commitlint e lint-staged na raiz
+ .editorconfig                    |  12 +
+ .github/workflows/commitlint.yml |  19 ++
+ .gitignore                       |   2 +
+ .husky/commit-msg                |   1 +
+ .husky/pre-commit                |   1 +
+ .lintstagedrc.js                 |  28 +++
+ .nvmrc                           |   1 +
+ CLAUDE.md                        |   6 +-
+ README.md                        |  48 ++++
+ commitlint.config.js             |  13 +
+ package.json                     |  18 ++
+ yarn.lock                        | 515 +++++++++++++++++++++++++++++++++++++++
+ 12 files changed, 660 insertions(+), 4 deletions(-)
+diff --git a/.editorconfig b/.editorconfig
+new file mode 100644
+index 0000000..8c52ff9
+--- /dev/null
++++ b/.editorconfig
+@@ -0,0 +1,12 @@
++root = true
++
++[*]
++charset = utf-8
++end_of_line = lf
++indent_style = space
++indent_size = 2
++insert_final_newline = true
++trim_trailing_whitespace = true
++
++[*.md]
++trim_trailing_whitespace = false
+diff --git a/.github/workflows/commitlint.yml b/.github/workflows/commitlint.yml
+new file mode 100644
+index 0000000..7ac1be4
+--- /dev/null
++++ b/.github/workflows/commitlint.yml
+@@ -0,0 +1,19 @@
++name: commitlint
++
++on:
++  pull_request:
++
++jobs:
++  commitlint:
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++        with:
++          fetch-depth: 0
++      - uses: actions/setup-node@v4
++        with:
++          node-version-file: .nvmrc
++          cache: yarn
++      - run: yarn install --frozen-lockfile
++      - name: Valida as mensagens dos commits do PR
++        run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+diff --git a/.gitignore b/.gitignore
+index e2ca00e..65cfaf4 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,9 +1,11 @@
+ # graft's local graph cache — regenerable, not committed (run `graft build`).
+ /graft/
+ 
+ # macOS
+ .DS_Store
+ 
+ # Claude Code: configurações pessoais de cada máquina
+ .claude/settings.local.json
+ .claude/worktrees/
++
++node_modules/
+diff --git a/.husky/commit-msg b/.husky/commit-msg
+new file mode 100755
+index 0000000..00fe3c8
+--- /dev/null
++++ b/.husky/commit-msg
+@@ -0,0 +1 @@
++yarn commitlint --edit "$1"
+diff --git a/.husky/pre-commit b/.husky/pre-commit
+new file mode 100755
+index 0000000..2312dc5
+--- /dev/null
++++ b/.husky/pre-commit
+@@ -0,0 +1 @@
++npx lint-staged
+diff --git a/.lintstagedrc.js b/.lintstagedrc.js
+new file mode 100644
+index 0000000..2a4a06d
+--- /dev/null
++++ b/.lintstagedrc.js
+@@ -0,0 +1,28 @@
++const fs = require('node:fs');
++const path = require('node:path');
++
++const root = __dirname;
++
++/**
++ * Roda eslint --fix e prettier --write nos arquivos staged de uma pasta
++ * (api/ ou mobile/), com os binários da própria pasta. Se a pasta ou o
++ * node_modules dela ainda não existe, ignora sem falhar.
++ */
++function forPackage(dir, files) {
++  const pkgDir = path.join(root, dir);
++  if (!fs.existsSync(path.join(pkgDir, 'package.json'))) return [];
++  if (!fs.existsSync(path.join(pkgDir, 'node_modules', '.bin'))) {
++    console.warn(`lint-staged: ${dir}/node_modules ausente, arquivos ignorados`);
++    return [];
++  }
++  const args = files.map((f) => JSON.stringify(f)).join(' ');
++  return [
++    `yarn --cwd ${dir} eslint --fix ${args}`,
++    `yarn --cwd ${dir} prettier --write ${args}`,
++  ];
++}
++
++module.exports = {
++  'api/**/*.{ts,tsx,js,jsx}': (files) => forPackage('api', files),
++  'mobile/**/*.{ts,tsx,js,jsx}': (files) => forPackage('mobile', files),
++};
+diff --git a/.nvmrc b/.nvmrc
+new file mode 100644
+index 0000000..a45fd52
+--- /dev/null
++++ b/.nvmrc
+@@ -0,0 +1 @@
++24
+diff --git a/CLAUDE.md b/CLAUDE.md
+index d5e6171..f8d4ac2 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -18,31 +18,29 @@ JSON do enunciado. Projeto desenvolvido com IA por SDD (Spec-Driven Development)
+ ## Como o time trabalha (`/squad`)
+ 
+ - `/squad <pedido>` coloca a sessão no papel de **chief**, que orquestra os agents
+   `designer`, `developer`, `code-reviewer`, `cyber-security` e `qa`
+   (`.claude/agents/`).
+ - Regra comum de todos: `.claude/team/PROTOCOLO.md`.
+ - As skills usadas pelos agents ficam em `.claude/skills/` e são versionadas
+   aqui, então não é preciso instalar plugin em outra máquina.
+ - Abra o Claude Code **na raiz deste repositório**: os caminhos dos agents são
+   relativos a ela.
+-- Os textos dos agents e do protocolo foram copiados do projeto Safety Swap e
+-  ainda citam Safety Swap, Heroku, EAS e `master`. A adaptação é a Tarefa 1 do
+-  plano. Até lá, onde houver conflito, vale este arquivo e o `00-brief.md`
+-  (branch padrão `main`, sem deploy em loja).
+ 
+ ## Stack (resumo do brief)
+ 
+ - `mobile/`: React Native CLI, TypeScript, Restyle, MVVM, React Navigation,
+   TanStack Query, zustand (estado global), zod (validação), react-hook-form,
+   reanimated, Jest + Testing Library, Maestro.
+ - `api/`: NestJS, Prisma + SQLite (migrations + seed), JWT, class-validator,
+   controllers → use cases (um `.spec.ts` por use case), testes unitários e e2e,
+   Swagger.
+ - Raiz: yarn, husky + commitlint (conventional commits), GitHub Actions.
+ 
+ ## Regras
+ 
+ - Commits conventional, em português (`feat(mobile): ...`, `fix(api): ...`).
+ - Nunca commitar na `main` direto depois do commit inicial: branch + PR, e o
+   merge é do usuário.
+ - Nunca logar token, senha ou CPF completo.
++- Hooks do husky na raiz: `commit-msg` valida a mensagem (commitlint) e `pre-commit` roda
++  lint-staged (eslint + prettier em `api/` e `mobile/`). Rode `yarn install` na raiz para ativá-los.
+diff --git a/README.md b/README.md
+new file mode 100644
+index 0000000..ea24f53
+--- /dev/null
++++ b/README.md
+@@ -0,0 +1,48 @@
++# FIAP School
++
++Teste técnico de Mobile da FIAP School: app para os responsáveis dos alunos
++acompanharem as aulas do dia e o boletim anual (notas e faltas), com uma API
++própria em NestJS no lugar do JSON do enunciado.
++
++## Stack
++
++_A preencher._
++
++## Como rodar a API
++
++_A preencher._
++
++## Como rodar o app
++
++_A preencher._
++
++## Testes
++
++_A preencher._
++
++## Como foi construído com IA (SDD)
++
++O projeto foi desenvolvido com Spec-Driven Development: um time de agents
++(chief, designer, developer, code-reviewer, cyber-security e qa) trabalhou a
++partir de uma spec aprovada.
++
++- Agents, protocolo e skills: [`.claude/`](.claude/)
++- Spec, plano, ledger, reviews e relatórios de cada tarefa:
++  [`.claude/team/tarefas/`](.claude/team/tarefas/)
++
++## Credenciais de teste
++
++| Responsável | CPF | Senha |
++|---|---|---|
++| Gustavo | 969.294.560-04 | 123456 |
++| Adelaide | 508.795.670-07 | 987654 |
++| Carlos (sem aluno) | _a definir_ | _a definir_ |
++
++## Troubleshooting
++
++**`yarn` roda o yarn 3 (ou reclama de `packageManager`/"part of the project").**
++O yarn sobe a árvore de pastas e obedece o primeiro `.yarnrc.yml`/`package.json`
++que achar. Se existir um projeto yarn 3 em uma pasta acima deste repositório
++(ex.: `~/workspace/.yarnrc.yml` com `yarnPath`), ele captura o yarn. Este repo
++usa yarn 1.22 (`packageManager` no `package.json`). Contorno, sem mexer fora do
++repo: `YARN_IGNORE_PATH=1 yarn install` (e o mesmo prefixo nos demais comandos).
+diff --git a/commitlint.config.js b/commitlint.config.js
+new file mode 100644
+index 0000000..687f8b0
+--- /dev/null
++++ b/commitlint.config.js
+@@ -0,0 +1,13 @@
++/** Conventional commits em português; escopos conhecidos geram aviso, não erro. */
++module.exports = {
++  extends: ['@commitlint/config-conventional'],
++  rules: {
++    'scope-enum': [
++      1,
++      'always',
++      ['api', 'mobile', 'ci', 'docs', 'spec', 'squad', 'deps', 'release'],
++    ],
++    // as mensagens são em português (nomes próprios, siglas): sem regra de caixa
++    'subject-case': [0],
++  },
++};
+diff --git a/package.json b/package.json
+new file mode 100644
+index 0000000..b01e67b
+--- /dev/null
++++ b/package.json
+@@ -0,0 +1,18 @@
++{
++  "name": "fiap-school",
++  "version": "1.0.0",
++  "private": true,
++  "license": "UNLICENSED",
++  "packageManager": "yarn@1.22.22",
++  "description": "Teste técnico FIAP School: tooling da raiz (husky, commitlint, lint-staged)",
++  "scripts": {
++    "prepare": "husky",
++    "commitlint": "commitlint"
++  },
++  "devDependencies": {
++    "@commitlint/cli": "^21.2.4",
++    "@commitlint/config-conventional": "^21.2.4",
++    "husky": "^9.1.7",
++    "lint-staged": "^17.6.0"
++  }
++}
