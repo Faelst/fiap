@@ -4,6 +4,7 @@ import Animated, {
   FadeInDown,
   ReduceMotion,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CloseIcon } from '../../components/icons/CloseIcon';
 import { Screen } from '../../components/Screen';
@@ -25,6 +26,7 @@ export function SelectStudentScreen({
   navigation,
 }: RootStackScreenProps<'SelectStudent'>) {
   const { colors, motion, sizes, spacing } = useTheme();
+  const insets = useSafeAreaInsets();
   const vm = useSelectStudentViewModel(navigation);
   const enterDown = (delay: number) =>
     FadeInDown.duration(motion.base)
@@ -73,7 +75,12 @@ export function SelectStudentScreen({
         </Box>
       </ScrollView>
       <Animated.View
-        style={[styles.close, { top: spacing.m, right: spacing.m }]}
+        testID="select-student-close"
+        // A Screen aplica a área segura no conteúdo, não no que é absoluto.
+        style={[
+          styles.close,
+          { top: insets.top + spacing.m, right: spacing.m },
+        ]}
         entering={FadeIn.duration(motion.base)
           .delay(motion.stagger)
           .reduceMotion(ReduceMotion.System)}
