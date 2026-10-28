@@ -1,57 +1,73 @@
-import Animated, { FadeOut, ReduceMotion } from 'react-native-reanimated';
-
 import { strings } from '../constants/strings';
-import { useSkeletonPulse } from '../hooks/useSkeletonPulse';
 import { Box, useTheme } from '../theme';
-import { Skeleton } from './Skeleton';
+import { Skeleton, SkeletonGroup } from './Skeleton';
 
 type BoletimSkeletonProps = {
   testID: string;
-  /** `false` na troca de ano: o dropdown real continua na tela. */
-  withDropdown?: boolean;
+  /** `false` na troca de ano: o segmento de ano real continua na tela. */
+  withYear?: boolean;
 };
 
-const TERMS = [1, 2, 3];
+const SUBJECTS = [0, 1, 2, 3];
 
 /**
- * Carregamento do Boletim (01-design.md, 2.13): o dropdown e os 3 cards de
- * trimestre. Para o leitor é um só "Carregando boletim".
+ * Carregamento do Boletim (01-design.md da v2, 2.16): o segmento de ano
+ * (60 %), o de trimestre, o card de resumo e 4 cards de disciplina, com o
+ * shimmer. Para o leitor é um só "Carregando boletim…".
  */
 export function BoletimSkeleton({
   testID,
-  withDropdown = true,
+  withYear = true,
 }: BoletimSkeletonProps) {
-  const { motion, sizes } = useTheme();
-  const pulse = useSkeletonPulse();
+  const { sizes } = useTheme();
+  const { skeletonSummary, skeletonSubject, skeletonYearWidth } =
+    sizes.reportCard;
 
   return (
-    <Animated.View
+    <Box
       testID={testID}
       accessible
       accessibilityRole="progressbar"
       accessibilityLabel={strings.boletim.loadingAccessibilityLabel}
-      exiting={FadeOut.duration(motion.fast).reduceMotion(ReduceMotion.System)}
     >
-      {/* O pulso fica num filho: a saída (layout animation) também mexe na opacidade. */}
-      <Animated.View style={pulse}>
+      <SkeletonGroup>
         <Box
           testID={`${testID}-blocks`}
           importantForAccessibility="no-hide-descendants"
           marginHorizontal="m"
-          gap="m"
+          gap="s"
         >
-          {withDropdown ? (
-            <Skeleton testID={`${testID}-dropdown`} height={sizes.dropdown} />
-          ) : null}
-          {TERMS.map(term => (
+          {withYear ? (
             <Skeleton
-              key={term}
-              testID={`${testID}-term-${term}`}
-              height={sizes.termCard}
+              testID={`${testID}-year`}
+              radius="pill"
+              width={skeletonYearWidth}
+              height={sizes.segmented.sm}
+              marginBottom="xs"
+            />
+          ) : null}
+          <Skeleton
+            testID={`${testID}-term`}
+            radius="pill"
+            height={sizes.segmented.md}
+            marginBottom="s"
+          />
+          <Skeleton
+            testID={`${testID}-summary`}
+            radius="l"
+            height={skeletonSummary}
+            marginBottom="m"
+          />
+          {SUBJECTS.map(index => (
+            <Skeleton
+              key={index}
+              testID={`${testID}-subject-${index}`}
+              radius="m"
+              height={skeletonSubject}
             />
           ))}
         </Box>
-      </Animated.View>
-    </Animated.View>
+      </SkeletonGroup>
+    </Box>
   );
 }

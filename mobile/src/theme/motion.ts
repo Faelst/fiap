@@ -70,8 +70,8 @@ export const motion = {
   cardStagger: 50,
   /** Atraso entre os 7 chips da faixa semanal (120 ms no total). */
   stripStagger: 20,
-  /** Atraso entre disciplinas na 1ª abertura do trimestre (4.6). */
-  subjectStagger: 20,
+  /** Atraso entre os cards de disciplina do Boletim (4.5). */
+  subjectStagger: 30,
   /** Ícone da aba que ficou ativa: 1 → 1.12 → 1 (4.4). */
   tabIconPop: 1.12,
   /** Splash animada (01-design.md, 3.1.3 a 3.1.6). */

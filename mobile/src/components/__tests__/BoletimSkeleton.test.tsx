@@ -10,7 +10,7 @@ describe('BoletimSkeleton', () => {
 
     const skeleton = screen.getByTestId('boletim-skeleton');
     expect(skeleton).toHaveProp('accessibilityRole', 'progressbar');
-    expect(skeleton).toHaveAccessibleName('Carregando boletim');
+    expect(skeleton).toHaveAccessibleName('Carregando boletim…');
     expect(
       screen.getByTestId('boletim-skeleton-blocks', {
         includeHiddenElements: true,
@@ -18,38 +18,39 @@ describe('BoletimSkeleton', () => {
     ).toHaveProp('importantForAccessibility', 'no-hide-descendants');
   });
 
-  it('um bloco do tamanho do dropdown e 3 cards de trimestre', async () => {
+  it('segmento de ano, de trimestre, o resumo e 4 cards de disciplina', async () => {
     await renderWithTheme(<BoletimSkeleton testID="boletim-skeleton" />);
 
-    expect(
-      screen.getByTestId('boletim-skeleton-dropdown', {
-        includeHiddenElements: true,
-      }),
-    ).toHaveStyle({
-      height: theme.sizes.dropdown,
+    const hidden = { includeHiddenElements: true };
+    expect(screen.getByTestId('boletim-skeleton-year', hidden)).toHaveStyle({
+      height: theme.sizes.segmented.sm,
       backgroundColor: theme.colors.surfaceHigh,
     });
-    const terms = screen.getAllByTestId(/^boletim-skeleton-term-\d$/, {
-      includeHiddenElements: true,
+    expect(screen.getByTestId('boletim-skeleton-term', hidden)).toHaveStyle({
+      height: theme.sizes.segmented.md,
     });
-    expect(terms).toHaveLength(3);
-    expect(terms[0]).toHaveStyle({ height: theme.sizes.termCard });
+    expect(screen.getByTestId('boletim-skeleton-summary', hidden)).toHaveStyle({
+      height: theme.sizes.reportCard.skeletonSummary,
+    });
+    expect(
+      screen.getAllByTestId(/^boletim-skeleton-subject-\d$/, hidden),
+    ).toHaveLength(4);
   });
 
-  it('na troca de ano, só os cards (o dropdown fica na tela)', async () => {
+  it('na troca de ano, sem o segmento de ano (o real fica na tela)', async () => {
     await renderWithTheme(
-      <BoletimSkeleton testID="boletim-skeleton" withDropdown={false} />,
+      <BoletimSkeleton testID="boletim-skeleton" withYear={false} />,
     );
 
     expect(
-      screen.queryByTestId('boletim-skeleton-dropdown', {
+      screen.queryByTestId('boletim-skeleton-year', {
         includeHiddenElements: true,
       }),
     ).toBeNull();
     expect(
-      screen.getAllByTestId(/^boletim-skeleton-term-\d$/, {
+      screen.getByTestId('boletim-skeleton-term', {
         includeHiddenElements: true,
       }),
-    ).toHaveLength(3);
+    ).toBeOnTheScreen();
   });
 });

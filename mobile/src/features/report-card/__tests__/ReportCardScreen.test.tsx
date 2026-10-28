@@ -80,7 +80,7 @@ describe('ReportCardScreen', () => {
 
   const press = (testID: string) => fireEvent.press(screen.getByTestId(testID));
 
-  it('header compacto com o título Boletim e skeleton enquanto carrega; depois "7EF - 2025" e os 3 trimestres fechados', async () => {
+  it('header compacto com o título Boletim e skeleton enquanto carrega; depois ano, trimestre, resumo e cards', async () => {
     const gate = deferred();
     server.use(
       http.get(listPath, async () => {
@@ -95,121 +95,89 @@ describe('ReportCardScreen', () => {
     expect(screen.getByTestId('header-student-chip')).toBeOnTheScreen();
     expect(screen.getByTestId('boletim-scroll')).toBeOnTheScreen();
     expect(screen.getByTestId('boletim-skeleton')).toBeOnTheScreen();
-    expect(screen.queryByTestId('boletim-year-dropdown')).toBeNull();
+    expect(screen.queryByTestId('boletim-year')).toBeNull();
 
     gate.release();
-    expect(
-      await screen.findByTestId('boletim-year-dropdown-label'),
-    ).toHaveTextContent('7EF - 2025');
-    expect(await screen.findByTestId('boletim-term-1')).toHaveTextContent(
-      '1º TRIMESTRE',
+    expect(await screen.findByTestId('boletim-year-2025')).toHaveAccessibleName(
+      '2025 · 7EF',
     );
-    expect(screen.getByTestId('boletim-term-2')).toHaveTextContent(
-      '2º TRIMESTRE',
+    expect(screen.getByTestId('boletim-year-2025')).toBeSelected();
+    expect(await screen.findByTestId('boletim-term-tab-1')).toBeSelected();
+    expect(screen.getByTestId('boletim-term-tab-2')).toHaveAccessibleName(
+      '2º trimestre',
     );
-    expect(screen.getByTestId('boletim-term-3')).toHaveTextContent(
-      '3º TRIMESTRE',
+    expect(screen.getByTestId('boletim-summary')).toHaveAccessibleName(
+      '1º trimestre de 2025. Média 8,8, Bom. 2 faltas em 2 disciplinas. 0 abaixo de 7.',
     );
-    for (const term of [1, 2, 3]) {
-      expect(screen.getByTestId(`boletim-term-${term}`)).not.toBeExpanded();
-    }
+    expect(screen.getByTestId('boletim-legend')).toBeOnTheScreen();
     expect(screen.queryByTestId('boletim-skeleton')).toBeNull();
   });
 
-  it('dropdown de turma e ano com o rótulo e a dica do leitor de tela', async () => {
+  it('o card de Língua Portuguesa no 1º trimestre mostra 9,5, Bom e 0 faltas', async () => {
     await renderScreen();
 
-    const dropdown = await screen.findByTestId('boletim-year-dropdown');
-    expect(dropdown).toHaveAccessibleName('Turma e ano: 7EF - 2025');
-    expect(dropdown).toHaveProp(
-      'accessibilityHint',
-      'Toque para ver outros anos',
+    const card = await screen.findByTestId('boletim-term-1-subject-0');
+    expect(card).toHaveAccessibleName(
+      'Língua Portuguesa. Nota 9,5, Bom. 0 faltas.',
     );
-  });
-
-  it('abrir o 1º trimestre e Língua Portuguesa mostra Nota 9,5 e Faltas 0', async () => {
-    await renderScreen();
-    await screen.findByTestId('boletim-term-1');
-
-    await press('boletim-term-1');
-    expect(screen.getByTestId('boletim-term-1')).toBeExpanded();
-    expect(screen.getByTestId('boletim-term-1-subject-0')).toHaveTextContent(
-      'Língua Portuguesa',
-    );
-
-    await press('boletim-term-1-subject-0');
-    expect(screen.getByTestId('boletim-term-1-subject-0')).toBeExpanded();
+    const hidden = { includeHiddenElements: true };
     expect(
-      screen.getByTestId('boletim-term-1-subject-0-grade', {
-        includeHiddenElements: true,
-      }),
+      screen.getByTestId('boletim-term-1-subject-0-grade', hidden),
     ).toHaveTextContent('9,5');
     expect(
-      screen.getByTestId('boletim-term-1-subject-0-absences', {
-        includeHiddenElements: true,
-      }),
-    ).toHaveTextContent('0');
+      screen.getByTestId('boletim-term-1-subject-0-band', hidden),
+    ).toHaveTextContent('Bom');
+    expect(
+      screen.getByTestId('boletim-term-1-subject-0-absences', hidden),
+    ).toHaveTextContent('0 faltas');
   });
 
-  it('2º trimestre não avaliado: Nota "-" e Faltas "-"', async () => {
+  it('2º trimestre não avaliado: "Ainda não avaliado", sem resumo nem cards', async () => {
     await renderScreen();
-    await screen.findByTestId('boletim-term-2');
+    await screen.findByTestId('boletim-term-tab-2');
 
-    await press('boletim-term-2');
-    await press('boletim-term-2-subject-0');
+    await press('boletim-term-tab-2');
 
     expect(
-      screen.getByTestId('boletim-term-2-subject-0-grade', {
-        includeHiddenElements: true,
-      }),
-    ).toHaveTextContent('-');
-    expect(
-      screen.getByTestId('boletim-term-2-subject-0-absences', {
-        includeHiddenElements: true,
-      }),
-    ).toHaveTextContent('-');
+      await screen.findByTestId('boletim-term-2-not-evaluated'),
+    ).toHaveTextContent(/Ainda não avaliado/);
+    expect(screen.queryByTestId('boletim-summary')).toBeNull();
+    expect(screen.queryByTestId('boletim-term-2-subject-0')).toBeNull();
   });
 
-  it('trocar para 6EF - 2024 mostra as notas de 2024, com tudo fechado', async () => {
+  it('trocar para 2024 abre no 3º trimestre e mostra as notas de 2024', async () => {
     await renderScreen();
-    await screen.findByTestId('boletim-term-1');
-    await press('boletim-term-1');
+    await screen.findByTestId('boletim-year-2024');
 
-    await press('boletim-year-dropdown');
-    await press('boletim-year-dropdown-option-2024');
+    await press('boletim-year-2024');
 
-    expect(screen.getByTestId('boletim-year-dropdown-label')).toHaveTextContent(
-      '6EF - 2024',
-    );
-    expect(await screen.findByTestId('boletim-term-1')).not.toBeExpanded();
-    await press('boletim-term-1');
-    await press('boletim-term-1-subject-0');
+    expect(await screen.findByTestId('boletim-term-tab-3')).toBeSelected();
+    expect(screen.getByTestId('boletim-year-2024')).toBeSelected();
+    await press('boletim-term-tab-1');
     expect(
-      screen.getByTestId('boletim-term-1-subject-0-grade', {
-        includeHiddenElements: true,
-      }),
-    ).toHaveTextContent('7,5');
+      await screen.findByTestId('boletim-term-1-subject-0'),
+    ).toHaveAccessibleName('Língua Portuguesa. Nota 7,5, Bom. 1 falta.');
   });
 
-  it('API fora do ar: erro sem dropdown; TENTAR DE NOVO traz o boletim', async () => {
+  it('API fora do ar: erro sem segmentos; Tentar de novo traz o boletim', async () => {
     server.use(http.get(listPath, () => HttpResponse.error()));
     await renderScreen();
 
     const error = await screen.findByTestId('boletim-error');
     expect(error).toHaveTextContent(/Não foi possível carregar o boletim\./);
     expect(error).toHaveTextContent(/Confira sua conexão e tente de novo\./);
-    expect(screen.queryByTestId('boletim-year-dropdown')).toBeNull();
+    expect(screen.queryByTestId('boletim-year')).toBeNull();
 
     server.use(
       http.get(listPath, () => HttpResponse.json(reportCardsResponse)),
     );
     await press('boletim-error-retry');
 
-    expect(await screen.findByTestId('boletim-term-1')).toBeOnTheScreen();
+    expect(await screen.findByTestId('boletim-summary')).toBeOnTheScreen();
     expect(screen.queryByTestId('boletim-error')).toBeNull();
   });
 
-  it('404 do ano: erro "Boletim não encontrado." com o dropdown na tela', async () => {
+  it('404 do ano: erro "Boletim não encontrado." com o segmento de ano na tela', async () => {
     server.use(
       http.get(yearPath, () =>
         HttpResponse.json(
@@ -227,18 +195,18 @@ describe('ReportCardScreen', () => {
     expect(await screen.findByTestId('boletim-error')).toHaveTextContent(
       /Boletim não encontrado\./,
     );
-    expect(screen.getByTestId('boletim-year-dropdown')).toBeOnTheScreen();
-    expect(screen.queryByTestId('boletim-term-1')).toBeNull();
+    expect(screen.getByTestId('boletim-year')).toBeOnTheScreen();
+    expect(screen.queryByTestId('boletim-summary')).toBeNull();
   });
 
-  it('aluno sem boletim: "Nenhum boletim disponível", sem dropdown vazio', async () => {
+  it('aluno sem boletim: "Nenhum boletim disponível", sem segmento vazio', async () => {
     server.use(http.get(listPath, () => HttpResponse.json([])));
     await renderScreen();
 
     expect(await screen.findByTestId('boletim-empty')).toHaveTextContent(
       'Nenhum boletim disponível',
     );
-    expect(screen.queryByTestId('boletim-year-dropdown')).toBeNull();
+    expect(screen.queryByTestId('boletim-year')).toBeNull();
   });
 
   describe('anúncio do erro só com a aba em foco (3.8)', () => {

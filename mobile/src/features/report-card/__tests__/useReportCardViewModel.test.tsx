@@ -95,14 +95,13 @@ describe('useReportCardViewModel', () => {
     expect(result.current.status).toBe('ready');
   });
 
-  it('abre no ano mais recente (2025), com o rótulo "turma - ano"', async () => {
+  it('abre no ano mais recente (2025), com o rótulo "ano · turma"', async () => {
     const { result } = await renderReady();
 
     expect(result.current.selectedYearKey).toBe('2025');
-    expect(result.current.selectedYearLabel).toBe('7EF - 2025');
     expect(result.current.yearOptions).toEqual([
-      { key: '2025', label: '7EF - 2025' },
-      { key: '2024', label: '6EF - 2024' },
+      { key: '2025', label: '2025 · 7EF' },
+      { key: '2024', label: '2024 · 6EF' },
     ]);
     expect(result.current.isEmpty).toBe(false);
   });
@@ -119,116 +118,126 @@ describe('useReportCardViewModel', () => {
     expect(result.current.selectedYearKey).toBe('2025');
   });
 
-  it('mapeia os trimestres e as disciplinas para exibição, todos fechados', async () => {
+  it('abre no último trimestre avaliado (T1 em 2025) com o resumo e os cards', async () => {
     const { result } = await renderReady();
 
-    expect(result.current.terms).toHaveLength(3);
-    const [first, second] = result.current.terms;
-    expect(first).toMatchObject({
-      term: 1,
-      title: '1º TRIMESTRE',
-      accessibilityLabel: '1º trimestre',
-      expanded: false,
+    expect(result.current.termOptions).toEqual([
+      { key: '1', label: '1º tri', accessibilityLabel: '1º trimestre' },
+      { key: '2', label: '2º tri', accessibilityLabel: '2º trimestre' },
+      { key: '3', label: '3º tri', accessibilityLabel: '3º trimestre' },
+    ]);
+    expect(result.current.selectedTermKey).toBe('1');
+    expect(result.current.summary).toMatchObject({
+      title: '1º trimestre · 2025',
+      average: 8.8,
+      averageText: '8,8',
+      band: 'good',
+      averageCaption: 'Média geral',
+      absences: 2,
+      absencesLabel: 'faltas',
+      subjects: 2,
+      belowTarget: 0,
+      partial: false,
+      evaluated: true,
+      accessibilityLabel:
+        '1º trimestre de 2025. Média 8,8, Bom. 2 faltas em 2 disciplinas. 0 abaixo de 7.',
     });
-    expect(first.subjects).toEqual([
+    expect(result.current.subjects).toEqual([
       {
         key: '1-0',
         index: 0,
         name: 'Língua Portuguesa',
-        grade: '9,5',
-        absences: '0',
-        resultAccessibilityLabel: 'Nota 9,5, 0 faltas',
-        expanded: false,
+        grade: 9.5,
+        gradeText: '9,5',
+        band: 'good',
+        absencesText: '0 faltas',
+        accessibilityLabel: 'Língua Portuguesa. Nota 9,5, Bom. 0 faltas.',
       },
       {
         key: '1-1',
         index: 1,
         name: 'Matemática',
-        grade: '8,0',
-        absences: '2',
-        resultAccessibilityLabel: 'Nota 8,0, 2 faltas',
-        expanded: false,
+        grade: 8,
+        gradeText: '8,0',
+        band: 'good',
+        absencesText: '2 faltas',
+        accessibilityLabel: 'Matemática. Nota 8,0, Bom. 2 faltas.',
       },
     ]);
-    expect(second.title).toBe('2º TRIMESTRE');
-    expect(second.subjects[0]).toMatchObject({
-      grade: '-',
-      absences: '-',
-      resultAccessibilityLabel: 'Nota e faltas ainda não lançadas',
-    });
   });
 
-  it('1 falta fica no singular para o leitor de tela', async () => {
+  it('trimestre sem nota: "Ainda não avaliado" (evaluated false) e cards sem nota', async () => {
+    const { result } = await renderReady();
+
+    await act(() => result.current.onSelectTerm('2'));
+
+    expect(result.current.selectedTermKey).toBe('2');
+    expect(result.current.slideDirection).toBe(1);
+    expect(result.current.summary?.evaluated).toBe(false);
+    expect(result.current.notEvaluatedDescription).toBe(
+      'As notas do 2º trimestre aparecem aqui assim que forem lançadas.',
+    );
+    expect(result.current.subjects[0]).toMatchObject({
+      grade: null,
+      gradeText: '–',
+      band: 'none',
+      absencesText: 'Faltas não lançadas',
+      accessibilityLabel:
+        'Língua Portuguesa. Nota e faltas ainda não lançadas.',
+    });
+
+    await act(() => result.current.onSelectTerm('1'));
+    expect(result.current.slideDirection).toBe(-1);
+  });
+
+  it('1 aluno com 1 ano: pílula "Ano letivo", nota âmbar e 1 falta no singular', async () => {
     useSessionStore.setState({ selectedStudentId: 's2' });
 
     const { result } = await renderReady();
 
-    expect(result.current.terms[0].subjects[0].resultAccessibilityLabel).toBe(
-      'Nota 6,5, 1 falta',
-    );
+    expect(result.current.yearOptions).toEqual([
+      { key: '2025', label: 'Ano letivo 2025 · 3EF' },
+    ]);
+    expect(result.current.subjects[0]).toMatchObject({
+      band: 'warning',
+      absencesText: '1 falta',
+      accessibilityLabel: 'Geografia. Nota 6,5, Atenção. 1 falta.',
+    });
+    expect(result.current.summary).toMatchObject({
+      belowTarget: 1,
+      absencesLabel: 'falta',
+    });
   });
 
-  it('abre e fecha trimestre e disciplina de forma independente', async () => {
+  it('trocar de ano busca o boletim daquele ano e abre no último trimestre avaliado', async () => {
     const { result } = await renderReady();
-
-    await act(() => result.current.onToggleTerm(1));
-    await act(() => result.current.onToggleTerm(2));
-    await act(() => result.current.onToggleSubject(1, 0));
-    await act(() => result.current.onToggleSubject(2, 0));
-
-    const expanded = () =>
-      result.current.terms.map(term => ({
-        term: term.expanded,
-        subjects: term.subjects.map(subject => subject.expanded),
-      }));
-    expect(expanded()).toEqual([
-      { term: true, subjects: [true, false] },
-      { term: true, subjects: [true] },
-      { term: false, subjects: [false] },
-    ]);
-
-    await act(() => result.current.onToggleTerm(1));
-    await act(() => result.current.onToggleSubject(2, 0));
-
-    expect(expanded()).toEqual([
-      // A disciplina continua aberta dentro do trimestre fechado.
-      { term: false, subjects: [true, false] },
-      { term: true, subjects: [false] },
-      { term: false, subjects: [false] },
-    ]);
-  });
-
-  it('trocar de ano busca o boletim daquele ano e fecha tudo', async () => {
-    const { result } = await renderReady();
-    await act(() => result.current.onToggleTerm(1));
-    await act(() => result.current.onToggleSubject(1, 0));
 
     await act(() => result.current.onSelectYear('2024'));
 
     expect(result.current.selectedYearKey).toBe('2024');
-    expect(result.current.selectedYearLabel).toBe('6EF - 2024');
-    // A lista fica; só os trimestres carregam.
+    expect(result.current.slideDirection).toBe(1);
+    // A lista fica; só o boletim do ano carrega.
     expect(result.current.status).toBe('ready');
     expect(result.current.termsStatus).toBe('loading');
     await waitFor(() => expect(result.current.termsStatus).toBe('ready'));
-    expect(result.current.terms[0].subjects[0]).toMatchObject({
-      grade: '7,5',
-      absences: '1',
-      expanded: false,
+    expect(result.current.selectedTermKey).toBe('3');
+    expect(result.current.subjects[0]).toMatchObject({
+      gradeText: '8,5',
+      absencesText: '3 faltas',
     });
-    expect(result.current.terms.every(term => !term.expanded)).toBe(true);
   });
 
-  it('voltar ao ano anterior também fecha tudo', async () => {
+  it('voltar ao ano anterior recalcula o trimestre inicial', async () => {
     const { result } = await renderReady();
     await act(() => result.current.onSelectYear('2024'));
     await waitFor(() => expect(result.current.termsStatus).toBe('ready'));
-    await act(() => result.current.onToggleTerm(2));
+    await act(() => result.current.onSelectTerm('1'));
 
     await act(() => result.current.onSelectYear('2025'));
 
     expect(result.current.termsStatus).toBe('ready');
-    expect(result.current.terms.every(term => !term.expanded)).toBe(true);
+    expect(result.current.selectedTermKey).toBe('1');
+    expect(result.current.slideDirection).toBe(-1);
   });
 
   it('ano que não está na lista é ignorado', async () => {
@@ -239,36 +248,37 @@ describe('useReportCardViewModel', () => {
     expect(result.current.selectedYearKey).toBe('2025');
   });
 
-  it('contentKey muda com o ano e com o aluno (os cards entram de novo)', async () => {
+  it('contentKey muda com o ano, o trimestre e o aluno (os cards entram de novo)', async () => {
     const { result } = await renderReady();
-    expect(result.current.contentKey).toBe('s1:2025');
+    expect(result.current.contentKey).toBe('s1:2025:1');
+
+    await act(() => result.current.onSelectTerm('2'));
+    expect(result.current.contentKey).toBe('s1:2025:2');
 
     await act(() => result.current.onSelectYear('2024'));
-    expect(result.current.contentKey).toBe('s1:2024');
+    await waitFor(() => expect(result.current.contentKey).toBe('s1:2024:3'));
 
     await act(() => useSessionStore.getState().selectStudent('s2'));
-    await waitFor(() => expect(result.current.contentKey).toBe('s2:2025'));
+    await waitFor(() => expect(result.current.contentKey).toBe('s2:2025:1'));
   });
 
-  it('trocar de aluno volta ao ano mais recente do novo aluno, tudo fechado', async () => {
+  it('trocar de aluno volta ao ano mais recente do novo aluno', async () => {
     const { result } = await renderReady();
     await act(() => result.current.onSelectYear('2024'));
     await waitFor(() => expect(result.current.termsStatus).toBe('ready'));
-    await act(() => result.current.onToggleTerm(1));
 
     await act(() => useSessionStore.getState().selectStudent('s2'));
     await waitFor(() =>
-      expect(result.current.terms[0]?.subjects[0]?.name).toBe('Geografia'),
+      expect(result.current.subjects[0]?.name).toBe('Geografia'),
     );
-    expect(result.current.selectedYearLabel).toBe('3EF - 2025');
-    expect(result.current.yearOptions).toEqual([
-      { key: '2025', label: '3EF - 2025' },
-    ]);
-    expect(result.current.terms.every(term => !term.expanded)).toBe(true);
+    expect(result.current.selectedYearKey).toBe('2025');
+    expect(result.current.selectedTermKey).toBe('1');
 
     await act(() => useSessionStore.getState().selectStudent('s1'));
     await waitFor(() => expect(result.current.selectedYearKey).toBe('2025'));
-    expect(result.current.terms[0].subjects[0].name).toBe('Língua Portuguesa');
+    await waitFor(() =>
+      expect(result.current.subjects[0]?.name).toBe('Língua Portuguesa'),
+    );
   });
 
   it('a 1ª exibição espera a entrada do header (4 × stagger); as seguintes, não', async () => {
@@ -292,7 +302,8 @@ describe('useReportCardViewModel', () => {
     expect(result.current.isEmpty).toBe(true);
     expect(result.current.yearOptions).toEqual([]);
     expect(result.current.selectedYearKey).toBeNull();
-    expect(result.current.terms).toEqual([]);
+    expect(result.current.subjects).toEqual([]);
+    expect(result.current.summary).toBeNull();
   });
 
   describe('erros', () => {
@@ -306,7 +317,7 @@ describe('useReportCardViewModel', () => {
         'Confira sua conexão e tente de novo.',
       );
       expect(result.current.yearOptions).toEqual([]);
-      expect(result.current.terms).toEqual([]);
+      expect(result.current.subjects).toEqual([]);
       expect(result.current.retrying).toBe(false);
       expect(result.current.shakeKey).toBe(0);
     });
@@ -318,7 +329,7 @@ describe('useReportCardViewModel', () => {
 
       await waitFor(() => expect(result.current.termsStatus).toBe('error'));
       expect(result.current.status).toBe('ready');
-      expect(result.current.selectedYearLabel).toBe('7EF - 2025');
+      expect(result.current.selectedYearKey).toBe('2025');
       expect(result.current.errorDescription).toBe(
         'Confira sua conexão e tente de novo.',
       );
@@ -335,7 +346,7 @@ describe('useReportCardViewModel', () => {
       expect(result.current.errorDescription).toBe('Boletim não encontrado.');
     });
 
-    it('TENTAR DE NOVO na lista mantém o erro com spinner e mostra o boletim quando a API volta', async () => {
+    it('Tentar de novo na lista mantém o erro com spinner e mostra o boletim quando a API volta', async () => {
       server.use(http.get(listPath, () => HttpResponse.error()));
       const { result } = await renderBoletim();
       await waitFor(() => expect(result.current.status).toBe('error'));
@@ -363,7 +374,7 @@ describe('useReportCardViewModel', () => {
       expect(result.current.selectedYearKey).toBe('2025');
     });
 
-    it('TENTAR DE NOVO no boletim do ano mantém o erro com spinner até a resposta', async () => {
+    it('Tentar de novo no boletim do ano mantém o erro com spinner até a resposta', async () => {
       server.use(http.get(yearPath, () => HttpResponse.error()));
       const { result } = await renderBoletim();
       await waitFor(() => expect(result.current.termsStatus).toBe('error'));
@@ -387,10 +398,10 @@ describe('useReportCardViewModel', () => {
       await act(() => retry);
       expect(result.current.retrying).toBe(false);
       expect(result.current.termsStatus).toBe('ready');
-      expect(result.current.terms[0].subjects[0].grade).toBe('9,5');
+      expect(result.current.subjects[0].gradeText).toBe('9,5');
     });
 
-    it('durante o TENTAR DE NOVO do 404, a descrição continua "Boletim não encontrado."', async () => {
+    it('durante o Tentar de novo do 404, a descrição continua "Boletim não encontrado."', async () => {
       server.use(
         http.get(yearPath, () => HttpResponse.json(notFound, { status: 404 })),
       );
@@ -418,7 +429,7 @@ describe('useReportCardViewModel', () => {
       expect(result.current.errorDescription).toBe('Boletim não encontrado.');
     });
 
-    it('TENTAR DE NOVO que falha de novo continua no erro e muda o shakeKey', async () => {
+    it('Tentar de novo que falha de novo continua no erro e muda o shakeKey', async () => {
       server.use(http.get(listPath, () => HttpResponse.error()));
       const { result } = await renderBoletim();
       await waitFor(() => expect(result.current.status).toBe('error'));
