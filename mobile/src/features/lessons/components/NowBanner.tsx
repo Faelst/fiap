@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { AccessibilityInfo, StyleSheet } from 'react-native';
+import { AccessibilityInfo, Platform, StyleSheet } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -100,7 +100,11 @@ export function NowBanner({
   useEffect(() => {
     if (previous.current === message) return;
     previous.current = message;
-    if (announce) AccessibilityInfo.announceForAccessibility(message);
+    // Um caminho por plataforma: no Android a live region do card (que já
+    // existia) lê a troca; o anúncio explícito leria de novo.
+    if (announce && Platform.OS === 'ios') {
+      AccessibilityInfo.announceForAccessibility(message);
+    }
   }, [message, announce]);
 
   return (
@@ -111,7 +115,7 @@ export function NowBanner({
       justifyContent="center"
       accessible
       accessibilityLabel={message}
-      accessibilityLiveRegion="polite"
+      accessibilityLiveRegion={announce ? 'polite' : 'none'}
     >
       <Entrance key={message}>
         <Box flexDirection="row" alignItems="center" gap="s">
