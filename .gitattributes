@@ -1,0 +1,7 @@
+# Scripts de shell rodam em Linux (container, CI): sempre LF, mesmo com
+# checkout no Windows (core.autocrlf), senão o `#!/bin/sh` quebra com \r.
+*.sh text eol=lf
+api/docker-entrypoint.sh text eol=lf
+# Android (mobile/): o wrapper do Gradle é shell; o .bat é do Windows.
+gradlew text eol=lf
+*.bat text eol=crlf
