@@ -61,12 +61,4 @@ describe('Text', () => {
       fontSize: 13,
     });
   });
-
-  it('legado v1: sectionTitle continua igual até a fatia 9', async () => {
-    expect(await styleOf('sectionTitle', 'AGENDA')).toMatchObject({
-      color: '#29F4D5',
-      fontFamily: 'Montserrat-Bold',
-      fontSize: 20,
-    });
-  });
 });

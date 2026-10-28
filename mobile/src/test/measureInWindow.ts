@@ -7,7 +7,7 @@ type MeasureInWindow = (
 
 /**
  * O `measureInWindow` do Jest é um `jest.fn()` que nunca responde. Este mock
- * faz toda View "estar" em `rect` (o Dropdown mede o gatilho para abrir).
+ * faz toda View "estar" em `rect` (componentes que medem a própria posição).
  */
 export function mockMeasureInWindow(rect: Rect) {
   const proto = View.prototype as unknown as {

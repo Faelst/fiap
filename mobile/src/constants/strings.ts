@@ -225,8 +225,6 @@ export const strings = {
   common: {
     /** Logo da splash, do Login e do header. */
     logoLabel: 'FIAP School',
-    /** Fundo do dropdown aberto: o leitor de tela também fecha a lista por ele. */
-    closeListAccessibilityLabel: 'Fechar lista',
     error: { description: 'Confira sua conexão e tente de novo.' },
     retry: 'Tentar de novo',
     retryAccessibilityLabel: 'Tentar de novo',

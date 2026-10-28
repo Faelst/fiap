@@ -126,7 +126,7 @@ export function SplashScreen({ navigation }: RootStackScreenProps<'Splash'>) {
         width,
         height: sizes.splashTrack,
         overflow: 'hidden' as const,
-        backgroundColor: colors.inputLine,
+        backgroundColor: colors.splashTrack,
       },
       segment: {
         width: segmentWidth,

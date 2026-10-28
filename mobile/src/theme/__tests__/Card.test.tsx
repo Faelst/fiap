@@ -44,11 +44,4 @@ describe('Card', () => {
       borderRadius: 999,
     });
   });
-
-  it('legado v1: aluno não selecionado mantém a borda transparente para não pular o layout', async () => {
-    expect(await styleOf('student')).toMatchObject({
-      borderColor: 'transparent',
-      borderWidth: 1,
-    });
-  });
 });

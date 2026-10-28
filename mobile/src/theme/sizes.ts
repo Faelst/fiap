@@ -101,28 +101,4 @@ export const sizes = {
   scanLine: { width: 2, overhang: 8 },
   /** Espessura do trilho de espera da splash. */
   splashTrack: 1,
-
-  // Legado v1: sai na fatia 9, junto com os componentes que usam.
-  actionBar: 48,
-  dropdown: 45,
-  termCard: 90,
-  studentCard: 90,
-  primaryButton: 60,
-  secondaryButton: 45,
-  /** Somar `insets.bottom`. */
-  tabBar: 64,
-  chevron: 14,
-  logoutIcon: 10,
-  bullet: 6,
-  bulletSlot: 16,
-  illustration: { width: 328, height: 208 },
-  /** Barras do skeleton da aula: horário e disciplina. */
-  skeletonLessonTime: { width: 88, height: 12 },
-  skeletonLessonSubject: { width: 180, height: 16 },
-  /** Linhas de aula no skeleton da agenda. */
-  skeletonLessonRows: 4,
-  /** Espessura da linha do input do login. */
-  inputLine: 1,
-  /** Limite de altura do acordeão aberto e parado: "sem limite". */
-  accordionOpenMaxHeight: 100_000,
 } as const;

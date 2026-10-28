@@ -25,8 +25,7 @@ const pill = {
 
 /**
  * Tema único do app (escuro, sem modo claro). Fonte: 01-design.md da v2,
- * seção 1. Os nomes da v1 que a v2 não tem ficam nos blocos "legado v1", que
- * saem na fatia 9 junto com as telas antigas.
+ * seção 1.
  */
 export const theme = createTheme({
   colors: {
@@ -60,9 +59,8 @@ export const theme = createTheme({
     textOnPrimary: palette.black,
     transparent: 'transparent',
 
-    // Legado v1: sai na fatia 9.
-    inputLine: palette.gray600,
-    bulletBorder: palette.gray300,
+    /** Trilho de espera da splash. */
+    splashTrack: palette.gray600,
   },
   spacing: {
     none: 0,
@@ -234,119 +232,6 @@ export const theme = createTheme({
       lineHeight: 18,
       color: 'danger',
     },
-
-    // Legado v1: sai na fatia 9. Os nomes que a v2 reaproveita com outro
-    // sentido (`title`, `label`, `error`) ficaram com o sufixo V1.
-    bodyMedium: {
-      fontFamily: fonts.medium,
-      fontSize: 16,
-      lineHeight: 20,
-      color: 'text',
-    },
-    bodyBold: {
-      fontFamily: fonts.bold,
-      fontSize: 16,
-      lineHeight: 20,
-      color: 'text',
-    },
-    greeting: {
-      fontFamily: fonts.regular,
-      fontSize: 24,
-      lineHeight: 29,
-      color: 'text',
-      textAlign: 'center',
-    },
-    greetingName: {
-      fontFamily: fonts.bold,
-      fontSize: 24,
-      lineHeight: 29,
-      color: 'text',
-      textTransform: 'uppercase',
-    },
-    titleV1: {
-      fontFamily: fonts.regular,
-      fontSize: 24,
-      lineHeight: 29,
-      color: 'text',
-      textAlign: 'center',
-    },
-    inputValue: {
-      fontFamily: fonts.regular,
-      fontSize: { compact: 28, phone: 32 },
-      lineHeight: { compact: 34, phone: 39 },
-      color: 'text',
-      textAlign: 'center',
-    },
-    labelV1: {
-      fontFamily: fonts.regular,
-      fontSize: 20,
-      lineHeight: 24,
-      color: 'text',
-      textAlign: 'center',
-      textTransform: 'uppercase',
-    },
-    labelFocused: {
-      fontFamily: fonts.semiBold,
-      fontSize: 20,
-      lineHeight: 24,
-      color: 'text',
-      textAlign: 'center',
-      textTransform: 'uppercase',
-    },
-    sectionTitle: {
-      fontFamily: fonts.bold,
-      fontSize: 20,
-      lineHeight: 24,
-      color: 'primary',
-      textAlign: 'center',
-      textTransform: 'uppercase',
-    },
-    emptyState: {
-      fontFamily: fonts.regular,
-      fontSize: 20,
-      lineHeight: 24,
-      color: 'text',
-      textAlign: 'center',
-    },
-    lessonSubject: {
-      fontFamily: fonts.semiBold,
-      fontSize: 16,
-      lineHeight: 20,
-      color: 'text',
-    },
-    termTitle: {
-      fontFamily: fonts.bold,
-      fontSize: 16,
-      lineHeight: 20,
-      color: 'primary',
-      textTransform: 'uppercase',
-    },
-    errorV1: {
-      fontFamily: fonts.medium,
-      fontSize: 16,
-      lineHeight: 20,
-      color: 'primary',
-      textAlign: 'center',
-    },
-    captionPlain: {
-      fontFamily: fonts.regular,
-      fontSize: 12,
-      lineHeight: 15,
-      color: 'text',
-    },
-    subject: {
-      fontFamily: fonts.medium,
-      fontSize: 12,
-      lineHeight: 15,
-      color: 'text',
-      textTransform: 'uppercase',
-    },
-    detail: {
-      fontFamily: fonts.medium,
-      fontSize: 12,
-      lineHeight: 15,
-      color: 'text',
-    },
   },
   /** Fundo e borda do `PillButton` (2.3); a altura vem do `size`. */
   buttonVariants: {
@@ -360,24 +245,6 @@ export const theme = createTheme({
     ghost: { ...pill, backgroundColor: 'transparent' },
     danger: { ...pill, backgroundColor: 'danger' },
     disabled: { ...pill, backgroundColor: 'surfaceHigh' },
-
-    // Legado v1: sai na fatia 9 (`PrimaryButton` e `SecondaryButton`).
-    primaryV1: {
-      backgroundColor: 'primary',
-      height: sizes.primaryButton,
-      borderRadius: 'none',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    secondaryV1: {
-      borderWidth: 1,
-      borderColor: 'primary',
-      borderRadius: 'm',
-      height: sizes.secondaryButton,
-      paddingHorizontal: 'l',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
   },
   /**
    * Todas as variantes da v2 têm `borderWidth: 1`: os estados trocam só a cor
@@ -426,40 +293,6 @@ export const theme = createTheme({
       borderColor: 'borderStrong',
       borderWidth: 1,
       borderRadius: 'pill',
-    },
-
-    // Legado v1: sai na fatia 9.
-    dropdown: {
-      backgroundColor: 'surface',
-      borderRadius: 'm',
-      height: sizes.dropdown,
-      paddingHorizontal: 'm',
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    },
-    options: {
-      backgroundColor: 'surface',
-      borderRadius: 'm',
-      paddingVertical: 'xs',
-    },
-    term: {
-      backgroundColor: 'surfaceRaised',
-      borderRadius: 'm',
-      height: sizes.termCard,
-      paddingHorizontal: 'sm',
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    },
-    student: {
-      backgroundColor: 'surfaceRaised',
-      borderRadius: 'm',
-      height: sizes.studentCard,
-      padding: 'm',
-      borderWidth: 1,
-      borderColor: 'transparent',
-      justifyContent: 'space-between',
     },
   },
   sizes,

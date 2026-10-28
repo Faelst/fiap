@@ -109,14 +109,6 @@ export const motion = {
     exitDuration: 250,
     exitToLoginEasing: emphasized,
   },
-  // Legado v1: sai na fatia 9.
-  /**
-   * Opacidade de ações de texto pressionadas da v1 (barra, dropdown,
-   * acordeão). Componente novo usa `opacities.pressed`.
-   */
-  pressedOpacity: 0.6,
-  /** Pulso do skeleton da v1: 0,5 ↔ 1 em 800 ms; parado em 0,7 com reduzir movimento. */
-  skeleton: { duration: 800, min: 0.5, reduced: 0.7 },
 } as const;
 
 /**
