@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Teste do container: build já feito (IMAGE), sobe com um volume novo, espera o
-# healthcheck, faz login do Gustavo e reinicia o container. Depois do restart o
-# mesmo token tem que continuar valendo: o seed não recria um banco populado.
+# Teste do container: build já feito (IMAGE), sobe com um volume novo e SEM
+# JWT_SECRET, espera o healthcheck, faz login do Gustavo e reinicia o container.
+# Depois do restart o mesmo token tem que continuar valendo: o seed não recria o
+# banco e o segredo gerado na primeira subida foi reaproveitado do volume.
 #
 # Uso (em api/, com Docker):  docker build -t fiap-school-api:local . && ./scripts/docker-smoke.sh
 # Variáveis opcionais: IMAGE (padrão fiap-school-api:local), DOCKER_SMOKE_PORT (3334).
@@ -53,7 +54,6 @@ docker volume create "${VOLUME}" >/dev/null
 docker run -d --name "${CONTAINER}" \
   -p "127.0.0.1:${PORT}:3333" \
   -v "${VOLUME}:/app/data" \
-  -e JWT_SECRET="docker-smoke-segredo-descartavel-$(date +%s)" \
   -e CORS_ORIGINS="*" \
   "${IMAGE}" >/dev/null
 wait_healthy
@@ -67,7 +67,14 @@ TOKEN=$(jq -er '.accessToken' <<<"${LOGIN}") || fail "login sem accessToken"
 echo "==> reiniciando o container"
 docker restart "${CONTAINER}" >/dev/null
 wait_healthy
+echo "==> segredo gerado no volume: 600, dono node"
+PERMS=$(docker exec "${CONTAINER}" stat -c '%a %U' /app/data/jwt-secret) || fail "jwt-secret não existe no volume"
+[[ "${PERMS}" == "600 node" ]] || fail "jwt-secret com permissão/dono errado: ${PERMS}"
+
 LOGS=$(docker logs "${CONTAINER}" 2>&1)
+SECRET=$(docker exec "${CONTAINER}" cat /app/data/jwt-secret)
+grep -qF -- "${SECRET}" <<<"${LOGS}" && fail "o segredo apareceu no log do container"
+[[ "$(grep -c 'segredo aleatório gerado' <<<"${LOGS}")" == "1" ]] || fail "o segredo devia ser gerado só no primeiro boot"
 grep -qF 'Seed ignorado' <<<"${LOGS}" || fail "o seed não foi ignorado no segundo boot"
 
 echo "==> o token de antes do restart continua valendo"

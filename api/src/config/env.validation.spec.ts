@@ -1,9 +1,5 @@
 import { parseCorsOrigins, validateEnv } from './env.validation';
-import {
-  COMPOSE_JWT_SECRET,
-  EXAMPLE_JWT_SECRET,
-  publicSecretWarning,
-} from './public-secrets';
+import { EXAMPLE_JWT_SECRET, publicSecretWarning } from './public-secrets';
 
 const validEnv = {
   DATABASE_URL: 'file:./dev.db',
@@ -116,12 +112,10 @@ describe('validateEnv: JWT_SECRET', () => {
     ).toHaveLength(32);
   });
 
-  it('os segredos públicos do repo têm 32+ caracteres (sobem em dev)', () => {
-    for (const secret of [EXAMPLE_JWT_SECRET, COMPOSE_JWT_SECRET]) {
-      expect(validateEnv({ ...validEnv, JWT_SECRET: secret }).JWT_SECRET).toBe(
-        secret,
-      );
-    }
+  it('o segredo do .env.example tem 32+ caracteres (sobe em dev)', () => {
+    expect(
+      validateEnv({ ...validEnv, JWT_SECRET: EXAMPLE_JWT_SECRET }).JWT_SECRET,
+    ).toBe(EXAMPLE_JWT_SECRET);
   });
 
   it('em produção recusa o segredo do .env.example', () => {
@@ -188,16 +182,20 @@ describe('validateEnv: padrões de produção (CORS e Swagger)', () => {
 });
 
 describe('publicSecretWarning', () => {
-  it('avisa quando o segredo é o padrão do docker-compose', () => {
-    expect(publicSecretWarning(COMPOSE_JWT_SECRET)).toContain('JWT_SECRET');
-  });
-
   it('avisa quando o segredo é o do .env.example', () => {
     expect(publicSecretWarning(EXAMPLE_JWT_SECRET)).toContain('JWT_SECRET');
   });
 
   it('não avisa para um segredo próprio', () => {
     expect(publicSecretWarning(validEnv.JWT_SECRET)).toBeNull();
+  });
+
+  it('não avisa mais pelo antigo padrão do docker-compose (deixou de existir)', () => {
+    expect(
+      publicSecretWarning(
+        'docker-compose-local-so-para-avaliacao-troque-em-deploy',
+      ),
+    ).toBeNull();
   });
 });
 

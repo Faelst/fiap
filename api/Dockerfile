@@ -54,12 +54,14 @@ COPY --from=build --chown=node:node /app/dist ./dist
 COPY --from=prod-deps --chown=node:node /app/src/generated ./src/generated
 COPY --chown=node:node package.json prisma.config.ts ./
 COPY --chown=node:node prisma ./prisma
+COPY --chown=node:node --chmod=755 docker-entrypoint.sh ./
 RUN mkdir -p /app/data && chown node:node /app/data
 USER node
 VOLUME ["/app/data"]
 EXPOSE 3333
 HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=3 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:' + (process.env.PORT || 3333) + '/api/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
-# migrate deploy + seed (só popula o banco vazio; SEED_RESET=true recria) e
-# sobe a API. `exec` deixa o node como PID 1, recebendo o SIGTERM do `docker stop`.
-CMD ["sh", "-c", "yarn -s prisma:setup && exec node dist/main"]
+# Gera (uma vez) o JWT_SECRET no volume se ele não vier na env, roda migrate
+# deploy + seed (só popula o banco vazio; SEED_RESET=true recria) e sobe a API
+# com exec (node como PID 1). Ver docker-entrypoint.sh.
+CMD ["./docker-entrypoint.sh"]
