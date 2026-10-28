@@ -1,5 +1,4 @@
-import { ExecutionContext, Module } from '@nestjs/common';
-import type { Request } from 'express';
+import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule, JwtSignOptions } from '@nestjs/jwt';
@@ -10,7 +9,9 @@ import { GuardiansModule } from '../guardians/guardians.module';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { AuthController } from './controllers/auth.controller';
 import { JWT_AUDIENCE, JWT_ISSUER } from './jwt.constants';
-import { cpfThrottleTracker } from './throttling/login-throttle';
+import { LOGIN_FAILURE_LIMITER } from './throttling/login-failure-limit.interceptor';
+import { LoginFailureLimiter } from './throttling/login-failure-limiter';
+import { LOGIN_THROTTLE_MESSAGE } from './throttling/login-throttle';
 import {
   BcryptPasswordHasher,
   PASSWORD_HASHER,
@@ -19,9 +20,6 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { LoginUseCase } from './use-cases/login.use-case';
 
 type Config = ConfigService<EnvironmentVariables, true>;
-
-const cpfTrackerOf = (context: ExecutionContext) =>
-  cpfThrottleTracker(context.switchToHttp().getRequest<Request>().body);
 
 @Module({
   imports: [
@@ -53,18 +51,8 @@ const cpfTrackerOf = (context: ExecutionContext) =>
             ttl: config.get('LOGIN_THROTTLE_TTL_MS', { infer: true }),
             limit: config.get('LOGIN_THROTTLE_LIMIT', { infer: true }),
           },
-          {
-            // Por CPF, valendo para qualquer IP. Custo aceito: quem souber um
-            // CPF consegue travar o login dele pela janela (DoS leve).
-            name: 'cpf',
-            ttl: config.get('LOGIN_THROTTLE_CPF_TTL_MS', { infer: true }),
-            limit: config.get('LOGIN_THROTTLE_CPF_LIMIT', { infer: true }),
-            skipIf: (context) => cpfTrackerOf(context) === null,
-            getTracker: (_req, context) => cpfTrackerOf(context) ?? '',
-          },
         ],
-        errorMessage:
-          'Muitas tentativas de login. Aguarde um pouco e tente novamente.',
+        errorMessage: LOGIN_THROTTLE_MESSAGE,
       }),
     }),
   ],
@@ -73,6 +61,17 @@ const cpfTrackerOf = (context: ExecutionContext) =>
     LoginUseCase,
     JwtStrategy,
     { provide: PASSWORD_HASHER, useClass: BcryptPasswordHasher },
+    {
+      // Falhas por CPF (qualquer IP), só as de credencial. Custo aceito: quem
+      // souber um CPF consegue travar o login dele pela janela (DoS leve).
+      provide: LOGIN_FAILURE_LIMITER,
+      inject: [ConfigService],
+      useFactory: (config: Config) =>
+        new LoginFailureLimiter({
+          limit: config.get('LOGIN_THROTTLE_CPF_LIMIT', { infer: true }),
+          ttlMs: config.get('LOGIN_THROTTLE_CPF_TTL_MS', { infer: true }),
+        }),
+    },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
 })

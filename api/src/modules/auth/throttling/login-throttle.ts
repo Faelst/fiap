@@ -17,3 +17,7 @@ export function cpfThrottleTracker(body: unknown): string | null {
   const cpf = normalizeCpf(raw);
   return typeof cpf === 'string' && isCpf(cpf) ? `cpf:${cpf}` : null;
 }
+
+/** Mensagem do 429 do login (limite por IP e por CPF). */
+export const LOGIN_THROTTLE_MESSAGE =
+  'Muitas tentativas de login. Aguarde um pouco e tente novamente.';
