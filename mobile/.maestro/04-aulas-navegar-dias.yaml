@@ -1,5 +1,6 @@
-# Agenda do Rafael (semana de 16 a 22/03/2025): troca de dia pelo dropdown e
-# confere as aulas; domingo mostra o estado vazio. Não depende do dia de hoje.
+# Agenda do Rafael (semana de 16 a 22/03/2025): troca de dia pela faixa
+# semanal e por swipe no pager (N2); domingo mostra o estado vazio. Não
+# depende do dia de hoje: o dia é escolhido tocando no chip.
 appId: br.com.fiap.school
 name: 04 - Agenda navega entre os dias
 tags:
@@ -13,7 +14,7 @@ tags:
       PASSWORD: '123456'
 - extendedWaitUntil:
     visible:
-      id: agenda-day-dropdown
+      id: agenda-week-strip
     timeout: 10000
 - runFlow:
     file: subflows/select-student.yaml
@@ -23,49 +24,45 @@ tags:
     id: tab-agenda
 - extendedWaitUntil:
     visible:
-      id: agenda-day-dropdown
+      id: agenda-week-strip
     timeout: 10000
 - assertVisible:
     text: '(?i)aluno rafael,.*'
+- assertVisible:
+    id: agenda-month-label
+    text: 'Março 2025'
 
-# Segunda, 17/03: começa com Matemática I às 07:15.
+# Segunda, 17/03 pelo chip: começa com Matemática I às 07:15.
 - tapOn:
-    id: agenda-day-dropdown
-- tapOn:
-    id: agenda-day-dropdown-option-2025-03-17
+    id: agenda-day-2025-03-17
 - extendedWaitUntil:
     visible:
-      id: agenda-day-dropdown
-      text: '.*17 de março, segunda-feira'
+      id: agenda-page-2025-03-17-lesson-0
+      text: '.*07:15.*Matemática I.*'
+    timeout: 5000
+
+# Swipe para a esquerda: terça, 18/03, começa com Produção e Interpretação de Textos.
+- swipe:
+    from:
+      id: agenda-pager
+    direction: LEFT
+- extendedWaitUntil:
+    visible:
+      id: agenda-page-2025-03-18-lesson-0
+      text: '.*07:15.*Produção e Interpretação de Textos.*'
     timeout: 5000
 - assertVisible:
-    id: agenda-lesson-0
-    text: '.*07:15.*Matemática I'
+    id: agenda-day-2025-03-18
+    selected: true
 
-# Terça, 18/03: começa com Produção e Interpretação de Textos.
+# Domingo, 16/03 pelo chip: sem aulas.
 - tapOn:
-    id: agenda-day-dropdown
-- tapOn:
-    id: agenda-day-dropdown-option-2025-03-18
+    id: agenda-day-2025-03-16
 - extendedWaitUntil:
     visible:
-      id: agenda-day-dropdown
-      text: '.*18 de março, terça-feira'
-    timeout: 5000
-- assertVisible:
-    id: agenda-lesson-0
-    text: '.*07:15.*Produção e Interpretação de Textos'
-
-# Domingo, 16/03: sem aulas.
-- tapOn:
-    id: agenda-day-dropdown
-- tapOn:
-    id: agenda-day-dropdown-option-2025-03-16
-- extendedWaitUntil:
-    visible:
-      id: agenda-empty
+      id: agenda-page-2025-03-16-empty
     timeout: 5000
 - assertVisible:
     text: 'Sem aulas neste dia'
 - assertNotVisible:
-    id: agenda-lesson-list
+    id: agenda-page-2025-03-16-timetable

@@ -28,7 +28,7 @@ tags:
     text: 'Agenda'
 - extendedWaitUntil:
     visible:
-      id: agenda-day-dropdown
+      id: agenda-week-strip
     timeout: 10000
 - assertVisible:
     id: tab-agenda

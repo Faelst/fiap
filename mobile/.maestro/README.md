@@ -12,7 +12,7 @@ seed da API.
 | `01-login-invalido.yaml`          | senha errada → mensagem de erro, continua no Login             |
 | `02-login-sucesso.yaml`           | login → Agenda com o header compacto e a tab bar com 3 abas    |
 | `03-sessao-persistida.yaml`       | login → `stopApp` → `launchApp` → Agenda sem login             |
-| `04-aulas-navegar-dias.yaml`      | dropdown de dias: segunda, terça e domingo (vazio)             |
+| `04-aulas-navegar-dias.yaml`      | faixa semanal e swipe: segunda, terça e domingo (vazio)        |
 | `05-boletim-2025.yaml`            | "7EF - 2025", 1º trimestre com nota e faltas, 2º trimestre `-` |
 | `06-boletim-anos-anteriores.yaml` | troca para "6EF - 2024"                                        |
 | `07-trocar-aluno.yaml`            | chip do header → Perfil, troca e volta ao Boletim atualizado   |
@@ -27,7 +27,7 @@ Contas usadas (seed): Gustavo `96929456004` / `123456` (Rafael e Joana),
 Adelaide `50879567007` / `987654` (Bianca) e Carlos `31415926590` / `111111`
 (sem aluno). Os flows escolhem o aluno pela aba Perfil quando o dado
 importa, então não dependem de qual aluno o `/me` traz primeiro, nem do dia de
-hoje (o dia da Agenda é escolhido no dropdown).
+hoje (o dia da Agenda é escolhido na faixa semanal).
 
 ## Pré-requisitos
 

@@ -81,7 +81,12 @@ const elementName = name =>
 
 const isComponentFunction = node =>
   node?.type === 'ArrowFunctionExpression' ||
-  node?.type === 'FunctionExpression';
+  node?.type === 'FunctionExpression' ||
+  // `memo(function X(...) {...})`: o componente é a variável.
+  (node?.type === 'CallExpression' &&
+    node.callee.type === 'Identifier' &&
+    node.callee.name === 'memo' &&
+    isComponentFunction(node.arguments[0]));
 
 /** Usos de testID por componente e os valores literais de cada prop `*TestID`. */
 function collectUsages(sources) {

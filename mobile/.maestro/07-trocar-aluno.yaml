@@ -60,4 +60,4 @@ tags:
     id: header-student-chip
     text: '(?i)aluno joana,.*'
 - assertNotVisible:
-    id: agenda-day-dropdown
+    id: agenda-week-strip
