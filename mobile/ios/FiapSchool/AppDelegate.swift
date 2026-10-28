@@ -31,7 +31,7 @@ class AppDelegate: ExpoAppDelegate, ExpoReactNativeFactoryProvider {
 }
 
 class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
-  // Splash nativa (react-native-bootsplash); o JS a esconde quando a navegação fica pronta.
+  // Splash nativa (react-native-bootsplash); só fundo preto; a SplashScreen JS a esconde no primeiro layout.
   override func customize(_ rootView: UIView) {
     super.customize(rootView)
     RNBootSplash.initWithStoryboard("BootSplash", rootView: rootView)

@@ -14,7 +14,7 @@ class MainActivity : ReactActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     // react-native-screens: restaura fragments sem estado ao recriar a activity.
     supportFragmentManager.fragmentFactory = RNScreensFragmentFactory()
-    // Splash nativa (react-native-bootsplash); o JS a esconde quando a navegação fica pronta.
+    // Splash nativa (react-native-bootsplash); só fundo preto; a SplashScreen JS a esconde no primeiro layout.
     RNBootSplash.init(this, R.style.BootTheme)
     super.onCreate(savedInstanceState)
   }
