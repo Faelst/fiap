@@ -16,6 +16,8 @@ export function useLoginMutation() {
   const signIn = useSessionStore(state => state.signIn);
 
   return useMutation({
+    // As variáveis (CPF e senha) saem do cache assim que o Login desmonta.
+    gcTime: 0,
     mutationFn: async (input: LoginInput) => {
       const { accessToken, guardian } = await login(input);
       try {

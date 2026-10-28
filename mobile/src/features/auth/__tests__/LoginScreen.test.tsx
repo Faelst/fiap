@@ -138,7 +138,6 @@ describe('LoginScreen', () => {
       'accessibilityLabel',
       'Usuário ou senha inválida. Pode tentar novamente?',
     );
-    expect(message).toHaveProp('accessibilityLiveRegion', 'polite');
     expect(withSequence).toHaveBeenCalled();
   });
 

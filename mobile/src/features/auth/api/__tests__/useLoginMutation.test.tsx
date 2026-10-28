@@ -39,6 +39,22 @@ describe('useLoginMutation', () => {
     expect(await createSecureStorage().getToken()).toBe('jwt-gustavo');
   });
 
+  it('não guarda CPF e senha no cache de mutations depois que o Login sai', async () => {
+    const { result, unmount } = await renderHook(() => useLoginMutation(), {
+      wrapper: QueryWrapper,
+    });
+    await act(() =>
+      result.current.mutateAsync({ cpf: '969.294.560-04', password: '123456' }),
+    );
+    expect(queryClient.getMutationCache().getAll()).toHaveLength(1);
+
+    await unmount();
+
+    await waitFor(() =>
+      expect(queryClient.getMutationCache().getAll()).toHaveLength(0),
+    );
+  });
+
   it('401: erro unauthorized com a mensagem da API e sessão fechada', async () => {
     const { result } = await renderHook(() => useLoginMutation(), {
       wrapper: QueryWrapper,

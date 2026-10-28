@@ -1,10 +1,5 @@
 import type { ReactNode } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-} from 'react-native';
+import { KeyboardAvoidingView, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Box, useTheme } from '../theme';
@@ -75,10 +70,13 @@ export function Screen({
       {keyboard ? (
         <KeyboardAvoidingView
           style={styles.fill}
-          // Android: windowSoftInputMode=adjustResize faz o trabalho.
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          // O rodapé pinta o inset de baixo; com o teclado aberto esse
-          // pedaço fica atrás do teclado, não acima dele.
+          // `padding` nas duas plataformas: com o edge-to-edge do Android
+          // (gradle.properties) o adjustResize não redimensiona a janela, e
+          // o RN só informa onde o teclado está.
+          behavior="padding"
+          // O rodapé pinta o inset de baixo (home indicator no iOS, barra de
+          // navegação no Android); com o teclado aberto esse pedaço fica
+          // atrás do teclado, não acima dele.
           keyboardVerticalOffset={
             footer && !edges.includes('bottom') ? -insets.bottom : 0
           }
