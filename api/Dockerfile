@@ -17,17 +17,23 @@ RUN apt-get update \
   && npm cache clean --force
 WORKDIR /app
 
-# ---- deps: node_modules completo (prisma e tsx rodam migrate e seed no boot) ----
-FROM base AS deps
-# Toolchain para o better-sqlite3 compilar se não houver binário pronto para a
-# plataforma. Fica só neste estágio.
+# ---- toolchain: para o better-sqlite3 compilar se não houver binário pronto ----
+FROM base AS toolchain
 RUN apt-get update \
   && apt-get install -y --no-install-recommends python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
 # O postinstall roda `prisma generate`, que precisa do schema e do config.
 COPY package.json yarn.lock prisma.config.ts ./
 COPY prisma ./prisma
+
+# ---- deps: node_modules completo, só para compilar ----
+FROM toolchain AS deps
 RUN yarn install --frozen-lockfile --non-interactive \
+  && yarn cache clean
+
+# ---- prod-deps: só dependencies (prisma, tsx e dotenv estão lá: migrate e seed rodam no boot) ----
+FROM toolchain AS prod-deps
+RUN yarn install --production --frozen-lockfile --non-interactive \
   && yarn cache clean
 
 # ---- build: compila o Nest para dist/ ----
@@ -42,10 +48,10 @@ ENV NODE_ENV=production \
     PORT=3333 \
     DATABASE_URL=file:/app/data/fiap-school.db \
     LOG_LEVEL=info
-COPY --from=deps --chown=node:node /app/node_modules ./node_modules
+COPY --from=prod-deps --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
 # O seed (tsx prisma/seed.ts) importa o client gerado em src/generated.
-COPY --from=deps --chown=node:node /app/src/generated ./src/generated
+COPY --from=prod-deps --chown=node:node /app/src/generated ./src/generated
 COPY --chown=node:node package.json prisma.config.ts ./
 COPY --chown=node:node prisma ./prisma
 RUN mkdir -p /app/data && chown node:node /app/data
