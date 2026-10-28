@@ -26,8 +26,8 @@ tags:
     id: tab-boletim
 - extendedWaitUntil:
     visible:
-      id: boletim-year-dropdown
-      text: '.*7EF - 2025'
+      id: boletim-year-2025
+      text: '.*7EF'
     timeout: 10000
 - assertVisible:
     id: header-student-chip
@@ -53,11 +53,19 @@ tags:
     id: tab-boletim
 - extendedWaitUntil:
     visible:
-      id: boletim-year-dropdown
-      text: '.*2EM - 2025'
+      id: boletim-year-2025
+      text: '.*2EM'
     timeout: 10000
 - assertVisible:
     id: header-student-chip
     text: '(?i)aluno joana,.*'
-- assertNotVisible:
-    id: agenda-day-dropdown
+# Joana só tem 2025: pílula única, e o 2º trimestre ainda não foi avaliado.
+- assertVisible:
+    id: boletim-year-2025
+    text: 'Ano letivo 2025 · 2EM'
+- tapOn:
+    id: boletim-term-tab-2
+- extendedWaitUntil:
+    visible:
+      id: boletim-term-2-not-evaluated
+    timeout: 5000

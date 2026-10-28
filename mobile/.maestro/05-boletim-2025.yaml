@@ -1,5 +1,6 @@
-# Boletim do Rafael em 2025: "7EF - 2025"; no 1º trimestre, Língua
-# Portuguesa com nota 9,5 e 0 faltas; no 2º (não avaliado), "-".
+# Boletim do Rafael em 2025 (ano e trimestre em segmentos): abre no 1º
+# trimestre, com o resumo (média 8,2, 14 faltas) e Língua Portuguesa com
+# 9,5 e 0 faltas; o 2º trimestre ainda não foi avaliado.
 appId: br.com.fiap.school
 name: 05 - Boletim de 2025
 tags:
@@ -23,63 +24,59 @@ tags:
     id: tab-boletim
 - extendedWaitUntil:
     visible:
-      id: boletim-year-dropdown
-      text: '.*7EF - 2025'
+      id: boletim-year-2025
+      text: '.*2025 · 7EF'
+      selected: true
     timeout: 10000
 
-# 1º trimestre > Língua Portuguesa (a 1ª disciplina da API).
-- tapOn:
-    id: boletim-term-1
-- tapOn:
-    id: boletim-term-1-subject-0
+# Abre no último trimestre avaliado (DV5): o 1º.
+- assertVisible:
+    id: boletim-term-tab-1
+    selected: true
+# Resumo e cards são um elemento só para o leitor de tela: no iOS os textos
+# de dentro não aparecem na hierarquia, então a conferência é pelo rótulo.
+- assertVisible:
+    id: boletim-summary
+    text: '(?s).*Média 8,2, Bom\. 14 faltas em 12 disciplinas\. 1 abaixo de 7\..*'
 - assertVisible:
     id: boletim-term-1-subject-0
-    text: 'Língua Portuguesa'
-- scrollUntilVisible:
-    element:
-      id: boletim-term-1-subject-0-result
-    direction: DOWN
-# Nota e faltas num elemento só para o leitor de tela (vale nas 2 plataformas).
-- assertVisible:
-    id: boletim-term-1-subject-0-result
-    text: 'Nota 9,5, 0 faltas'
+    text: '(?s)Língua Portuguesa\. Nota 9,5, Bom\. 0 faltas\..*'
 # No Android os textos de dentro também aparecem na hierarquia.
 - runFlow:
     when:
       platform: Android
     commands:
       - assertVisible:
+          id: boletim-summary-average
+          text: '8,2'
+      - assertVisible:
           id: boletim-term-1-subject-0-grade
           text: '9,5'
       - assertVisible:
           id: boletim-term-1-subject-0-absences
-          text: '0'
+          text: '0 faltas'
 
-# 2º trimestre ainda não avaliado: "-".
-- tapOn:
-    id: boletim-term-1
+# Arte (6,5) é a única abaixo de 7: faixa "Atenção".
 - scrollUntilVisible:
     element:
-      id: boletim-term-2
-    direction: DOWN
-- tapOn:
-    id: boletim-term-2
-- tapOn:
-    id: boletim-term-2-subject-0
-- scrollUntilVisible:
-    element:
-      id: boletim-term-2-subject-0-result
+      id: boletim-term-1-subject-8
     direction: DOWN
 - assertVisible:
-    id: boletim-term-2-subject-0-result
-    text: 'Nota e faltas ainda não lançadas'
-- runFlow:
-    when:
-      platform: Android
-    commands:
-      - assertVisible:
-          id: boletim-term-2-subject-0-grade
-          text: '-'
-      - assertVisible:
-          id: boletim-term-2-subject-0-absences
-          text: '-'
+    id: boletim-term-1-subject-8
+    text: '(?s)Arte\. Nota 6,5, Atenção\. 2 faltas\..*'
+
+# 2º trimestre ainda não avaliado.
+- scrollUntilVisible:
+    element:
+      id: boletim-term-tab-2
+    direction: UP
+- tapOn:
+    id: boletim-term-tab-2
+- extendedWaitUntil:
+    visible:
+      id: boletim-term-2-not-evaluated
+    timeout: 5000
+- assertVisible:
+    text: 'Ainda não avaliado'
+- assertNotVisible:
+    id: boletim-summary
