@@ -208,7 +208,7 @@ timetable (faixa semanal, pager de dias e linha de "agora") e **Boletim** por
 faixas de nota (resumo do trimestre, barras e legenda), com pull-to-refresh
 nas três abas.
 
-**A entrega oficial do teste continua sendo a v1** (branch `main`), fiel ao
+**A entrega oficial do teste continua sendo a v1** (branch `master`), fiel ao
 Figma. A v2 foi feita por decisão de prazo **sem testes novos**, sem QA e sem
 revisão de segurança dedicados: os testes da v1 foram só ajustados, e a
 suíte, o lint, o `tsc` e a checagem dos flows do Maestro seguem verdes.
