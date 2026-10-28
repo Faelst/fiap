@@ -106,6 +106,18 @@ export class EnvironmentVariables {
   @Min(1)
   LOGIN_THROTTLE_TTL_MS: number = 60000;
 
+  /**
+   * Tentativas de login por CPF (qualquer IP) dentro da janela
+   * LOGIN_THROTTLE_CPF_TTL_MS: segura força bruta com rodízio de IPs.
+   */
+  @IsInt()
+  @Min(1)
+  LOGIN_THROTTLE_CPF_LIMIT: number = 10;
+
+  @IsInt()
+  @Min(1)
+  LOGIN_THROTTLE_CPF_TTL_MS: number = 900000;
+
   /** Nível do pino. Nos testes é "silent". */
   @IsIn(LOG_LEVELS)
   LOG_LEVEL: LogLevel = 'info';

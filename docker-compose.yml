@@ -22,6 +22,8 @@ services:
       CORS_ORIGINS: "*"
       LOGIN_THROTTLE_LIMIT: "5"
       LOGIN_THROTTLE_TTL_MS: "60000"
+      LOGIN_THROTTLE_CPF_LIMIT: "10"
+      LOGIN_THROTTLE_CPF_TTL_MS: "900000"
       LOG_LEVEL: "info"
       SWAGGER_ENABLED: "true"
       # Sem proxy na frente. Atrás de um reverse proxy, use 1 (ou a lista de IPs dele).

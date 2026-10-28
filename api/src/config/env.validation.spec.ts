@@ -20,6 +20,8 @@ describe('validateEnv', () => {
       CORS_ORIGINS: '*',
       LOGIN_THROTTLE_LIMIT: 5,
       LOGIN_THROTTLE_TTL_MS: 60000,
+      LOGIN_THROTTLE_CPF_LIMIT: 10,
+      LOGIN_THROTTLE_CPF_TTL_MS: 900000,
       LOG_LEVEL: 'info',
       SWAGGER_ENABLED: true,
       TRUST_PROXY: 'false',
@@ -93,6 +95,9 @@ describe('validateEnv', () => {
     ['LOGIN_THROTTLE_LIMIT', '0'],
     ['LOGIN_THROTTLE_LIMIT', 'abc'],
     ['LOGIN_THROTTLE_TTL_MS', '0'],
+    ['LOGIN_THROTTLE_CPF_LIMIT', '0'],
+    ['LOGIN_THROTTLE_CPF_LIMIT', 'abc'],
+    ['LOGIN_THROTTLE_CPF_TTL_MS', '0'],
   ])('recusa %s = "%s"', (key, value) => {
     expect(() => validateEnv({ ...validEnv, [key]: value })).toThrow(key);
   });

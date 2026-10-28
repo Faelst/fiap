@@ -1,4 +1,5 @@
-import { Module } from '@nestjs/common';
+import { ExecutionContext, Module } from '@nestjs/common';
+import type { Request } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule, JwtSignOptions } from '@nestjs/jwt';
@@ -9,6 +10,7 @@ import { GuardiansModule } from '../guardians/guardians.module';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { AuthController } from './controllers/auth.controller';
 import { JWT_AUDIENCE, JWT_ISSUER } from './jwt.constants';
+import { cpfThrottleTracker } from './throttling/login-throttle';
 import {
   BcryptPasswordHasher,
   PASSWORD_HASHER,
@@ -17,6 +19,9 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { LoginUseCase } from './use-cases/login.use-case';
 
 type Config = ConfigService<EnvironmentVariables, true>;
+
+const cpfTrackerOf = (context: ExecutionContext) =>
+  cpfThrottleTracker(context.switchToHttp().getRequest<Request>().body);
 
 @Module({
   imports: [
@@ -44,8 +49,18 @@ type Config = ConfigService<EnvironmentVariables, true>;
       useFactory: (config: Config) => ({
         throttlers: [
           {
+            name: 'ip',
             ttl: config.get('LOGIN_THROTTLE_TTL_MS', { infer: true }),
             limit: config.get('LOGIN_THROTTLE_LIMIT', { infer: true }),
+          },
+          {
+            // Por CPF, valendo para qualquer IP. Custo aceito: quem souber um
+            // CPF consegue travar o login dele pela janela (DoS leve).
+            name: 'cpf',
+            ttl: config.get('LOGIN_THROTTLE_CPF_TTL_MS', { infer: true }),
+            limit: config.get('LOGIN_THROTTLE_CPF_LIMIT', { infer: true }),
+            skipIf: (context) => cpfTrackerOf(context) === null,
+            getTracker: (_req, context) => cpfTrackerOf(context) ?? '',
           },
         ],
         errorMessage:
