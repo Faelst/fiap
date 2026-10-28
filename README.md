@@ -17,14 +17,14 @@ um Ruby 3 do Homebrew ou do rbenv; ver o aviso logo abaixo). Detalhes, Android
 e Docker nas seções seguintes.
 
 ```sh
-# Terminal 1: API em http://localhost:3333 (Swagger em /docs)
+# Terminal 1, na raiz do repositório: API em http://localhost:3333 (Swagger em /docs)
 cd api
 cp .env.example .env
 yarn install
 yarn prisma:setup
 yarn start:dev
 
-# Terminal 2: app no simulador iOS
+# Terminal 2, na raiz do repositório: app no simulador iOS
 cd mobile
 yarn install
 cp .env.example .env
@@ -32,20 +32,10 @@ cd ios && bundle install && bundle exec pod install && cd ..
 yarn ios
 ```
 
-> **Ruby do sistema no macOS.** O `mobile/Gemfile` instala o CocoaPods pelo
-> bundler. Com o Ruby 2.6 que vem no macOS, o `bundle install` falha
-> compilando a gem `json` (`Gem::Ext::BuildError … json 2.7.6`). O `yarn ios`
-> roda esse mesmo `bundle install` sozinho na primeira vez e falha com
-> "Something went wrong while installing CocoaPods", mesmo com os pods já
-> instalados. Use um dos caminhos abaixo (detalhes em [iOS](#ios-macos)):
->
-> - **A: Ruby 3 do Homebrew** (o caminho acima funciona como está):
->   `brew install ruby` e, no terminal do app,
->   `export PATH="$(brew --prefix ruby)/bin:$PATH"` antes do `bundle install`.
->   Com rbenv ou asdf vale o mesmo: um Ruby 3 ativo na pasta `mobile/`.
-> - **B: CocoaPods do Homebrew, sem bundler:** `brew install cocoapods`,
->   `cd ios && pod install && cd ..`, `yarn start` e o build pelo Xcode
->   (`open ios/FiapSchool.xcworkspace`, botão Run) no lugar do `yarn ios`.
+> **Ruby do sistema no macOS:** com ele, o `bundle install` (e o `yarn ios`,
+> que o roda sozinho) falha na gem `json`. Antes, ative um Ruby 3
+> (`brew install ruby`) ou use o CocoaPods do Homebrew com o build pelo Xcode:
+> os dois caminhos estão em [iOS](#ios-macos).
 
 Entre com o Gustavo: CPF `969.294.560-04`, senha `123456` (outras contas em
 [Credenciais de teste](#credenciais-de-teste)). Para o Android, veja
@@ -384,9 +374,9 @@ yarn ios                  # ou: yarn ios --simulator "iPhone 16"
 ```
 
 O CocoaPods do Gemfile é o 1.15.2, então o `pod install` troca a última linha
-do `ios/Podfile.lock` (`COCOAPODS: 1.16.2` → `1.15.2`) e cria o
-`mobile/Gemfile.lock`. Nenhum dos dois muda o build; se não quiser a diferença
-no `git status`, `git checkout -- ios/Podfile.lock && rm Gemfile.lock`.
+do `ios/Podfile.lock` (`COCOAPODS: 1.16.2` → `1.15.2`). Isso não muda o build;
+se não quiser a diferença no `git status`, `git checkout -- ios/Podfile.lock`.
+O `mobile/Gemfile.lock` que o bundler cria é ignorado pelo git.
 
 **Caminho B: CocoaPods do Homebrew, sem bundler e sem `yarn ios`**
 
@@ -396,11 +386,12 @@ cd ios && pod install && cd ..
 yarn start                # Metro na 8081, deixe este terminal aberto
 ```
 
-Em outro terminal, builde pelo Xcode (`open ios/FiapSchool.xcworkspace`,
-escolha um simulador e clique em Run) ou pela linha de comando:
+Em outro terminal, também em `mobile/`, builde pelo Xcode
+(`open ios/FiapSchool.xcworkspace`, escolha um simulador e clique em Run) ou
+pela linha de comando:
 
 ```sh
-cd mobile/ios
+cd ios
 xcrun simctl list devices available   # copie o id (UDID) de um iPhone
 UDID=<id do simulador>
 xcrun simctl boot "$UDID" 2>/dev/null; open -a Simulator
@@ -739,7 +730,6 @@ Tudo da entrega fica em
 | `04-security.md` | As revisões de segurança |
 | `revisao/` | Os diffs entregues aos revisores |
 | `05-qa.md` | O relatório do QA, critério a critério, com o que não pôde ser testado |
-| `revisao/` | Os diffs entregues aos revisores |
 | `evidencias/` | Vídeos e prints de cada tarefa e do QA (`evidencias/qa/`) |
 
 ### Configuração da IA no repositório
