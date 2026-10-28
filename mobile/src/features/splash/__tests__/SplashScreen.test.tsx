@@ -1,12 +1,15 @@
 import { ThemeProvider } from '@shopify/restyle';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { Dimensions } from 'react-native';
 import BootSplash from 'react-native-bootsplash';
 
 import type { RootStackScreenProps } from '../../../navigation/types';
 import { useBootStore } from '../../../stores/boot.store';
 import { useSessionStore } from '../../../stores/session.store';
 import { theme } from '../../../theme';
+import { splashToLoginOffsetY } from '../../../utils/loginLayout';
 import { SplashScreen } from '../SplashScreen';
+import * as splashAnimation from '../useSplashAnimation';
 
 type Props = RootStackScreenProps<'Splash'>;
 
@@ -93,5 +96,33 @@ describe('SplashScreen', () => {
       index: 0,
       routes: [{ name: 'Login', params: { fromSplash: true } }],
     });
+  });
+
+  it('a saída para o Login mira o centro do logo do Login (util compartilhado)', async () => {
+    const actual = splashAnimation.useSplashAnimation;
+    const exit = jest.fn();
+    const spy = jest
+      .spyOn(splashAnimation, 'useSplashAnimation')
+      .mockImplementation(options => ({ ...actual(options), exit }));
+    await renderSplash();
+    await fireEvent(screen.getByTestId('splash-screen'), 'layout', layout);
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(1200);
+    });
+
+    // Insets do mock = 0; raiz de 736 (layout) e a janela do Jest.
+    expect(exit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        destination: 'login',
+        loginOffsetY: splashToLoginOffsetY({
+          rootHeight: 736,
+          windowHeight: Dimensions.get('window').height,
+          insetTop: 0,
+          insetBottom: 0,
+        }),
+      }),
+    );
+    spy.mockRestore();
   });
 });

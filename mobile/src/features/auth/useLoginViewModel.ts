@@ -76,10 +76,9 @@ export function useLoginViewModel() {
     mutation.error && mutation.error.kind !== 'canceled'
       ? mutation.submittedAt
       : 0;
+  /** Banner acima do botão: erro de envio ou o aviso de sessão expirada. */
   const errorMessage =
-    submitError ??
-    (showCpfError ? strings.login.error.cpf : null) ??
-    (showExpired ? strings.login.error.sessionExpired : null);
+    submitError ?? (showExpired ? strings.login.error.sessionExpired : null);
 
   const submit = handleSubmit(values => {
     if (mutation.isPending) return;
@@ -89,6 +88,8 @@ export function useLoginViewModel() {
   return {
     cpf: {
       value: cpfField.value,
+      /** Erro do próprio campo (DV errado no blur); some quando o CPF muda. */
+      error: showCpfError ? strings.login.error.cpf : null,
       onChangeText: (text: string) => {
         clearMessages();
         cpfField.onChange(formatCpf(text));
@@ -119,6 +120,7 @@ export function useLoginViewModel() {
     },
     canSubmit,
     isSubmitting,
+    /** Texto do banner (erros de envio e sessão expirada). */
     errorMessage,
     /** Muda a cada erro de envio: a View faz o shake do formulário. */
     shakeKey,

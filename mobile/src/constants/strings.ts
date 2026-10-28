@@ -4,21 +4,23 @@
  */
 export const strings = {
   login: {
+    title: 'Bem-vindo',
+    subtitle: 'Acompanhe as aulas e o boletim do seu filho.',
     cpfLabel: 'CPF',
     cpfHint: 'Somente números',
-    passwordLabel: 'SENHA',
-    passwordAccessibilityLabel: 'Senha',
-    submit: 'FAZER LOGIN',
-    submitAccessibilityLabel: 'Fazer login',
-    submittingAccessibilityLabel: 'Entrando',
+    cpfPlaceholder: '000.000.000-00',
+    passwordLabel: 'Senha',
+    showPassword: 'Mostrar senha',
+    hidePassword: 'Ocultar senha',
+    submit: 'Entrar',
+    submittingAccessibilityLabel: 'Entrando…',
+    help: 'Problemas para entrar? Fale com a secretaria da FIAP School.',
     error: {
-      invalid: 'Usuário ou senha inválida.\nPode tentar novamente?',
+      invalid: 'Usuário ou senha inválida. Confira e tente de novo.',
       cpf: 'Confira o CPF digitado.',
-      network:
-        'Não conseguimos falar com o servidor.\nConfira sua conexão e tente de novo.',
-      tooMany:
-        'Muitas tentativas seguidas.\nAguarde um minuto e tente de novo.',
-      server: 'Algo deu errado do nosso lado.\nTente de novo em instantes.',
+      network: 'Não conseguimos falar com o servidor. Confira sua conexão.',
+      tooMany: 'Muitas tentativas seguidas. Aguarde um minuto e tente de novo.',
+      server: 'Algo deu errado do nosso lado. Tente de novo em instantes.',
       sessionExpired: 'Sua sessão expirou. Entre de novo.',
       storage:
         'Não foi possível salvar o acesso neste aparelho. Tente de novo.',

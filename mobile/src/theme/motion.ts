@@ -34,6 +34,15 @@ export const motion = {
   popFrom: 0.9,
   /** Linha do aluno que acabou de ser escolhido no Perfil: 0,98 → 1 (4.6). */
   rowSelectFrom: 0.98,
+  /** Rótulo flutuante do campo: encolhe para 0,8 ao subir (2.5). */
+  fieldLabelScale: 0.8,
+  /** Ícone do olho que entra: 0,85 → 1 (2.5). */
+  toggleIconFrom: 0.85,
+  /** Login (4.2): atraso do 1º item do card e da ajuda do rodapé. */
+  loginItemsDelay: 60,
+  loginHelpDelay: 300,
+  /** Card do login entra de 0,98 → 1 (4.2). */
+  loginCardScaleFrom: 0.98,
   /** Logo da splash ao chegar no login (0,8). */
   loginLogoScale: sizes.logoLoginV2.width / sizes.logoLogin.width,
   easeOut: Easing.out(Easing.cubic),

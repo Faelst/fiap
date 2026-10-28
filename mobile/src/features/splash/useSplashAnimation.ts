@@ -189,13 +189,14 @@ export function useSplashAnimation({ reducedMotion, trackWidth }: Options) {
         return;
       }
       if (destination === 'login') {
-        groupY.set(
-          withTiming(
-            loginOffsetY,
-            { duration: motion.slow, easing: splash.exitToLoginEasing },
-            done,
-          ),
-        );
+        // Até o lugar do logo do Login, já no tamanho dele (0,8): os dois
+        // transforms juntos, no mesmo grupo (01-design.md da v2, 3.1).
+        const toLogin = {
+          duration: motion.slow,
+          easing: splash.exitToLoginEasing,
+        };
+        groupScale.set(withTiming(motion.loginLogoScale, toLogin));
+        groupY.set(withTiming(loginOffsetY, toLogin, done));
         return;
       }
       const config = { duration: splash.exitDuration, easing: motion.easeIn };
@@ -208,6 +209,7 @@ export function useSplashAnimation({ reducedMotion, trackWidth }: Options) {
       motion.fast,
       motion.slow,
       motion.easeIn,
+      motion.loginLogoScale,
       loaderX,
       badgeBreath,
       loaderOpacity,

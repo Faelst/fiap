@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { Image, type LayoutChangeEvent } from 'react-native';
+import {
+  Image,
+  useWindowDimensions,
+  type LayoutChangeEvent,
+} from 'react-native';
 import BootSplash from 'react-native-bootsplash';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { strings } from '../../constants/strings';
 import type { RootStackScreenProps } from '../../navigation/types';
 import { Box, useTheme } from '../../theme';
+import { splashToLoginOffsetY } from '../../utils/loginLayout';
 import { useSplashAnimation } from './useSplashAnimation';
 import { useSplashViewModel } from './useSplashViewModel';
 
@@ -21,6 +26,7 @@ export function SplashScreen({ navigation }: RootStackScreenProps<'Splash'>) {
     useSplashViewModel(navigation);
   const { colors, sizes, spacing } = useTheme();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const { width, height } = sizes.logoLogin;
   const animation = useSplashAnimation({ reducedMotion, trackWidth: width });
   const { start, startLoop, exit, segmentWidth, styles } = animation;
@@ -45,14 +51,26 @@ export function SplashScreen({ navigation }: RootStackScreenProps<'Splash'>) {
 
   useEffect(() => {
     if (!destination) return;
-    // Centro da tela → posição do logo no Login (inset de cima + hero).
-    const centeredTop = (rootHeight.current - height) / 2;
+    // Centro da tela → centro do logo do Login, pela mesma conta que o
+    // Login usa para desenhá-lo (utils/loginLayout).
     exit({
       destination,
-      loginOffsetY: insets.top + spacing.hero - centeredTop,
+      loginOffsetY: splashToLoginOffsetY({
+        rootHeight: rootHeight.current,
+        windowHeight,
+        insetTop: insets.top,
+        insetBottom: insets.bottom,
+      }),
       onFinished: onExitFinished,
     });
-  }, [destination, exit, height, insets.top, spacing.hero, onExitFinished]);
+  }, [
+    destination,
+    exit,
+    windowHeight,
+    insets.top,
+    insets.bottom,
+    onExitFinished,
+  ]);
 
   const layers = useMemo(() => {
     const badge = sizes.logoBadge;

@@ -151,4 +151,22 @@ describe('tema v2', () => {
     });
     expect(theme.motion.rowSelectFrom).toBe(0.98);
   });
+
+  it('Login (2.5 e 3.2): campo, ícone do erro, halo e as escalas do rótulo e do olho', () => {
+    expect(theme.sizes).toMatchObject({
+      textField: 60,
+      textFieldFocusBorder: 1.5,
+      fieldErrorIcon: 16,
+      loginHalo: 360,
+      loginStackHeight: 460,
+      banner: 48,
+    });
+    expect(theme.motion).toMatchObject({
+      fieldLabelScale: 0.8,
+      toggleIconFrom: 0.85,
+      loginItemsDelay: 60,
+      loginHelpDelay: 300,
+      loginCardScaleFrom: 0.98,
+    });
+  });
 });

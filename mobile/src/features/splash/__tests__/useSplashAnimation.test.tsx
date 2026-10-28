@@ -75,3 +75,32 @@ describe('useSplashAnimation com reduzir movimento', () => {
     },
   );
 });
+
+describe('useSplashAnimation: saída para o Login (3.1 da v2)', () => {
+  beforeEach(() => timing.mockClear());
+
+  it('desce até o logo do Login e encolhe para 0,8 juntos, em slow com emphasized', async () => {
+    const { result } = await renderHook(
+      () => useSplashAnimation({ reducedMotion: false, trackWidth: 306 }),
+      { wrapper },
+    );
+    const onFinished = jest.fn();
+
+    result.current.exit({
+      destination: 'login',
+      loginOffsetY: -200.5,
+      onFinished,
+    });
+
+    const { motion } = theme;
+    const exitConfig = {
+      duration: motion.slow,
+      easing: motion.splash.exitToLoginEasing,
+    };
+    expect(timing).toHaveBeenCalledWith(-200.5, exitConfig, expect.anything());
+    expect(timing).toHaveBeenCalledWith(motion.loginLogoScale, exitConfig);
+    // Troca de tela uma vez só, no fim do grupo.
+    await Promise.resolve();
+    expect(onFinished).toHaveBeenCalledTimes(1);
+  });
+});

@@ -114,11 +114,13 @@ describe('useLoginViewModel', () => {
 
       await act(() => result.current.cpf.onBlur());
       await waitFor(() =>
-        expect(result.current.errorMessage).toBe(strings.login.error.cpf),
+        expect(result.current.cpf.error).toBe(strings.login.error.cpf),
       );
+      // O erro é do campo, não do banner (3.2).
+      expect(result.current.errorMessage).toBeNull();
 
       await act(() => result.current.cpf.onChangeText('9692945600'));
-      expect(result.current.errorMessage).toBeNull();
+      expect(result.current.cpf.error).toBeNull();
     });
 
     it('CPF incompleto não mostra erro ao sair do campo', async () => {
@@ -127,6 +129,7 @@ describe('useLoginViewModel', () => {
 
       await act(() => result.current.cpf.onBlur());
 
+      expect(result.current.cpf.error).toBeNull();
       expect(result.current.errorMessage).toBeNull();
     });
   });

@@ -26,6 +26,12 @@ export const sizes = {
   studentChip: { height: 40, avatar: 28, maxWidth: 200, chevron: 16 },
   avatar: { s: 28, m: 44, l: 56 },
   textField: 60,
+  /** Borda da camada de foco e de erro do campo (2.5). */
+  textFieldFocusBorder: 1.5,
+  /** `AlertIcon` do erro embaixo do campo. */
+  fieldErrorIcon: 16,
+  /** Halo radial atrás do logo do login (3.2). */
+  loginHalo: 360,
   /** Alturas do `PillButton`. */
   pill: { md: 56, sm: 44, xs: 32 },
   floatingTabBar: {
