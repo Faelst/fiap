@@ -159,7 +159,10 @@ jobs:
 
       # O script do emulator-runner roda linha a linha (sh): um comando por linha.
       # Na falha, o logcat (erros do JS e do nativo) vai junto com o relatório;
-      # o buffer maior guarda os 10 flows.
+      # o buffer maior guarda os 10 flows. hide_error_dialogs: um app do sistema
+      # que trava sob carga (no run 40716871773, o Pixel Launcher) não abre o
+      # diálogo "isn't responding" por cima do app, que o Maestro não atravessa.
+      # O subflow dismiss-system-anr.yaml cobre o caso de o diálogo vir assim mesmo.
       - name: Maestro - flows no emulador (API 34, x86_64)
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -173,6 +176,7 @@ jobs:
             adb install -r "$APK"
             mkdir -p "$REPORT_DIR/debug"
             adb logcat -G 16M || true
+            adb shell settings put global hide_error_dialogs 1
             maestro test mobile/.maestro --format junit --output "$REPORT_DIR/report.xml" --debug-output "$REPORT_DIR/debug" || { adb logcat -d > "$REPORT_DIR/logcat.txt"; exit 1; }
 
       # Relatório JUnit e, nas falhas, os prints e logs de cada comando. O

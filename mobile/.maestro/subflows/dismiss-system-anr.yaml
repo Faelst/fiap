@@ -1,0 +1,12 @@
+# Fecha o diálogo "<app> isn't responding" do Android, se estiver na tela.
+# No emulador do CI um app do sistema (ex.: Pixel Launcher) pode travar sob
+# carga; o diálogo fica por cima do app até alguém tocar, e o Maestro só vê a
+# janela dele (run 40716871773: os 10 flows falharam assim). "Wait" deixa o
+# sistema seguir sem matar nada. Fora disso não faz nada.
+appId: br.com.fiap.school
+---
+- runFlow:
+    when:
+      visible: ".*isn.t responding"
+    commands:
+      - tapOn: 'Wait'

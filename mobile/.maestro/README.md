@@ -82,6 +82,10 @@ emulador Android. Ele roda pelo `workflow_dispatch` ou num PR com a label
   app abre a frio, e a splash pode esperar o keychain até a trava de 10 s.
   Os dados da API (Agenda, Boletim) têm até 20 s. O `extendedWaitUntil` sai
   assim que a tela aparece, então o teto só pesa quando o flow falha.
+- No emulador do CI um app do sistema pode travar e abrir o diálogo "isn't
+  responding" por cima do app. O `maestro.yml` desliga esses diálogos
+  (`hide_error_dialogs`), e o `subflows/dismiss-system-anr.yaml` toca em
+  "Wait" se ele aparecer na abertura do app.
 - No iOS, o texto de dentro de um elemento acessível (ex.: nota e faltas, o
   nome do aluno no header) aparece só no rótulo do elemento. Por isso os flows
   conferem o rótulo (`Nota 9,5, 0 faltas`, `Aluno Rafael, ...`), que vale nas

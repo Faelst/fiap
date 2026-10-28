@@ -17,6 +17,7 @@ tags:
 - stopApp
 # Sem clearState: a sessão tem de sobreviver ao relançamento.
 - launchApp
+- runFlow: subflows/dismiss-system-anr.yaml
 # Abertura a frio + splash (o /me tem 8 s de timeout): até 30 s, como no
 # subflows/launch-clean.yaml.
 - extendedWaitUntil:

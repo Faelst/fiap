@@ -19,6 +19,7 @@ tags:
     id: agenda-screen
 - stopApp
 - launchApp
+- runFlow: subflows/dismiss-system-anr.yaml
 # Abertura a frio + splash: até 30 s, como no subflows/launch-clean.yaml.
 - extendedWaitUntil:
     visible:

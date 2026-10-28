@@ -9,6 +9,7 @@ appId: br.com.fiap.school
 - launchApp:
     clearState: true
     clearKeychain: true
+- runFlow: dismiss-system-anr.yaml
 - extendedWaitUntil:
     visible:
       id: login-screen
