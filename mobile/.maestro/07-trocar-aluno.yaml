@@ -1,8 +1,8 @@
-# Gustavo (2 alunos): troca de aluno no Perfil e volta ao Boletim, já com os
-# dados do aluno novo. Escolhe os dois alunos explicitamente, sem depender de
-# qual é o inicial.
+# Gustavo (2 alunos): do Boletim, o chip do aluno no header leva ao Perfil;
+# a troca é feita lá e, de volta ao Boletim, o boletim e o chip já são do
+# aluno novo. Escolhe o aluno inicial explicitamente, sem depender do /me.
 appId: br.com.fiap.school
-name: 07 - Trocar aluno no Perfil atualiza o Boletim
+name: 07 - Chip do header leva ao Perfil e a troca atualiza o Boletim
 tags:
   - alunos
 ---
@@ -15,12 +15,6 @@ tags:
 - extendedWaitUntil:
     visible:
       id: agenda-screen
-    timeout: 10000
-- tapOn:
-    id: tab-boletim
-- extendedWaitUntil:
-    visible:
-      id: boletim-year-dropdown
     timeout: 10000
 
 # Rafael (7EF).
@@ -36,13 +30,25 @@ tags:
       text: '.*7EF - 2025'
     timeout: 10000
 - assertVisible:
+    id: header-student-chip
     text: '(?i)aluno rafael,.*'
 
-# Joana (2EM): de volta ao Boletim, com o boletim e o header dela.
-- runFlow:
-    file: subflows/select-student.yaml
-    env:
-      RM: '12568'
+# O chip leva ao Perfil (V7); lá, Joana (2EM).
+- tapOn:
+    id: header-student-chip
+- extendedWaitUntil:
+    visible:
+      id: profile-screen
+    timeout: 5000
+- tapOn:
+    id: profile-student-12568
+- extendedWaitUntil:
+    visible:
+      id: profile-student-12568
+      selected: true
+    timeout: 5000
+
+# De volta ao Boletim, com o boletim e o chip dela.
 - tapOn:
     id: tab-boletim
 - extendedWaitUntil:
@@ -51,8 +57,7 @@ tags:
       text: '.*2EM - 2025'
     timeout: 10000
 - assertVisible:
+    id: header-student-chip
     text: '(?i)aluno joana,.*'
-- assertVisible:
-    id: boletim-screen
 - assertNotVisible:
     id: agenda-day-dropdown

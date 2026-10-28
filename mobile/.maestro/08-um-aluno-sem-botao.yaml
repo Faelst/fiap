@@ -1,7 +1,7 @@
-# Adelaide (1 aluna, Bianca): sem TROCAR PERFIL nas abas e, no Perfil, a
-# Bianca como atual e sem a dica de troca.
+# Adelaide (1 aluna, Bianca): o chip do header mostra a Bianca e, no Perfil,
+# ela é a atual, sem a dica de troca.
 appId: br.com.fiap.school
-name: 08 - Responsável com 1 aluno não vê TROCAR PERFIL
+name: 08 - Responsável com 1 aluno vê a aluna como atual, sem troca
 tags:
   - alunos
 ---
@@ -19,11 +19,8 @@ tags:
     id: header-greeting
     text: '(?i)olá, adelaide'
 - assertVisible:
+    id: header-student-chip
     text: '(?i)aluno bianca,.*'
-- assertVisible:
-    id: header-logout-button
-- assertNotVisible:
-    id: header-switch-student-button
 - tapOn:
     id: tab-perfil
 - extendedWaitUntil:
@@ -40,5 +37,3 @@ tags:
       id: boletim-year-dropdown
       text: '.*1EF - 2025'
     timeout: 10000
-- assertNotVisible:
-    id: header-switch-student-button

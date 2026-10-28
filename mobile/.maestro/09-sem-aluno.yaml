@@ -1,5 +1,5 @@
-# Carlos (sem aluno vinculado; extra do seed): estado vazio, sem abas e sem
-# TROCAR PERFIL, mas com SAIR.
+# Carlos (sem aluno vinculado; extra do seed): header só com a saudação e
+# "Sua conta", o estado vazio, sem abas e sem chip; Sair sai na hora.
 appId: br.com.fiap.school
 name: 09 - Responsável sem aluno vê o estado vazio
 tags:
@@ -23,8 +23,16 @@ tags:
     id: header-greeting
     text: '(?i)olá, carlos'
 - assertVisible:
-    id: header-logout-button
+    id: no-student-title
+    text: 'Sua conta'
 - assertNotVisible:
-    id: header-switch-student-button
+    id: header-student-chip
 - assertNotVisible:
     id: tab-bar
+# Sair é a única saída daqui: sem confirmação (DV7).
+- tapOn:
+    id: no-student-logout-button
+- extendedWaitUntil:
+    visible:
+      id: login-screen
+    timeout: 5000

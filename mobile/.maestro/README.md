@@ -10,14 +10,14 @@ seed da API.
 | Flow                              | Caso de uso                                                    |
 | --------------------------------- | -------------------------------------------------------------- |
 | `01-login-invalido.yaml`          | senha errada → mensagem de erro, continua no Login             |
-| `02-login-sucesso.yaml`           | login → Agenda com o header e a tab bar com as 3 abas          |
+| `02-login-sucesso.yaml`           | login → Agenda com o header compacto e a tab bar com 3 abas    |
 | `03-sessao-persistida.yaml`       | login → `stopApp` → `launchApp` → Agenda sem login             |
 | `04-aulas-navegar-dias.yaml`      | dropdown de dias: segunda, terça e domingo (vazio)             |
 | `05-boletim-2025.yaml`            | "7EF - 2025", 1º trimestre com nota e faltas, 2º trimestre `-` |
 | `06-boletim-anos-anteriores.yaml` | troca para "6EF - 2024"                                        |
-| `07-trocar-aluno.yaml`            | troca de aluno no Perfil e volta ao Boletim com o aluno novo   |
-| `08-um-aluno-sem-botao.yaml`      | 1 aluno: sem TROCAR PERFIL; no Perfil, atual e sem dica        |
-| `09-sem-aluno.yaml`               | responsável sem aluno vê o estado vazio                        |
+| `07-trocar-aluno.yaml`            | chip do header → Perfil, troca e volta ao Boletim atualizado   |
+| `08-um-aluno-sem-botao.yaml`      | 1 aluno: chip com a aluna; no Perfil, atual e sem dica         |
+| `09-sem-aluno.yaml`               | sem aluno: estado vazio, sem abas; Sair volta ao Login         |
 | `10-logout.yaml`                  | Perfil → Sair → confirmar → Login; reabrir continua no Login   |
 
 `subflows/` tem os passos repetidos (abrir o app limpo, login, trocar aluno,
@@ -79,6 +79,6 @@ emulador Android. Ele roda pelo `workflow_dispatch` ou num PR com a label
 - A splash tem duração mínima, então os flows esperam o Login ou a Agenda por
   até 12 s depois do `launchApp`.
 - No iOS, o texto de dentro de um elemento acessível (ex.: nota e faltas, o
-  nome do aluno no header) aparece só no rótulo do elemento. Por isso os flows
+  nome do aluno no chip do header) aparece só no rótulo do elemento. Por isso os flows
   conferem o rótulo (`Nota 9,5, 0 faltas`, `Aluno Rafael, ...`), que vale nas
   duas plataformas, e os textos internos (`9,5`, `-`) só no Android.

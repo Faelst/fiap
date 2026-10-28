@@ -1,5 +1,5 @@
-# Login do Gustavo (2 alunos): abre a Agenda com o header completo e a tab
-# bar flutuante com as 3 abas.
+# Login do Gustavo (2 alunos): abre a Agenda com o header compacto (saudação,
+# título e chip do aluno) e a tab bar flutuante com as 3 abas.
 appId: br.com.fiap.school
 name: 02 - Login com sucesso abre a Agenda
 tags:
@@ -18,15 +18,14 @@ tags:
 - assertVisible:
     id: header-greeting
     text: '(?i)olá, gustavo'
-# O aluno inicial vem do /me; qualquer um dos dois serve aqui.
+# O aluno inicial vem do /me; qualquer um dos dois serve aqui. TROCAR PERFIL
+# e SAIR saíram do header: ficam na aba Perfil (V7).
 - assertVisible:
+    id: header-student-chip
     text: '(?i)aluno (rafael|joana),.*'
 - assertVisible:
-    id: header-switch-student-button
-- assertVisible:
-    id: header-logout-button
-- assertVisible:
     id: agenda-title
+    text: 'Agenda'
 - extendedWaitUntil:
     visible:
       id: agenda-day-dropdown
