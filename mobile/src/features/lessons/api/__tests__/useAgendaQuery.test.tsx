@@ -42,7 +42,10 @@ describe('useAgendaQuery', () => {
     expect(result.current.data).toHaveLength(7);
 
     await rerender({ id: 's2' });
-    await waitFor(() => expect(requested).toEqual(['s1', 's2']));
+    // Espera o hook receber a resposta do s2, e não só o request sair: senão
+    // ela chega depois do último `waitFor` e atualiza o hook fora do act.
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(requested).toEqual(['s1', 's2']);
     expect(queryClient.getQueryData(['agenda', 's1'])).toHaveLength(7);
   });
 

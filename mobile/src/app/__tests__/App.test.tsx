@@ -19,6 +19,9 @@ import { App } from '../App';
 /** A splash tem duração mínima de 1200 ms (timers reais aqui, por causa do MSW). */
 const AFTER_SPLASH = { timeout: 4000 };
 
+/** Fade das abas (150 ms) + o `setTimeout` de 32 ms do BottomTabView, com folga. */
+const TABS_SETTLE = 250;
+
 const layout = {
   nativeEvent: { layout: { x: 0, y: 0, width: 414, height: 736 } },
 };
@@ -33,9 +36,16 @@ describe('App', () => {
   });
 
   // As abas buscam a agenda ao montar; a resposta não pode chegar depois do
-  // fim do teste (atualização fora do act).
+  // fim do teste (atualização fora do act). O `isFetching` zera no cache antes
+  // de a tela saber: o TanStack avisa os observadores num `setTimeout(0)`. E o
+  // bottom-tabs, ao terminar o fade (150 ms), muda o próprio estado 32 ms
+  // depois. As duas coisas acontecem aqui, dentro do act, antes do unmount.
   afterEach(async () => {
     await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+    await act(
+      () =>
+        new Promise<void>(resolve => setTimeout(() => resolve(), TABS_SETTLE)),
+    );
   });
 
   it('abre na splash JS, esconde a nativa sem fade e, sem token, vai ao Login', async () => {
