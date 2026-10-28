@@ -1,0 +1,53 @@
+# Bônus: o dropdown troca para o boletim de 2024 do Rafael ("6EF - 2024").
+appId: br.com.fiap.school
+name: 06 - Boletim de anos anteriores
+tags:
+  - boletim
+---
+- runFlow: subflows/launch-clean.yaml
+- runFlow:
+    file: subflows/login.yaml
+    env:
+      CPF: '96929456004'
+      PASSWORD: '123456'
+- extendedWaitUntil:
+    visible:
+      id: agenda-screen
+    timeout: 10000
+- runFlow:
+    file: subflows/select-student.yaml
+    env:
+      RM: '12567'
+- tapOn:
+    id: tab-boletim
+- extendedWaitUntil:
+    visible:
+      id: boletim-year-dropdown
+      text: '.*7EF - 2025'
+    timeout: 10000
+- tapOn:
+    id: boletim-year-dropdown
+- tapOn:
+    id: boletim-year-dropdown-option-2024
+- extendedWaitUntil:
+    visible:
+      id: boletim-year-dropdown
+      text: '.*6EF - 2024'
+    timeout: 10000
+
+# 2024, 1º trimestre > Língua Portuguesa: nota 8,0 e 1 falta.
+- extendedWaitUntil:
+    visible:
+      id: boletim-term-1
+    timeout: 10000
+- tapOn:
+    id: boletim-term-1
+- tapOn:
+    id: boletim-term-1-subject-0
+- scrollUntilVisible:
+    element:
+      id: boletim-term-1-subject-0-result
+    direction: DOWN
+- assertVisible:
+    id: boletim-term-1-subject-0-result
+    text: 'Nota 8,0, 1 falta'

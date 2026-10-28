@@ -1,0 +1,36 @@
+# Login do Gustavo (2 alunos): abre a Agenda com o header completo.
+appId: br.com.fiap.school
+name: 02 - Login com sucesso abre a Agenda
+tags:
+  - login
+---
+- runFlow: subflows/launch-clean.yaml
+- runFlow:
+    file: subflows/login.yaml
+    env:
+      CPF: '96929456004'
+      PASSWORD: '123456'
+- extendedWaitUntil:
+    visible:
+      id: agenda-screen
+    timeout: 10000
+- assertVisible:
+    id: header-greeting
+    text: '(?i)olá, gustavo'
+# O aluno inicial vem do /me; qualquer um dos dois serve aqui.
+- assertVisible:
+    text: '(?i)aluno (rafael|joana),.*'
+- assertVisible:
+    id: header-switch-student-button
+- assertVisible:
+    id: header-logout-button
+- assertVisible:
+    id: agenda-title
+- extendedWaitUntil:
+    visible:
+      id: agenda-day-dropdown
+    timeout: 10000
+- assertVisible:
+    id: tab-agenda
+- assertVisible:
+    id: tab-boletim
