@@ -1,25 +1,18 @@
-import { PlaceholderScreen } from '../../components/PlaceholderScreen';
-import { useSessionStore } from '../../stores/session.store';
+import { Screen } from '../../components/Screen';
+import { Box, Text } from '../../theme';
+import { AppHeader } from '../header/AppHeader';
 
-/**
- * Placeholder. O Boletim real (M5) é a Tarefa 12, e o SAIR de verdade fica no
- * Header (Tarefa 10), por um ViewModel.
- */
+/** Boletim. O Header é real; o conteúdo (M5) é a Tarefa 12. */
 export function ReportCardScreen() {
-  const signOut = useSessionStore(state => state.signOut);
-
   return (
-    <PlaceholderScreen
-      testID="boletim-screen"
-      title="Boletim"
-      description="Notas e faltas por trimestre entram aqui."
-      actions={[
-        {
-          label: 'SAIR',
-          testID: 'header-logout-button',
-          onPress: () => signOut(),
-        },
-      ]}
-    />
+    <Screen testID="boletim-screen">
+      <AppHeader>
+        <Box padding="xxxl" alignItems="center">
+          <Text variant="body" textAlign="center">
+            Notas e faltas por trimestre entram aqui.
+          </Text>
+        </Box>
+      </AppHeader>
+    </Screen>
   );
 }

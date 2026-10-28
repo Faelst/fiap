@@ -2,10 +2,10 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import * as Keychain from 'react-native-keychain';
 import { http, HttpResponse } from 'msw';
 
-import { queryClient } from '../../../../app/queryClient';
+import { queryClient, queryKeys } from '../../../../app/queryClient';
 import { createSecureStorage } from '../../../../services/storage/secureStorage';
 import { useSessionStore } from '../../../../stores/session.store';
-import { API_URL, loginResponse } from '../../../../test/fixtures';
+import { API_URL, loginResponse, meResponse } from '../../../../test/fixtures';
 import { server } from '../../../../test/msw/server';
 import { QueryWrapper } from '../../../../test/queryWrapper';
 import { useLoginMutation } from '../useLoginMutation';
@@ -92,6 +92,7 @@ describe('useLoginMutation', () => {
       'Não foi possível salvar o acesso neste aparelho. Tente de novo.',
     );
     expect(useSessionStore.getState().status).toBe('signedOut');
+    expect(queryClient.getQueryData(queryKeys.me())).toBeUndefined();
   });
 
   it('resposta sem token é tratada como invalidResponse e não abre sessão', async () => {
@@ -112,5 +113,48 @@ describe('useLoginMutation', () => {
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(result.current.error?.kind).toBe('invalidResponse');
     expect(useSessionStore.getState().status).toBe('signedOut');
+  });
+
+  it('busca o /me com o token novo e guarda no cache antes de abrir a sessão', async () => {
+    let authorization: string | null = null;
+    server.use(
+      http.get(`${API_URL}/me`, ({ request }) => {
+        authorization = request.headers.get('authorization');
+        return HttpResponse.json(meResponse);
+      }),
+    );
+    let meWhenSignedIn: unknown;
+    const unsubscribe = useSessionStore.subscribe(state => {
+      if (state.status === 'signedIn' && meWhenSignedIn === undefined) {
+        meWhenSignedIn = queryClient.getQueryData(queryKeys.me());
+      }
+    });
+    const { result } = await renderHook(() => useLoginMutation(), {
+      wrapper: QueryWrapper,
+    });
+
+    await act(() =>
+      result.current.mutateAsync({ cpf: '969.294.560-04', password: '123456' }),
+    );
+    unsubscribe();
+
+    expect(authorization).toBe('Bearer jwt-gustavo');
+    expect(meWhenSignedIn).toEqual(meResponse);
+  });
+
+  it('/me que falha depois do login: erro de rede, sem sessão e sem token', async () => {
+    server.use(http.get(`${API_URL}/me`, () => HttpResponse.error()));
+    const { result } = await renderHook(() => useLoginMutation(), {
+      wrapper: QueryWrapper,
+    });
+
+    await act(async () => {
+      result.current.mutate({ cpf: '969.294.560-04', password: '123456' });
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error?.kind).toBe('network');
+    expect(useSessionStore.getState().status).toBe('signedOut');
+    expect(await createSecureStorage().getToken()).toBeNull();
   });
 });

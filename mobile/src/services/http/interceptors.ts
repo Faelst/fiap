@@ -64,7 +64,11 @@ export function attachInterceptors(
   };
 
   instance.interceptors.request.use(async config => {
-    const token = isPublic(config) ? null : await getToken();
+    // Um Authorization explícito (o token recém-emitido no login, antes de a
+    // sessão abrir) vale mais que o da memória e não é da sessão atual: um
+    // 401 dele não encerra a sessão.
+    const explicit = config.headers.has('Authorization');
+    const token = isPublic(config) || explicit ? null : await getToken();
     requestMeta.set(config, { startedAt: now(), token });
     if (token) {
       config.headers.set('Authorization', `Bearer ${token}`);

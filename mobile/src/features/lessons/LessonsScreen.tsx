@@ -1,20 +1,18 @@
-import { PlaceholderScreen } from '../../components/PlaceholderScreen';
-import type { AppTabsScreenProps } from '../../navigation/types';
+import { Screen } from '../../components/Screen';
+import { Box, Text } from '../../theme';
+import { AppHeader } from '../header/AppHeader';
 
-/** Placeholder. A Agenda real (M4) é a Tarefa 11. */
-export function LessonsScreen({ navigation }: AppTabsScreenProps<'Agenda'>) {
+/** Agenda. O Header é real; o conteúdo (M4) é a Tarefa 11. */
+export function LessonsScreen() {
   return (
-    <PlaceholderScreen
-      testID="agenda-screen"
-      title="Agenda"
-      description="As aulas do dia entram aqui."
-      actions={[
-        {
-          label: 'TROCAR PERFIL',
-          testID: 'header-switch-student-button',
-          onPress: () => navigation.navigate('SelectStudent'),
-        },
-      ]}
-    />
+    <Screen testID="agenda-screen">
+      <AppHeader>
+        <Box padding="xxxl" alignItems="center">
+          <Text variant="body" textAlign="center">
+            As aulas do dia entram aqui.
+          </Text>
+        </Box>
+      </AppHeader>
+    </Screen>
   );
 }

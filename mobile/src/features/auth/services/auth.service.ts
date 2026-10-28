@@ -24,12 +24,18 @@ export async function login({
 export type GetMeOptions = {
   /** Sobrescreve o timeout padrão do client (a splash usa um menor). */
   timeoutMs?: number;
+  /** Token recém-emitido pelo login, antes de a sessão abrir. */
+  token?: string;
 };
 
 export async function getMe(
   signal?: AbortSignal,
-  { timeoutMs }: GetMeOptions = {},
+  { timeoutMs, token }: GetMeOptions = {},
 ): Promise<Me> {
-  const { data } = await http.get('/me', { signal, timeout: timeoutMs });
+  const { data } = await http.get('/me', {
+    signal,
+    timeout: timeoutMs,
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
   return parseResponse(meSchema, data, 'GET /me');
 }

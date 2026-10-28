@@ -1,25 +1,34 @@
-import { PlaceholderScreen } from '../../components/PlaceholderScreen';
-import { useSessionStore } from '../../stores/session.store';
+import { EmptyState } from '../../components/EmptyState';
+import { Header } from '../../components/Header';
+import { Screen } from '../../components/Screen';
+import { strings } from '../../constants/strings';
+import { Box } from '../../theme';
+import { useNoStudentViewModel } from './useNoStudentViewModel';
 
 /**
- * Placeholder. A tela real (01-design.md, 3.6: barra com SAIR, saudação e
- * EmptyState) é a Tarefa 10. A rota já existe porque a splash decide por ela.
+ * Responsável sem aluno vinculado (M7, 01-design.md 3.6): barra só com SAIR,
+ * saudação e o estado vazio com a ilustração do "sem aulas". Sem tab bar.
  */
 export function NoStudentScreen() {
-  const signOut = useSessionStore(state => state.signOut);
+  const vm = useNoStudentViewModel();
 
   return (
-    <PlaceholderScreen
-      testID="no-student-screen"
-      title="Nenhum aluno vinculado"
-      description="Não encontramos alunos ligados ao seu CPF. Fale com a secretaria da FIAP School para fazer o vínculo."
-      actions={[
-        {
-          label: 'SAIR',
-          testID: 'header-logout-button',
-          onPress: () => signOut(),
-        },
-      ]}
-    />
+    <Screen testID="no-student-screen">
+      <Header
+        guardianFirstName={vm.guardianFirstName}
+        canSwitchStudent={false}
+        onSwitchStudent={() => {}}
+        onLogout={vm.onLogout}
+        logoutDisabled={vm.logoutDisabled}
+      >
+        <Box marginTop="section" paddingBottom="xxl">
+          <EmptyState
+            testID="no-student-empty"
+            title={strings.noStudent.title}
+            description={strings.noStudent.description}
+          />
+        </Box>
+      </Header>
+    </Screen>
   );
 }

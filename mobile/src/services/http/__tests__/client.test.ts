@@ -42,6 +42,34 @@ describe('http client', () => {
     expect(authorization).toBe('Bearer jwt-1');
   });
 
+  it('Authorization explícito no request (token recém-emitido) não é trocado pelo da memória', async () => {
+    await signedIn('jwt-antigo');
+    let authorization: string | null = null;
+    server.use(
+      mswHttp.get(`${API_URL}/me`, ({ request }) => {
+        authorization = request.headers.get('authorization');
+        return HttpResponse.json({});
+      }),
+    );
+
+    await http.get('/me', { headers: { Authorization: 'Bearer jwt-novo' } });
+    expect(authorization).toBe('Bearer jwt-novo');
+  });
+
+  it('401 com token explícito diferente do da sessão não derruba a sessão', async () => {
+    await signedIn('jwt-1');
+    server.use(
+      mswHttp.get(`${API_URL}/me`, () =>
+        HttpResponse.json({ statusCode: 401 }, { status: 401 }),
+      ),
+    );
+
+    await expect(
+      http.get('/me', { headers: { Authorization: 'Bearer outro' } }),
+    ).rejects.toMatchObject({ kind: 'unauthorized' });
+    expect(useSessionStore.getState().status).toBe('signedIn');
+  });
+
   it('sem token não manda Authorization', async () => {
     let authorization: string | null = 'x';
     server.use(

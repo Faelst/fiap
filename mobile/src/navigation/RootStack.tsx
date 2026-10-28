@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import {
   createNativeStackNavigator,
   type NativeStackNavigationOptions,
@@ -8,6 +9,8 @@ import { BootErrorScreen } from '../features/splash/BootErrorScreen';
 import { SplashScreen } from '../features/splash/SplashScreen';
 import { NoStudentScreen } from '../features/students/NoStudentScreen';
 import { SelectStudentScreen } from '../features/students/SelectStudentScreen';
+import { queryKeys } from '../app/queryClient';
+import type { Me } from '../features/auth/schemas';
 import { useBootStore } from '../stores/boot.store';
 import { useSessionStore } from '../stores/session.store';
 import { useTheme } from '../theme';
@@ -25,6 +28,17 @@ const fromSplashOptions = ({
   route.params?.fromSplash ? { animation: 'none' } : {};
 
 /**
+ * Primeira tela do grupo autenticado quando a sessão abre pelo login: o
+ * `useLoginMutation` grava o `/me` no cache antes de abrir a sessão, então
+ * responsável sem aluno vai direto ao NoStudent (M7). Vindo da splash, quem
+ * decide é o `reset` dela.
+ */
+function useAuthenticatedLanding(): 'App' | 'NoStudent' {
+  const me = useQueryClient().getQueryData<Me>(queryKeys.me());
+  return me && me.students.length === 0 ? 'NoStudent' : 'App';
+}
+
+/**
  * Stack raiz. A splash é a primeira rota até entregar o app a outra tela
  * (`reset`) e depois sai da lista. Fora isso, a sessão decide as telas: sem
  * sessão só existe o Login; com sessão, as abas, a seleção de aluno e os
@@ -35,6 +49,15 @@ export function RootStack() {
   const { colors } = useTheme();
   const signedIn = useSessionStore(state => state.status === 'signedIn');
   const splashDone = useBootStore(state => state.splashDone);
+  const landing = useAuthenticatedLanding();
+
+  const noStudent = (
+    <Stack.Screen
+      name="NoStudent"
+      component={NoStudentScreen}
+      options={fromSplashOptions}
+    />
+  );
 
   return (
     <Stack.Navigator
@@ -53,6 +76,12 @@ export function RootStack() {
       )}
       {signedIn ? (
         <>
+          {/*
+           * Na troca Login → autenticado o stack recomeça na 1ª rota
+           * declarada (o router guarda o initialRouteName do 1º render, que é
+           * a splash). Por isso o destino vem primeiro.
+           */}
+          {landing === 'NoStudent' ? noStudent : null}
           <Stack.Screen
             name="App"
             component={AppTabs}
@@ -66,11 +95,7 @@ export function RootStack() {
               animation: 'slide_from_bottom',
             }}
           />
-          <Stack.Screen
-            name="NoStudent"
-            component={NoStudentScreen}
-            options={fromSplashOptions}
-          />
+          {landing === 'NoStudent' ? null : noStudent}
           <Stack.Screen
             name="BootError"
             component={BootErrorScreen}

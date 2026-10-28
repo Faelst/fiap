@@ -1,26 +1,34 @@
-import { PlaceholderScreen } from '../../components/PlaceholderScreen';
-import { useSessionStore } from '../../stores/session.store';
+import { ActionBar } from '../../components/ActionBar';
+import { ErrorState } from '../../components/ErrorState';
+import { Screen } from '../../components/Screen';
+import { strings } from '../../constants/strings';
+import type { RootStackScreenProps } from '../../navigation/types';
+import { useBootErrorViewModel } from './useBootErrorViewModel';
 
 /**
- * Placeholder. A tela real (01-design.md, 3.7: ErrorState com TENTAR DE NOVO,
- * que refaz o `/me`) é das Tarefas 10/13. A rota já existe porque a splash
- * decide por ela.
+ * Erro de rede na abertura (01-design.md, 3.7): barra só com SAIR, sem
+ * saudação (o `/me` falhou), e o ErrorState com TENTAR DE NOVO.
  */
-export function BootErrorScreen() {
-  const signOut = useSessionStore(state => state.signOut);
+export function BootErrorScreen({
+  navigation,
+}: RootStackScreenProps<'BootError'>) {
+  const vm = useBootErrorViewModel(navigation);
 
   return (
-    <PlaceholderScreen
-      testID="boot-error-screen"
-      title="Não conseguimos conectar."
-      description="Confira sua conexão e tente de novo."
-      actions={[
-        {
-          label: 'SAIR',
-          testID: 'header-logout-button',
-          onPress: () => signOut(),
-        },
-      ]}
-    />
+    <Screen testID="boot-error-screen">
+      <ActionBar
+        canSwitchStudent={false}
+        onLogout={vm.onLogout}
+        logoutDisabled={vm.logoutDisabled}
+      />
+      <ErrorState
+        testID="boot-error"
+        title={strings.boot.error.title}
+        description={strings.common.error.description}
+        onRetry={vm.onRetry}
+        retrying={vm.retrying}
+        shakeKey={vm.shakeKey}
+      />
+    </Screen>
   );
 }
