@@ -4,6 +4,7 @@ import Animated, { FadeOut, ReduceMotion } from 'react-native-reanimated';
 import { AgendaSkeleton } from '../../components/AgendaSkeleton';
 import { Dropdown } from '../../components/Dropdown';
 import { EmptyState } from '../../components/EmptyState';
+import { CalendarOffIcon } from '../../components/icons/CalendarOffIcon';
 import { ErrorState } from '../../components/ErrorState';
 import { LessonItem } from '../../components/LessonItem';
 import { Screen } from '../../components/Screen';
@@ -81,6 +82,7 @@ export function LessonsScreen() {
                 {vm.isEmpty ? (
                   <EmptyState
                     testID="agenda-empty"
+                    icon={CalendarOffIcon}
                     title={strings.agenda.empty}
                   />
                 ) : (

@@ -1,5 +1,6 @@
 import { ActionBar } from '../../components/ActionBar';
 import { ErrorState } from '../../components/ErrorState';
+import { WifiOffIcon } from '../../components/icons/WifiOffIcon';
 import { Screen } from '../../components/Screen';
 import { strings } from '../../constants/strings';
 import type { RootStackScreenProps } from '../../navigation/types';
@@ -23,6 +24,7 @@ export function BootErrorScreen({
       />
       <ErrorState
         testID="boot-error"
+        icon={WifiOffIcon}
         title={strings.boot.error.title}
         description={strings.common.error.description}
         onRetry={vm.onRetry}

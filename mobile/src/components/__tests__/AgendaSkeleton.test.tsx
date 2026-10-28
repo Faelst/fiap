@@ -29,7 +29,7 @@ describe('AgendaSkeleton', () => {
       }),
     ).toHaveStyle({
       height: theme.sizes.dropdown,
-      backgroundColor: theme.colors.surface,
+      backgroundColor: theme.colors.surfaceHigh,
     });
     expect(
       screen.getAllByTestId(/^agenda-skeleton-row-\d$/, {

@@ -2,7 +2,9 @@ import { fireEvent, screen } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
 
 import { renderWithTheme } from '../../test/renderWithTheme';
+import { theme } from '../../theme';
 import { ErrorState } from '../ErrorState';
+import { WifiOffIcon } from '../icons/WifiOffIcon';
 
 describe('ErrorState', () => {
   const base = {
@@ -12,7 +14,7 @@ describe('ErrorState', () => {
     announce: true,
   };
 
-  it('título, descrição e TENTAR DE NOVO com o testID derivado', async () => {
+  it('título, descrição e Tentar de novo com o testID derivado', async () => {
     const onRetry = jest.fn();
     await renderWithTheme(
       <ErrorState {...base} onRetry={onRetry} retrying={false} />,
@@ -23,10 +25,46 @@ describe('ErrorState', () => {
       screen.getByText('Confira sua conexão e tente de novo.'),
     ).toBeOnTheScreen();
     const retry = screen.getByTestId('boot-error-retry');
-    expect(retry).toHaveTextContent('TENTAR DE NOVO');
+    expect(retry).toHaveTextContent('Tentar de novo');
     expect(retry).toHaveAccessibleName('Tentar de novo');
     await fireEvent.press(retry);
     expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('estado vazio em tom de perigo, com o AlertIcon por padrão', async () => {
+    await renderWithTheme(
+      <ErrorState {...base} onRetry={jest.fn()} retrying={false} />,
+    );
+
+    expect(
+      screen.getByTestId('boot-error-icon', { includeHiddenElements: true }),
+    ).toHaveStyle({ backgroundColor: theme.colors.accentMuted });
+  });
+
+  it('aceita outro ícone (WifiOffIcon no BootError)', async () => {
+    const { toJSON } = await renderWithTheme(
+      <ErrorState
+        {...base}
+        icon={WifiOffIcon}
+        onRetry={jest.fn()}
+        retrying={false}
+      />,
+    );
+
+    // O WifiOffIcon tem 4 traços (3 arcos e a barra); o AlertIcon, 1.
+    const paths = JSON.stringify(toJSON()).match(/RNSVGPath/g) ?? [];
+    expect(paths.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('o retry é uma pílula secundária pequena (44)', async () => {
+    await renderWithTheme(
+      <ErrorState {...base} onRetry={jest.fn()} retrying={false} />,
+    );
+
+    expect(screen.getByTestId('boot-error-retry-surface')).toHaveStyle({
+      height: theme.sizes.pill.sm,
+      backgroundColor: theme.colors.surfaceRaised,
+    });
   });
 
   it('tentando: spinner no botão, busy e sem novo toque', async () => {

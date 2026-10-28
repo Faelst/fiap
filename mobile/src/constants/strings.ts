@@ -115,7 +115,7 @@ export const strings = {
     /** Fundo do dropdown aberto: o leitor de tela também fecha a lista por ele. */
     closeListAccessibilityLabel: 'Fechar lista',
     error: { description: 'Confira sua conexão e tente de novo.' },
-    retry: 'TENTAR DE NOVO',
+    retry: 'Tentar de novo',
     retryAccessibilityLabel: 'Tentar de novo',
   },
 } as const;

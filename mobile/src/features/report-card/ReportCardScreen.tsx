@@ -4,6 +4,7 @@ import Animated, { FadeOut, ReduceMotion } from 'react-native-reanimated';
 import { BoletimSkeleton } from '../../components/BoletimSkeleton';
 import { Dropdown } from '../../components/Dropdown';
 import { EmptyState } from '../../components/EmptyState';
+import { ClockIcon } from '../../components/icons/ClockIcon';
 import { ErrorState } from '../../components/ErrorState';
 import { Screen } from '../../components/Screen';
 import { SectionTitle } from '../../components/SectionTitle';
@@ -58,8 +59,8 @@ export function ReportCardScreen() {
           {vm.status === 'ready' && vm.isEmpty ? (
             <EmptyState
               testID="boletim-empty"
+              icon={ClockIcon}
               title={strings.boletim.empty}
-              illustration={false}
             />
           ) : null}
           {vm.status === 'ready' && !vm.isEmpty ? (

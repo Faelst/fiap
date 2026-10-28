@@ -1,11 +1,17 @@
-import { useEffect } from 'react';
+import { useEffect, type ComponentType } from 'react';
 import { AccessibilityInfo } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import { strings } from '../constants/strings';
 import { useShakeStyle } from '../hooks/useShakeStyle';
-import { Box, enterDown, Text, useTheme } from '../theme';
-import { SecondaryButton } from './SecondaryButton';
+import { EmptyState } from './EmptyState';
+import { AlertIcon } from './icons/AlertIcon';
+import { RefreshIcon } from './icons/RefreshIcon';
+import type { IconProps } from './icons/StrokeIcon';
+import { PillButton } from './PillButton';
+
+/** Ícone do retry, na cor que o `PillButton` passa. */
+const retryIcon = (color: string) => <RefreshIcon color={color} />;
 
 type ErrorStateProps = {
   title: string;
@@ -13,7 +19,9 @@ type ErrorStateProps = {
   onRetry: () => void;
   retrying: boolean;
   testID: string;
-  /** Muda a cada retry que falha: dispara o shake curto (4.8). */
+  /** Padrão `AlertIcon`; o BootError usa o `WifiOffIcon`. */
+  icon?: ComponentType<IconProps>;
+  /** Muda a cada retry que falha: dispara o shake curto. */
   shakeKey?: number;
   /**
    * Se o leitor de tela deve ouvir o erro agora. As abas ficam montadas, então
@@ -24,10 +32,10 @@ type ErrorStateProps = {
 };
 
 /**
- * Erro com TENTAR DE NOVO (01-design.md, 2.14): título em `emptyState`,
- * descrição e o botão secundário. Sem ilustração, para não parecer "vazio".
- * O leitor de tela ouve o erro quando ele aparece e a cada retry que falha
- * (3.8); o spinner do retry não repete o anúncio.
+ * Erro com "Tentar de novo" (01-design.md da v2, 2.16): o `EmptyState` em tom
+ * de perigo com a pílula secundária pequena. O leitor de tela ouve o erro
+ * quando ele aparece e a cada retry que falha; o spinner do retry não repete
+ * o anúncio.
  */
 export function ErrorState({
   title,
@@ -35,10 +43,10 @@ export function ErrorState({
   onRetry,
   retrying,
   testID,
+  icon = AlertIcon,
   shakeKey = 0,
   announce,
 }: ErrorStateProps) {
-  const { motion, spacing } = useTheme();
   const shakeStyle = useShakeStyle(shakeKey, 'short');
   const spoken = `${title} ${description}`;
 
@@ -47,33 +55,28 @@ export function ErrorState({
   useEffect(() => {
     if (announce) AccessibilityInfo.announceForAccessibility(spoken);
   }, [spoken, shakeKey, announce]);
-  const enter = (index: number) => enterDown(motion, index * motion.stagger);
 
   return (
-    <Animated.View testID={testID} style={shakeStyle}>
-      <Box
-        alignItems="center"
-        paddingHorizontal="huge"
-        style={{ marginTop: spacing.section }}
-      >
-        <Animated.View entering={enter(0)}>
-          <Text variant="emptyState">{title}</Text>
-        </Animated.View>
-        <Animated.View entering={enter(1)} style={{ marginTop: spacing.s }}>
-          <Text variant="body" textAlign="center">
-            {description}
-          </Text>
-        </Animated.View>
-        <Animated.View entering={enter(2)} style={{ marginTop: spacing.l }}>
-          <SecondaryButton
+    <Animated.View style={shakeStyle}>
+      <EmptyState
+        testID={testID}
+        icon={icon}
+        tone="danger"
+        title={title}
+        description={description}
+        action={
+          <PillButton
             testID={`${testID}-retry`}
             label={strings.common.retry}
             accessibilityLabel={strings.common.retryAccessibilityLabel}
+            variant="secondary"
+            size="sm"
+            icon={retryIcon}
             loading={retrying}
             onPress={onRetry}
           />
-        </Animated.View>
-      </Box>
+        }
+      />
     </Animated.View>
   );
 }

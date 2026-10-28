@@ -1,4 +1,5 @@
 import { EmptyState } from '../../components/EmptyState';
+import { UsersIcon } from '../../components/icons/UsersIcon';
 import { Header } from '../../components/Header';
 import { Screen } from '../../components/Screen';
 import { strings } from '../../constants/strings';
@@ -24,6 +25,7 @@ export function NoStudentScreen() {
         <Box marginTop="section" paddingBottom="xxl">
           <EmptyState
             testID="no-student-empty"
+            icon={UsersIcon}
             title={strings.noStudent.title}
             description={strings.noStudent.description}
           />

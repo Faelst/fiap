@@ -27,7 +27,7 @@ describe('BoletimSkeleton', () => {
       }),
     ).toHaveStyle({
       height: theme.sizes.dropdown,
-      backgroundColor: theme.colors.surface,
+      backgroundColor: theme.colors.surfaceHigh,
     });
     const terms = screen.getAllByTestId(/^boletim-skeleton-term-\d$/, {
       includeHiddenElements: true,

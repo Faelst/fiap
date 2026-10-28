@@ -106,7 +106,7 @@ describe('LessonsScreen', () => {
     expect(screen.queryByTestId('agenda-empty')).toBeNull();
   });
 
-  it('domingo: ilustração e "Sem aulas neste dia", sem lista', async () => {
+  it('domingo: ícone e "Sem aulas neste dia", sem lista', async () => {
     await renderScreen();
 
     await chooseDay('2025-03-16');
@@ -115,7 +115,7 @@ describe('LessonsScreen', () => {
       'Sem aulas neste dia',
     );
     expect(
-      screen.getByTestId('agenda-empty-illustration', {
+      screen.getByTestId('agenda-empty-icon', {
         includeHiddenElements: true,
       }),
     ).toBeOnTheScreen();
