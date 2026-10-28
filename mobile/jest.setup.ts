@@ -49,3 +49,17 @@ const { server } = require('./src/test/msw/server');
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
+
+// O app usa um QueryClient único. Com o gcTime padrão (5 min), toda query ou
+// mutation que fica sem observador agenda um setTimeout, e o `clear()` do
+// MutationCache não cancela esse timer: o worker do Jest não terminava
+// ("failed to exit gracefully"). Com gcTime infinito nenhum timer de GC é
+// criado (recomendação do TanStack para testes); o cache é limpo por arquivo.
+const { queryClient } = require('./src/app/queryClient');
+const appDefaults = queryClient.getDefaultOptions();
+queryClient.setDefaultOptions({
+  ...appDefaults,
+  queries: { ...appDefaults.queries, gcTime: Infinity },
+  mutations: { ...appDefaults.mutations, gcTime: Infinity },
+});
+afterAll(() => queryClient.clear());
